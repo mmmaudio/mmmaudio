@@ -11,7 +11,7 @@ if True:
     from mmm_python import *
     from random import random
 
-    mmm_audio = MMMAudio(128, graph_name="TorchMlp", package_name="examples")
+    mmm_audio = MMMAudio(128, in_device=None, graph_name="TorchMlp", package_name="examples")
 
     # this one is a bit intense, so maybe start with a low volume
     mmm_audio.start_audio()
