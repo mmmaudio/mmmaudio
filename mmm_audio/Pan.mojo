@@ -66,14 +66,14 @@ def splay[num_simd: Int](*input: MFloat[num_simd], world: World) -> MFloat[2]:
 
             index0 = i // num_simd
             index1 = i % num_simd
-            
+            temp = world[].windows.value()
             pan_mul = SpanInterpolator.read[
                         interp=Interp.none,
                         bWrap=False,
                         mask=255
                     ](
                         world = world,
-                        data=world[].windows[].pan2,
+                        data=temp[].pan2,
                         f_idx=pan * 255.0
                     )
             out += input[index0][index1] * pan_mul
@@ -104,14 +104,14 @@ def splay[num_simd: Int](input: Span[MFloat[num_simd], ...], world: World) -> MF
 
             index0 = i // num_simd
             index1 = i % num_simd
-            
+            temp = world[].windows.value()
             pan_mul = SpanInterpolator.read[
                         interp=Interp.none,
                         bWrap=False,
                         mask=255
                     ](
                         world = world,
-                        data=world[].windows[].pan2,
+                        data=temp[].pan2,
                         f_idx=pan * 255.0
                     )
             out += input[index0][index1] * pan_mul
@@ -126,14 +126,14 @@ def splay[num_input_channels: Int](input: MFloat[num_input_channels], world: Wor
             out = input[0] * MFloat[2](0.7071, 0.7071)
         else:
             pan = Float64(i) / Float64(num_input_channels - 1)
-
+            temp = world[].windows.value()
             pan_mul = SpanInterpolator.read[
                         interp=Interp.none,
                         bWrap=False,
                         mask=255
                     ](
                         world = world,
-                        data=world[].windows[].pan2,
+                        data=temp[].pan2,
                         f_idx=pan * 255.0
                     )
             out += input[i] * pan_mul

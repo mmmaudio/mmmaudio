@@ -179,7 +179,12 @@ struct MBufAnalysisBridge:
         
         w = alloc[MMMWorld](1) 
         # TODO: need to find a new way to pass the missing pointers
-        w.init_pointee_move(MMMWorld(analysis_params.buf.sample_rate, 64, 2, 2, UnsafePointer[mut=True, OscBuffers, MutExternalOrigin](), UnsafePointer[mut=True, Windows, MutExternalOrigin](), UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]()))
+        w.init_pointee_move(MMMWorld(
+            analysis_params.buf.sample_rate, 64, 2, 2, 
+            None, 
+            None, 
+            None
+        ))
 
         # run the analysis
         sf_onsets = SpectralFluxOnsets(w,window_size,hop_size,filter_size)

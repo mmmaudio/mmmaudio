@@ -43,9 +43,9 @@ def PyInit_GrainsBridge() -> PythonObject:
 struct MMMAudioBridge(Movable, Writable):
     var world: World
     var graph: Grains  # The audio graph instance
-    var osc_buffers: UnsafePointer[mut=True, OscBuffers, MutExternalOrigin] 
-    var windows: UnsafePointer[mut=True, Windows, MutExternalOrigin]
-    var messenger_manager: UnsafePointer[mut=True, MessengerManager, MutExternalOrigin] 
+    var osc_buffers: Optional[UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]] 
+    var windows: Optional[UnsafePointer[mut=True, Windows, MutExternalOrigin]]
+    var messenger_manager: Optional[UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]] 
 
     # def(args: PythonObject, kwargs: PythonObject) raises -> MMMAudioBridge
     @staticmethod
@@ -65,12 +65,12 @@ struct MMMAudioBridge(Movable, Writable):
         """Initialize the audio engine with sample rate, block size, and number of channels."""
 
         self.osc_buffers = alloc[OscBuffers](1)
-        self.osc_buffers.init_pointee_move(OscBuffers())
+        self.osc_buffers.value().init_pointee_move(OscBuffers())
         self.windows = alloc[Windows](1)
-        self.windows.init_pointee_move(Windows())
+        self.windows.value().init_pointee_move(Windows())
 
         self.messenger_manager = alloc[MessengerManager](1)
-        self.messenger_manager.init_pointee_move(MessengerManager())
+        self.messenger_manager.value().init_pointee_move(MessengerManager())
 
         self.world = alloc[MMMWorld](1) 
         self.world.init_pointee_move(MMMWorld(sample_rate, block_size, num_in_chans, num_out_chans, self.osc_buffers, self.windows, self.messenger_manager))
@@ -115,7 +115,8 @@ struct MMMAudioBridge(Movable, Writable):
     @staticmethod
     def update_bool_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].messenger_manager[].update_bool_msg(String(key_vals[0]), Bool(key_vals[1]))
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_bool_msg(String(key_vals[0]), Bool(key_vals[1]))
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
@@ -125,13 +126,15 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Bool(b) for b in key_vals[1:]]
 
-        py_self[0].messenger_manager[].update_bools_msg(key, values^)
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_bools_msg(key, values^)
         return PythonObject(None)  # Return a PythonObject wrapping None
 
     @staticmethod
     def update_float_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].messenger_manager[].update_float_msg(String(key_vals[0]), Float64(py=key_vals[1]))
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_float_msg(String(key_vals[0]), Float64(py=key_vals[1]))
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
@@ -141,14 +144,16 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Float64(py=f) for f in key_vals[1:]]
 
-        py_self[0].messenger_manager[].update_floats_msg(key, values^)
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_floats_msg(key, values^)
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
     @staticmethod
     def update_int_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].messenger_manager[].update_int_msg(String(key_vals[0]), Int(py=key_vals[1]))
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_int_msg(String(key_vals[0]), Int(py=key_vals[1]))
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
@@ -158,14 +163,16 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Int(py=v) for v in key_vals[1:]]
 
-        py_self[0].messenger_manager[].update_ints_msg(key, values^)
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_ints_msg(key, values^)
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
     @staticmethod
     def update_trig_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].messenger_manager[].update_trig_msg(String(key_vals[0]))
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_trig_msg(String(key_vals[0]))
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
@@ -177,7 +184,8 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Bool(b) for b in key_vals[1:]]
 
-        py_self[0].messenger_manager[].update_trigs_msg(key, values^)
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_trigs_msg(key, values^)
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
@@ -186,7 +194,8 @@ struct MMMAudioBridge(Movable, Writable):
 
         var py_self = py_selfA.downcast_value_ptr[Self]()
 
-        py_self[0].messenger_manager[].update_string_msg(String(key_vals[0]), String(key_vals[1]))
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_string_msg(String(key_vals[0]), String(key_vals[1]))
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
@@ -198,21 +207,23 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         texts = [String(s) for s in key_vals[1:]]
 
-        py_self[0].messenger_manager[].update_strings_msg(key, texts^)
+        temp = py_self[0].messenger_manager.value()
+        temp[].update_strings_msg(key, texts^)
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
     def get_audio_samples(mut self, loc_in_buffer: MutUnsafePointer[Float32, ...], mut loc_out_buffer: MutUnsafePointer[Float64, ...]) raises:
 
         self.world[].top_of_block = True
-        self.messenger_manager[].transfer_msgs()
+        temp = self.messenger_manager.value()
+        temp[].transfer_msgs()
                 
         for i in range(self.world[].block_size):
             self.world[].block_state = i  # Update the block state
 
             if i == 1:
                 self.world[].top_of_block = False
-                self.messenger_manager[].empty_msg_dicts()
+                temp[].empty_msg_dicts()
 
             if self.world[].top_of_block:
                 self.world[].print_counter += 1

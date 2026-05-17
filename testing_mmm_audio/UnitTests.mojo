@@ -199,7 +199,7 @@ def test_mfcc_paths_consistency() raises:
     comptime num_coeffs: Int = 4
 
     w = alloc[MMMWorld](1) 
-    w.init_pointee_move(MMMWorld(48000.0))
+    w.init_pointee_move(MMMWorld(48000.0, 64, 2, 2, None, None, None))
 
     mags = List[Float64](length=(fft_size // 2) + 1, fill=0.0)
     phases = List[Float64](length=(fft_size // 2) + 1, fill=0.0)
@@ -229,7 +229,7 @@ def test_mel_bands_weights() raises:
     sr: Int = 44100
 
     w = alloc[MMMWorld](1) 
-    w.init_pointee_move(MMMWorld(sample_rate = MFloat[1](sr)))
+    w.init_pointee_move(MMMWorld(MFloat[1](sr), 64, 2, 2, None, None, None))
     melbands = MelBands(w[].sample_rate, num_bands=n_mels,min_freq=20.0,max_freq=20000.0,fft_size=n_fft)
 
     weights_flat = List[Float64]()

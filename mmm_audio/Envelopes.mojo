@@ -179,7 +179,9 @@ struct Env(Movable, Copyable):
         return clip(self.sweep.phase, 0.0, 1.0)
     
 def win_env[window_type: Int = WindowType.sine, interp: Int = Interp.none](world: World, win_phase: MFloat[1]) -> MFloat[1]:
-    return world[].windows[].at_phase[window_type, Interp.linear](world, win_phase)
+    temp = world[].windows.value()
+    val = temp[].at_phase[window_type, interp](world, win_phase)
+    return val
 
 # min_env is just a function, not a struct
 def min_env[win_type: Int = WindowType.none, interp: Int = Interp.none](world: World, phase: MFloat[1] = 0.0, ramp_amount: MFloat[1] = 0.01) -> MFloat[1]:

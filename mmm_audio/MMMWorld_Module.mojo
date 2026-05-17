@@ -10,10 +10,10 @@ struct MMMWorld(Movable, Copyable):
     """
     var sample_rate: Float64
     var block_size: Int
-    var osc_buffers: UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]
+    var osc_buffers: Optional[UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]]
     # windows
-    var windows: UnsafePointer[mut=True, Windows, MutExternalOrigin]
-    var messenger_manager: UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]
+    var windows: Optional[UnsafePointer[mut=True, Windows, MutExternalOrigin]]
+    var messenger_manager: Optional[UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]]
     
     var num_in_chans: Int
     var num_out_chans: Int
@@ -43,9 +43,9 @@ struct MMMWorld(Movable, Copyable):
         block_size: Int, 
         num_in_chans: Int, 
         num_out_chans: Int, 
-        osc_buffers_ptr: UnsafePointer[OscBuffers, MutExternalOrigin], 
-        windows_ptr: UnsafePointer[Windows, MutExternalOrigin], 
-        messenger_manager_ptr: UnsafePointer[MessengerManager, MutExternalOrigin]
+        osc_buffers_ptr: Optional[UnsafePointer[OscBuffers, MutExternalOrigin]], 
+        windows_ptr: Optional[UnsafePointer[Windows, MutExternalOrigin]], 
+        messenger_manager_ptr: Optional[UnsafePointer[MessengerManager, MutExternalOrigin]]
     ):
         """Initializes the MMMWorld struct.
 
@@ -67,6 +67,8 @@ struct MMMWorld(Movable, Copyable):
         self.sound_in = List[Float64]()
         for _ in range(self.num_in_chans):
             self.sound_in.append(0.0)  # Initialize input buffer with zeros
+
+        osc_buffers_ptr.value()
 
         self.osc_buffers = osc_buffers_ptr
         self.windows = windows_ptr
