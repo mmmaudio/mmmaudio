@@ -2,7 +2,7 @@ from mmm_python import *
 
 mmm_audio = MMMAudio(
     in_device=None,
-    out_device='BlackHole 2ch',
+    out_device='default',
     blocksize=128, 
     graph_name="FFTScramble", 
     package_name="examples"
