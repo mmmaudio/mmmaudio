@@ -59,6 +59,18 @@ struct StandardScaler(Copyable, Movable):
         """
         for i in range(len(input)):
             output[i] = (input[i] * self.scale[i]) + self.mean[i]
+    
+    def transform_point(mut self, input: List[Float64], mut output: List[Float64]):
+        """Transform a single point from original space to scaled space.
+        
+        Nothing is returned, the result is written to the output list.
+
+        Args:
+            input: List of length d (original dimensionality) in original space.
+            output: List of length d (original dimensionality) that will be filled with the result in scaled space.
+        """
+        for i in range(len(input)):
+            output[i] = (input[i] - self.mean[i]) / self.scale[i]
 
 struct PCA(Copyable, Movable):
     """Principle Component Analysis (PCA) (inverse transform only).
