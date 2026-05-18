@@ -64,5 +64,4 @@ struct Classifier(Movable,Copyable):
 
         src = self.player.next(self.src)
         _ = self.fftp.next(src)
-        # self.world[].print(self.fftp.get_process().py_output)
         return src

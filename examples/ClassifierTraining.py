@@ -1,3 +1,13 @@
+"""Train an MLP Classifier on MFCC features in PyTorch. Deploy on Mojo side of MMMAudio.
+
+This example uses the file 
+["Tremblay-BaB-SoundscapeGolcarWithDog.wav"](https://github.com/flucoma/flucoma-core/blob/main/Resources/AudioFiles/Tremblay-BaB-SoundscapeGolcarWithDog.wav) 
+from the FluCoMa Toolkit's example files. I've manually sliced it up to separate out the 
+"dog" sounds from "other." That data set is not included in this repo but the trained model 
+and scaler are included so the test can be run. It is only intended to work with the specified audio file,
+it's not a universal dog classifier.
+"""
+
 import copy
 import glob
 from pathlib import Path
@@ -9,39 +19,49 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import StandardScaler
+import argparse
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mmm_python import *
 
+# To train a new model, add dataset(s) here:
+DOG_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/260518_172526/dog/*"
+OTHER_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/260518_172526/other/*"
 
-DOG_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/dog/*"
-OTHER_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/other/*"
 CHECKPOINT_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_state.pt"
 TRACED_MODEL_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_traced.pt"
 SCALER_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_scaler.joblib"
-HIDDEN_SIZES = (32, 16)
+HIDDEN_SIZES = (6,)
 EPOCHS = 300
 LEARNING_RATE = 1e-3
 TRAIN_FRACTION = 0.8
 SEED = 0
 
+def normalize_hidden_sizes(hidden_sizes: int | list[int] | tuple[int, ...]) -> tuple[int, ...]:
+    if isinstance(hidden_sizes, int):
+        return (hidden_sizes,)
+    return tuple(int(size) for size in hidden_sizes)
 
 class MFCCClassifier(nn.Module):
-    def __init__(self, input_size: int, hidden_sizes: tuple[int, int] = HIDDEN_SIZES):
+    def __init__(self, input_size: int, hidden_sizes: int | tuple[int, ...] = HIDDEN_SIZES):
         super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(input_size, hidden_sizes[0]),
-            nn.ReLU(),
-            nn.Dropout(p=0.1),
-            nn.Linear(hidden_sizes[0], hidden_sizes[1]),
-            nn.ReLU(),
-            nn.Linear(hidden_sizes[1], 1),
-        )
+        hidden_sizes = normalize_hidden_sizes(hidden_sizes)
+        layers: list[nn.Module] = []
+        previous_size = input_size
+
+        for index, hidden_size in enumerate(hidden_sizes):
+            layers.append(nn.Linear(previous_size, hidden_size))
+            layers.append(nn.ReLU())
+            if index < len(hidden_sizes) - 1:
+                layers.append(nn.Dropout(p=0.1))
+            previous_size = hidden_size
+
+        layers.append(nn.Linear(previous_size, 1))
+        self.network = nn.Sequential(*layers)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return self.network(inputs).squeeze(-1)
-
 
 def collect_mfccs(paths: list[str], analysis_config: dict[str, int | str]) -> np.ndarray:
     mfcc_batches = []
@@ -51,15 +71,13 @@ def collect_mfccs(paths: list[str], analysis_config: dict[str, int | str]) -> np
         return np.empty((0, 13), dtype=np.float32)
     return np.vstack(mfcc_batches).astype(np.float32)
 
-
 def get_train_count(sample_count: int, train_fraction: float) -> int:
     if sample_count <= 1:
         return sample_count
     proposed_count = int(sample_count * train_fraction)
     return min(max(1, proposed_count), sample_count - 1)
 
-
-def stratified_split(
+def training_testing_split(
     features: np.ndarray,
     labels: np.ndarray,
     train_fraction: float = TRAIN_FRACTION,
@@ -88,20 +106,18 @@ def stratified_split(
         labels[validation_indices],
     )
 
-
 def load_training_checkpoint(checkpoint_path: Path = CHECKPOINT_PATH) -> dict[str, object] | None:
+
     if not checkpoint_path.exists():
         return None
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     print(f"loaded checkpoint from {checkpoint_path}")
     return checkpoint
 
-
 def _to_numpy_array(value: object) -> np.ndarray:
     if isinstance(value, torch.Tensor):
         return value.detach().cpu().numpy()
     return np.asarray(value)
-
 
 def get_checkpoint_mapping(
     checkpoint: dict[str, object] | None,
@@ -114,18 +130,13 @@ def get_checkpoint_mapping(
         return None
     return cast(dict[str, Any], value)
 
-
-def get_checkpoint_hidden_sizes(checkpoint: dict[str, object] | None) -> tuple[int, int] | None:
+def get_checkpoint_hidden_sizes(checkpoint: dict[str, object] | None) -> tuple[int, ...] | None:
     if checkpoint is None:
         return None
     value = checkpoint.get("hidden_sizes")
     if value is None:
         return None
-    hidden_sizes = tuple(int(size) for size in cast(list[int] | tuple[int, int], value))
-    if len(hidden_sizes) != 2:
-        raise ValueError(f"Expected exactly 2 hidden sizes, got {hidden_sizes}.")
-    return (hidden_sizes[0], hidden_sizes[1])
-
+    return normalize_hidden_sizes(cast(int | list[int] | tuple[int, ...], value))
 
 def get_checkpoint_input_size(checkpoint: dict[str, object] | None) -> int | None:
     if checkpoint is None:
@@ -134,7 +145,6 @@ def get_checkpoint_input_size(checkpoint: dict[str, object] | None) -> int | Non
     if value is None:
         return None
     return int(cast(int | float | str, value))
-
 
 def rebuild_scaler_from_checkpoint(checkpoint: dict[str, object]) -> StandardScaler | None:
     feature_mean = checkpoint.get("feature_mean")
@@ -153,7 +163,6 @@ def rebuild_scaler_from_checkpoint(checkpoint: dict[str, object]) -> StandardSca
     scaler.n_features_in_ = int(mean.shape[0])
     scaler.n_samples_seen_ = 0
     return scaler
-
 
 def load_or_fit_scaler(
     train_features: np.ndarray,
@@ -175,7 +184,6 @@ def load_or_fit_scaler(
     print("fit a new StandardScaler on the training split")
     return scaler
 
-
 def transform_features(scaler: StandardScaler, features: np.ndarray) -> np.ndarray:
     return scaler.transform(features).astype(np.float32)
 
@@ -185,7 +193,6 @@ def get_device() -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
     return torch.device("cpu")
-
 
 def compute_metrics(logits: torch.Tensor, labels: torch.Tensor) -> dict[str, float]:
     probabilities = torch.sigmoid(logits)
@@ -213,7 +220,6 @@ def compute_metrics(logits: torch.Tensor, labels: torch.Tensor) -> dict[str, flo
         "fn": false_negative,
     }
 
-
 def evaluate_classifier(
     model: MFCCClassifier,
     features: np.ndarray,
@@ -226,45 +232,50 @@ def evaluate_classifier(
         label_tensor = torch.from_numpy(labels).to(device)
     return compute_metrics(logits, label_tensor)
 
-
 def load_or_create_model(
     input_size: int,
-    hidden_sizes: tuple[int, int],
+    hidden_sizes: int | tuple[int, ...],
     device: torch.device,
     checkpoint: dict[str, object] | None = None,
-) -> tuple[MFCCClassifier, tuple[int, int]]:
-    checkpoint_hidden_sizes = hidden_sizes
-    loaded_hidden_sizes = get_checkpoint_hidden_sizes(checkpoint)
-    if loaded_hidden_sizes is not None:
-        checkpoint_hidden_sizes = loaded_hidden_sizes
-        if checkpoint_hidden_sizes != hidden_sizes:
-            raise ValueError(
-                f"Checkpoint hidden sizes {checkpoint_hidden_sizes} do not match requested {hidden_sizes}."
-            )
+) -> tuple[MFCCClassifier, bool]:
+    hidden_sizes = normalize_hidden_sizes(hidden_sizes)
+    model = MFCCClassifier(input_size, hidden_sizes=hidden_sizes).to(device)
+    model_state_dict = get_checkpoint_mapping(checkpoint, "model_state_dict")
 
     checkpoint_input_size = get_checkpoint_input_size(checkpoint)
     if checkpoint_input_size is not None and checkpoint_input_size != input_size:
-        raise ValueError(
-            f"Checkpoint input size {checkpoint_input_size} does not match current input size {input_size}."
+        print(
+            f"checkpoint input size {checkpoint_input_size} does not match current input size {input_size}; "
+            "starting a new model"
         )
+        return model, False
 
-    model = MFCCClassifier(input_size, hidden_sizes=checkpoint_hidden_sizes).to(device)
-    model_state_dict = get_checkpoint_mapping(checkpoint, "model_state_dict")
     if model_state_dict is not None:
-        model.load_state_dict(model_state_dict)
+        checkpoint_hidden_sizes = get_checkpoint_hidden_sizes(checkpoint)
+        if checkpoint_hidden_sizes is not None and checkpoint_hidden_sizes != hidden_sizes:
+            print(
+                f"checkpoint hidden sizes {checkpoint_hidden_sizes} do not match requested {hidden_sizes}; "
+                "starting a new model"
+            )
+            return model, False
+
+        try:
+            model.load_state_dict(model_state_dict)
+        except RuntimeError:
+            print("checkpoint model weights do not match the current architecture; starting a new model")
+            return model, False
+
         print("loaded model weights from checkpoint")
     else:
         print("starting from a new model")
 
-    return model, checkpoint_hidden_sizes
-
+    return model, model_state_dict is not None
 
 def move_optimizer_state_to_device(optimizer: torch.optim.Optimizer, device: torch.device) -> None:
     for state in optimizer.state.values():
         for key, value in state.items():
             if isinstance(value, torch.Tensor):
                 state[key] = value.to(device)
-
 
 def optimizer_state_dict_to_cpu(optimizer: torch.optim.Optimizer) -> dict[str, object]:
     optimizer_state = copy.deepcopy(optimizer.state_dict())
@@ -274,14 +285,13 @@ def optimizer_state_dict_to_cpu(optimizer: torch.optim.Optimizer) -> dict[str, o
                 state[key] = value.detach().cpu()
     return optimizer_state
 
-
 def train_classifier(
     train_features: np.ndarray,
     train_labels: np.ndarray,
     validation_features: np.ndarray,
     validation_labels: np.ndarray,
     checkpoint: dict[str, object] | None = None,
-    hidden_sizes: tuple[int, int] = HIDDEN_SIZES,
+    hidden_sizes: int | tuple[int, ...] = HIDDEN_SIZES,
     learn_rate: float = LEARNING_RATE,
     epochs: int = EPOCHS,
     seed: int = SEED,
@@ -290,7 +300,7 @@ def train_classifier(
     torch.manual_seed(seed)
 
     device = get_device()
-    model, checkpoint_hidden_sizes = load_or_create_model(
+    model, resumed_from_checkpoint = load_or_create_model(
         train_features.shape[1],
         hidden_sizes,
         device,
@@ -309,7 +319,7 @@ def train_classifier(
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([dog_class_weight], device=device))
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, weight_decay=1e-4)
     optimizer_state_dict = get_checkpoint_mapping(checkpoint, "optimizer_state_dict")
-    if optimizer_state_dict is not None:
+    if resumed_from_checkpoint and optimizer_state_dict is not None:
         optimizer.load_state_dict(optimizer_state_dict)
         move_optimizer_state_to_device(optimizer, device)
         print("loaded optimizer state from checkpoint")
@@ -324,7 +334,7 @@ def train_classifier(
         best_validation_loss = criterion(baseline_validation_logits, validation_labels_tensor).item()
         baseline_metrics = compute_metrics(baseline_validation_logits, validation_labels_tensor)
 
-    if checkpoint is not None and "model_state_dict" in checkpoint:
+    if resumed_from_checkpoint:
         print(
             f"resume baseline: val_loss={best_validation_loss:.4f} "
             f"val_acc={baseline_metrics['accuracy']:.3f} "
@@ -363,14 +373,14 @@ def train_classifier(
     model.load_state_dict(best_state)
     return model, optimizer, device, dog_class_weight
 
-
 def save_training_checkpoint(
     model: MFCCClassifier,
     optimizer: torch.optim.Optimizer,
     scaler: StandardScaler,
-    hidden_sizes: tuple[int, int] = HIDDEN_SIZES,
+    hidden_sizes: int | tuple[int, ...] = HIDDEN_SIZES,
     checkpoint_path: Path = CHECKPOINT_PATH,
 ) -> None:
+    hidden_sizes = normalize_hidden_sizes(hidden_sizes)
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     state_dict = {name: parameter.detach().cpu() for name, parameter in model.state_dict().items()}
     torch.save(
@@ -389,12 +399,10 @@ def save_training_checkpoint(
     )
     print(f"saved training checkpoint to {checkpoint_path}")
 
-
 def save_scaler(scaler: StandardScaler, scaler_path: Path = SCALER_PATH) -> None:
     scaler_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(scaler, scaler_path)
     print(f"saved scaler to {scaler_path}")
-
 
 def save_traced_model(
     model: MFCCClassifier,
@@ -408,7 +416,6 @@ def save_traced_model(
     traced_model = cast(torch.jit.ScriptModule, torch.jit.trace(model_for_export, example_input))
     torch.jit.save(traced_model, traced_model_path.as_posix())
     print(f"saved traced model to {traced_model_path}")
-
 
 def print_metrics(split_name: str, metrics: dict[str, float]) -> None:
     print(
@@ -424,6 +431,11 @@ def print_metrics(split_name: str, metrics: dict[str, float]) -> None:
     )
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train the MFCC Classifier example.")
+    parser.add_argument("--epochs", type=int, default=EPOCHS, help="Number of training epochs")
+    parser.add_argument("--ckpt", type=str, default=CHECKPOINT_PATH.as_posix(), help="Path to load/save training checkpoint")
+    args = parser.parse_args()
+
     dog = sorted(glob.glob(DOG_GLOB))
     other = sorted(glob.glob(OTHER_GLOB))
 
@@ -449,8 +461,8 @@ if __name__ == "__main__":
         )
     )
 
-    train_features, validation_features, train_labels, validation_labels = stratified_split(features, labels)
-    checkpoint = load_training_checkpoint()
+    train_features, validation_features, train_labels, validation_labels = training_testing_split(features, labels)
+    checkpoint = load_training_checkpoint(Path(args.ckpt))
     scaler = load_or_fit_scaler(train_features, checkpoint=checkpoint)
     train_features = transform_features(scaler, train_features)
     validation_features = transform_features(scaler, validation_features)
@@ -464,6 +476,7 @@ if __name__ == "__main__":
         validation_features,
         validation_labels,
         checkpoint=checkpoint,
+        epochs=args.epochs,
     )
 
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
