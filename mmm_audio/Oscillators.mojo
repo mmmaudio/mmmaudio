@@ -213,6 +213,7 @@ struct Osc[num_chans: Int = 1, interp: Int = Interp.linear, os_index: Int = 0](M
             
             # last_phase = self.phasor.phase  # Store the last phase for sinc interpolation
             phase = self.phasor.next(freq, phase_offset, trig_mask)
+            temp = self.world[].osc_buffers.value()
             comptime for chan in range(self.num_chans):
                 out[chan] = SpanInterpolator.read[
                         interp=self.interp,
@@ -220,7 +221,7 @@ struct Osc[num_chans: Int = 1, interp: Int = Interp.linear, os_index: Int = 0](M
                         mask=OscBuffersMask
                     ](
                         world = self.world,
-                        data=self.world[].osc_buffers[].buffers[osc_type[chan]],
+                        data=temp[].buffers[osc_type[chan]],
                         f_idx=phase[chan] * Float64(OscBuffersSize),
                         prev_f_idx=self.last_phase[chan] * Float64(OscBuffersSize)
                     )
@@ -233,6 +234,7 @@ struct Osc[num_chans: Int = 1, interp: Int = Interp.linear, os_index: Int = 0](M
                 phase = self.phasor.next(freq, phase_offset, trig_mask)
 
                 sample = MFloat[self.num_chans](0.0)
+                temp = self.world[].osc_buffers.value()
                 comptime for chan in range(self.num_chans):
                     sample[chan] = SpanInterpolator.read[
                         interp=self.interp,
@@ -240,7 +242,7 @@ struct Osc[num_chans: Int = 1, interp: Int = Interp.linear, os_index: Int = 0](M
                         mask=OscBuffersMask
                     ](
                         world = self.world,
-                        data=self.world[].osc_buffers[].buffers[osc_type[chan]],
+                        data=temp[].buffers[osc_type[chan]],
                         f_idx=phase[chan] * Float64(OscBuffersSize),
                         prev_f_idx=self.last_phase[chan] * Float64(OscBuffersSize)
                     )
@@ -260,13 +262,14 @@ struct Osc[num_chans: Int = 1, interp: Int = Interp.linear, os_index: Int = 0](M
         """Returns the next sample of all basic waveforms (sine, triangle, saw, square) in a SIMD vector, where each waveform is in a different lane.
         """
 
+        temp = self.world[].osc_buffers.value()
         return SpanInterpolator.read[
             interp=Self.interp,
             bWrap=True,
             mask=OscBuffersMask
         ](
             world = self.world,
-            data=self.world[].osc_buffers[].basic_waveforms,
+            data=temp[].basic_waveforms,
             f_idx=phase * Float64(OscBuffersSize),
             prev_f_idx=last_phase * Float64(OscBuffersSize)
         )
@@ -683,6 +686,48 @@ struct Dust[num_chans: Int = 1] (Movable, Copyable):
 
     def set_phase(mut self, phase: MFloat[self.num_chans]):
         self.impulse.phase = phase
+
+
+struct TTrig(Movable, Copyable):
+    """A trigger that outputs True for a specified number of samples or amount of time after receiving a trigger signal."""
+
+    var counter: Int
+    var world: World
+
+    def __init__(out self, world: World):
+        self.counter = 0
+        self.world = world
+
+    def next(mut self, trig: Bool, samples: Int) -> Bool:
+        """Generate the next trigger sample.
+        
+        Args:
+            trig: Trigger signal.
+            samples: Number of samples for which to output True.
+
+        Returns:
+            True if the trigger is active, False otherwise.
+        """
+        if trig:
+            self.counter = samples
+        if self.counter <=0:
+            return False
+        else:
+            self.counter -= 1
+            return True
+    
+    def next(mut self, trig: Bool, time: MFloat[1]) -> Bool:
+        """Generate the next trigger sample based on time.
+
+        Args:
+            trig: Trigger signal.
+            time: Amount of time in seconds for which to output True.
+        Returns:
+            True if the trigger is active, False otherwise.
+        """
+        if trig:
+            self.counter = Int(time * self.world[].sample_rate)
+        return self.next(False, 0)
 
 struct LFNoise[num_chans: Int = 1, interp: Int = Interp.cubic](Movable, Copyable):
     """Low-frequency interpolating noise generator generating numbers between -1.0 and 1.0. With stepped (none), linear, or cubic interpolation.

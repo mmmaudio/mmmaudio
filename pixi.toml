@@ -27,7 +27,7 @@ depends-on = ["unit_tests", "test_building","validate_snapshot"]
 cmd = "mkdocs serve"
 
 [dependencies]
-mojo = "0.26.2.*"
+mojo = "1.0.0b1.*"
 numpy = ">=2.3.5,<3"
 scipy = ">=1.17.0,<2"
 librosa = ">=0.11.0,<0.12"

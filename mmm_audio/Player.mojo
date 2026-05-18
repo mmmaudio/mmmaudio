@@ -390,9 +390,10 @@ struct TGrains(Movable, Copyable):
     def _trig_grain[win_type: Int](mut self, trig: Bool):
         comptime if win_type == WindowType.user_defined:            
             grain_num = self.poly.next(self.grains, trig)
-            if self.grains[grain_num].env_trigger and trig:
-                self.grains[grain_num].user_defined_env.params = self.env_params.copy()
-                self.grains[grain_num].env_trigger = False
+            if grain_num >= 0:
+                if self.grains[grain_num].env_trigger and trig:
+                    self.grains[grain_num].user_defined_env.params = self.env_params.copy()
+                    self.grains[grain_num].env_trigger = False
         else:
             _ = self.poly.next(self.grains, trig)
 

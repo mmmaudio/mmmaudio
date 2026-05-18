@@ -2,7 +2,7 @@
 from mmm_audio import *
 
 comptime N = 1
-comptime num: Int = 5500
+comptime num: Int = 3500
 comptime mul: Float64 = 0.2 / Float64(num)
 
 struct TestOsc[](Movable, Copyable):

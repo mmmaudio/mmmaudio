@@ -31,9 +31,23 @@ def phase_coherence[num_chans: Int](
     
     return sum_cos / (weight_sum + 1e-9)
 
-def get_best_coherence[num_chans: Int, num_iterations: Int](mut mags: List[MFloat[num_chans]], mut phases: List[MFloat[num_chans]], mut previous_mags: List[MFloat[num_chans]], mut previous_phases: List[MFloat[num_chans]], window_size: Int, hop_size: Int, call_back: def (mut mags: List[MFloat[num_chans]], mut phases: List[MFloat[num_chans]])):
+def get_best_coherence[num_chans: Int, num_iterations: Int, call_back: def (mut mags: List[MFloat[num_chans]], mut phases: List[MFloat[num_chans]]) capturing -> None](
+    mut mags: List[MFloat[num_chans]], 
+    mut phases: List[MFloat[num_chans]], 
+    mut previous_mags: List[MFloat[num_chans]], 
+    mut previous_phases: List[MFloat[num_chans]], 
+    window_size: Int, 
+    hop_size: Int, 
+    
+):
     """Calls a callback function `num_iterations` times, and keeps the mag/phase set with the best coherence to the previous phases. There are two versions of this function, one that allows the callback to modify both mags and phases, and one that only allows the callback to modify just the phases.
     
+    Parameters:
+        num_chans: The number of channels in the mags and phases lists.
+        num_iterations: The number of times to call the callback function with different random phase sets.
+        call_back: A function that takes the mags and phases as arguments and modifies them in place. This function will be called `num_iterations` times with different random phase sets, and the mag/phase set with the best coherence to the previous phases will be kept.
+
+
     Args:
         mags: The magnitudes of the current frame, which can be modified by the callback function.
         phases: The phases of the current frame, which can be modified by the callback function.
@@ -41,7 +55,6 @@ def get_best_coherence[num_chans: Int, num_iterations: Int](mut mags: List[MFloa
         previous_phases: The phases of the previous frame, which are used to calculate the coherence.
         window_size: The size of the FFT window, used to calculate the expected phase shift.
         hop_size: The hop size of the FFT, used to calculate the expected phase shift.
-        call_back: A function that takes the mags and phases or just the phases as arguments and modifies them in place.
     """
 
     phase_corr = MFloat[num_chans](-1.0)
@@ -68,9 +81,14 @@ def get_best_coherence[num_chans: Int, num_iterations: Int](mut mags: List[MFloa
     previous_phases = phases.copy()
     previous_mags = mags.copy()
 
-def get_best_coherence[num_chans: Int, num_iterations: Int](mut mags: List[MFloat[num_chans]], mut phases: List[MFloat[num_chans]], mut previous_mags: List[MFloat[num_chans]], mut previous_phases: List[MFloat[num_chans]], window_size: Int, hop_size: Int, call_back: def (mut phases: List[MFloat[num_chans]])):
+def get_best_coherence[num_chans: Int, num_iterations: Int, call_back: def (mut phases: List[MFloat[num_chans]]) capturing -> None](mut mags: List[MFloat[num_chans]], mut phases: List[MFloat[num_chans]], mut previous_mags: List[MFloat[num_chans]], mut previous_phases: List[MFloat[num_chans]], window_size: Int, hop_size: Int):
     """Calls a callback function `num_iterations` times, and keeps the mag/phase set with the best coherence to the previous phases. There are two versions of this function, one that allows the callback to modify both mags and phases, and one that only allows the callback to modify just the phases.
     
+    Parameters:
+        num_chans: The number of channels in the mags and phases lists.
+        num_iterations: The number of times to call the callback function with different random phase sets.
+        call_back: A function that takes the phases as arguments and modifies them in place.
+
     Args:
         mags: The magnitudes of the current frame, which can be modified by the callback function.
         phases: The phases of the current frame, which can be modified by the callback function.
@@ -78,7 +96,6 @@ def get_best_coherence[num_chans: Int, num_iterations: Int](mut mags: List[MFloa
         previous_phases: The phases of the previous frame, which are used to calculate the coherence.
         window_size: The size of the FFT window, used to calculate the expected phase shift.
         hop_size: The hop size of the FFT, used to calculate the expected phase shift.
-        call_back: A function that takes the mags and phases or just the phases as arguments and modifies them in place.
     """
 
     phase_corr = MFloat[num_chans](-1.0)

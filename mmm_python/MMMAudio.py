@@ -2,7 +2,9 @@
 MMMAudio with Dedicated Process
 Runs audio processing in a separate process on its own CPU core
 """
-import sys
+import asyncio
+import threading
+import sys, os
 
 import pyaudio
 import numpy as np
@@ -16,6 +18,58 @@ import mojo.importer
 
 import signal
 
+import os
+import platform
+import sys
+
+class MouseGetter:
+    _instance = None  # Singleton instance
+    
+    def __init__(self, system):
+        self.width = 0
+        self.height = 0
+        self.system = system
+        self.pyautogui = None
+        self.evdev_device = None
+        self.use_pyauto = False
+
+        system = system.lower()
+
+        if system in ["darwin", "windows"]:
+            import pyautogui
+            print(f"Using pyautogui for mouse tracking on {system}")
+            self.pyautogui = pyautogui
+            self.width, self.height = pyautogui.size()
+            print(self.width, self.height)
+            self.use_pyauto = True
+            
+        elif system == "linux":
+            session_type = os.environ.get("XDG_SESSION_TYPE", "").lower()
+            
+            if session_type == "wayland":
+                print("Wayland detected. Global mouse tracking may not work without additional setup.")
+            else:
+                import pyautogui
+                self.pyautogui = pyautogui
+                self.width, self.height = pyautogui.size()
+                self.use_pyauto = True
+
+    @classmethod
+    def get_instance(cls):
+        """Get or create the singleton MouseGetter instance."""
+        if cls._instance is None:
+            cls._instance = cls(sys.platform)
+        return cls._instance
+
+    def position(self):
+        if not self.use_pyauto or self.pyautogui is None:
+            return (0.5, 0.5)  # Default center position
+        x, y = self.pyautogui.position()
+        # Prevent DivisionByZero if sizing failed
+        if self.width == 0 or self.height == 0:
+            return (x, y)
+        return (x / self.width, y / self.height)
+            
 
 class AudioCommand(IntEnum):
     STOP_PROCESS = 0
@@ -30,6 +84,9 @@ class AudioCommand(IntEnum):
     SEND_STRING = 9
     SEND_STRINGS = 10
     GET_SAMPLES = 11
+    UPDATE_MOUSE = 12  # New command for mouse updates
+    SET_SCREEN_DIMS = 13  # New command for screen dimensions
+
 
 class MMMAudio:
     """
@@ -39,6 +96,9 @@ class MMMAudio:
     """
 
     instances = []
+    _mouse_thread = None
+    _mouse_stop_flag = None
+    _mouse_getter = None
 
     @classmethod
     def get_audio_devices(cls, print_them=True) -> list:
@@ -147,9 +207,6 @@ class MMMAudio:
             
             make_solo_graph(graph_name, package_name)
             MMMAudioBridge = importlib.import_module(f"{graph_name}Bridge")
-            
-            # MMMAudioBridge = importlib.import_module("GrainsBridge").MMMAudioBridge
-            # import GrainsBridge as MMMAudioBridge
 
             bridge_file = graph_name + "Bridge" + ".mojo"
             if os.path.exists(bridge_file):
@@ -163,12 +220,60 @@ class MMMAudio:
 
     @classmethod
     def exit_all(cls):
-        """Handle Ctrl+C signal"""
-        print("\nReceived Ctrl+C, stopping audio...")
+        """Stop all instances and exit"""
+        print("\nStopping all audio instances...")
+        cls.stop_mouse()
         for instance in cls.instances:
             instance.stop_audio()
             instance.stop_process()
         sys.exit(0)
+
+    @classmethod
+    def start_mouse(cls):
+        """Start mouse tracking in the main process and send updates to all instances."""
+        if cls._mouse_thread is not None and cls._mouse_thread.is_alive():
+            print("[Main] Mouse tracking already running")
+            return cls._mouse_getter.width, cls._mouse_getter.height
+        
+        cls._mouse_getter = MouseGetter.get_instance()
+        cls._mouse_stop_flag = threading.Event()
+        
+        # Send screen dimensions to all instances
+        if cls._mouse_getter.use_pyauto:
+            for instance in cls.instances:
+                instance.set_screen_dims(cls._mouse_getter.width, cls._mouse_getter.height)
+        
+        async def get_mouse_position(delay: float = 0.01):
+            while not cls._mouse_stop_flag.is_set():
+                try:
+                    x, y = cls._mouse_getter.position()
+                    # Send mouse position to all instances via their command queues
+                    for instance in cls.instances:
+                        instance.update_mouse_pos(x, y)
+                except Exception as e:
+                    pass
+                await asyncio.sleep(delay)
+        
+        if cls._mouse_getter.use_pyauto:
+            cls._mouse_thread = threading.Thread(
+                target=asyncio.run,
+                args=(get_mouse_position(0.01),),
+                daemon=True
+            )
+            cls._mouse_thread.start()
+            print("[Main] Mouse tracking started")
+        
+        return cls._mouse_getter.width, cls._mouse_getter.height
+
+    @classmethod
+    def stop_mouse(cls):
+        """Stop the mouse tracking thread."""
+        if cls._mouse_stop_flag is not None:
+            cls._mouse_stop_flag.set()
+        if cls._mouse_thread is not None:
+            cls._mouse_thread.join(timeout=1.0)
+            cls._mouse_thread = None
+        print("[Main] Mouse tracking stopped")
 
     def _signal_handler(self, signum, frame):
         """Handle Ctrl+C signal"""
@@ -208,6 +313,10 @@ class MMMAudio:
         # Wait for process to be ready
         if self.process_ready.wait(timeout=audio_init_timeout):
             print(f"[Main] Audio process ready, sample rate: {self.sample_rate.value}")
+            
+            # Start mouse tracking if not already running
+            if MMMAudio._mouse_thread is None or not MMMAudio._mouse_thread.is_alive():
+                MMMAudio.start_mouse()
         else:
             print("[Main] Warning: Audio process initialization timeout")
     
@@ -283,6 +392,14 @@ class MMMAudio:
         """Send a list of string messages to the Mojo audio engine."""
         self.command_queue.put((AudioCommand.SEND_STRINGS, (key, args)))
     
+    def update_mouse_pos(self, x: float, y: float):
+        """Send mouse position update to the audio process."""
+        self.command_queue.put((AudioCommand.UPDATE_MOUSE, (x, y)))
+    
+    def set_screen_dims(self, width: int, height: int):
+        """Send screen dimensions to the audio process."""
+        self.command_queue.put((AudioCommand.SET_SCREEN_DIMS, (width, height)))
+    
     # =========================================================================
     # Methods that need response from audio process
     # =========================================================================
@@ -336,6 +453,48 @@ class MMMAudio:
         
         return returned_samples
     
+    @classmethod
+    def fake_mouse(cls, x_size: float = 300, y_size: float = 300):
+        """Create a GUI slider that sends fake mouse positions to all instances."""
+        from mmm_python.GUI import Slider2D
+        from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
+
+        # Use existing QApplication if it exists, otherwise create a new one
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication([])
+            app_created = True
+        else:
+            app_created = False
+
+        app.quitOnLastWindowClosed = True 
+
+        # Create the main window
+        window = QWidget()
+        window.setWindowTitle("Fake Mouse Position Controller")
+        window.resize(int(x_size), int(y_size))
+
+        # Create layout
+        layout = QVBoxLayout()
+
+        slider2d = Slider2D(x_size, y_size)
+
+        def on_slider_change(x, y):
+            # Send to all MMMAudio instances
+            for instance in cls.instances:
+                instance.update_mouse_pos(x, y)
+
+        slider2d.value_changed.connect(on_slider_change)
+        layout.addWidget(slider2d)
+        window.setLayout(layout)
+        window.show()
+
+        # Only run exec() if we created the app (no existing event loop)
+        if app_created:
+            app.exec()
+        
+        return window  # Return window so it can be kept alive if needed
+
     # =========================================================================
     # Static method that runs in the separate process
     # =========================================================================
@@ -363,10 +522,8 @@ class MMMAudio:
         import os
         import numpy as np
         import pyaudio
-        import asyncio
         import threading
         from math import ceil
-        import pyautogui
         import queue
         
         pid = os.getpid()
@@ -448,9 +605,6 @@ class MMMAudio:
         mmm_audio_bridge = MMMAudioBridge.MMMAudioBridge(sample_rate, blocksize)
         mmm_audio_bridge.set_channel_count((actual_input_channels, actual_output_channels))
         
-        screen_dims = pyautogui.size()
-        mmm_audio_bridge.set_screen_dims(screen_dims)
-        
         # =========================================================================
         # Shared state for callback
         # =========================================================================
@@ -459,7 +613,7 @@ class MMMAudio:
         
         # Lock for thread-safe bridge access
         bridge_lock = threading.Lock()
-        
+
         # =========================================================================
         # Audio callbacks
         # =========================================================================
@@ -517,32 +671,13 @@ class MMMAudio:
                 return (silence.tobytes(), pyaudio.paContinue)
         
         # =========================================================================
-        # Mouse position tracking
-        # =========================================================================
-        async def get_mouse_position(delay: float = 0.01):
-            while not stop_flag.is_set():
-                try:
-                    x, y = pyautogui.position()
-                    x = x / pyautogui.size().width
-                    y = y / pyautogui.size().height
-                    with bridge_lock:
-                        mmm_audio_bridge.update_mouse_pos([x, y])
-                except:
-                    pass
-                await asyncio.sleep(delay)
-        
-        mouse_thread = threading.Thread(
-            target=asyncio.run,
-            args=(get_mouse_position(0.01),),
-            daemon=False
-        )
-        mouse_thread.start()
-        
-        # =========================================================================
         # Initialize PyAudio with callbacks
         # =========================================================================
         p = pyaudio.PyAudio()
         format_code = pyaudio.paFloat32
+        
+        input_stream = None
+        output_stream = None
         
         if in_device_exists:
             input_stream = p.open(
@@ -579,8 +714,9 @@ class MMMAudio:
         sys.stdout.flush()
         
         # =========================================================================
-        # Command processing loop
+        # Command handlers
         # =========================================================================
+
         def handle_stop_process(args):
             print(f"[PID {pid}] Received stop command")
             sys.stdout.flush()
@@ -687,21 +823,38 @@ class MMMAudio:
             response_queue.put(("SAMPLES", waveform))
             return True
 
+        def handle_update_mouse(args):
+            x, y = args
+            with bridge_lock:
+                mmm_audio_bridge.update_mouse_pos([x, y])
+            return True
+
+        def handle_set_screen_dims(args):
+            width, height = args
+            with bridge_lock:
+                mmm_audio_bridge.set_screen_dims((width, height))
+            return True
+
         command_handlers = [
-            handle_stop_process,
-            handle_start_audio,
-            handle_stop_audio,
-            handle_send_bool,
-            handle_send_float,
-            handle_send_floats,
-            handle_send_int,
-            handle_send_ints,
-            handle_send_trig,
-            handle_send_string,
-            handle_send_strings,
-            handle_get_samples,
+            handle_stop_process,      # 0
+            handle_start_audio,       # 1
+            handle_stop_audio,        # 2
+            handle_send_bool,         # 3
+            handle_send_float,        # 4
+            handle_send_floats,       # 5
+            handle_send_int,          # 6
+            handle_send_ints,         # 7
+            handle_send_trig,         # 8
+            handle_send_string,       # 9
+            handle_send_strings,      # 10
+            handle_get_samples,       # 11
+            handle_update_mouse,      # 12
+            handle_set_screen_dims,   # 13
         ]
 
+        # =========================================================================
+        # Command processing loop
+        # =========================================================================
         while not stop_flag.is_set():
             try:
                 try:
@@ -737,24 +890,17 @@ class MMMAudio:
         
         audio_active.clear()
         
-        input_stream.stop_stream()
-        input_stream.close()
-        output_stream.stop_stream()
-        output_stream.close()
+        if input_stream is not None:
+            input_stream.stop_stream()
+            input_stream.close()
+        if output_stream is not None:
+            output_stream.stop_stream()
+            output_stream.close()
         p.terminate()
         
         print(f"[PID {pid}] Audio process terminated")
         sys.stdout.flush()
 
+
 def list_audio_devices():
     print("Deprecated: Use MMMAudio.get_audio_devices()")
-    # p_temp = pyaudio.PyAudio()
-    # p_temp.get_device_count()
-    # for i in range(p_temp.get_device_count()):
-    #     dev_info = p_temp.get_device_info_by_index(i)
-    #     print(f"Device {i}: {dev_info['name']}")
-    #     print(f"  Input channels: {dev_info['maxInputChannels']}")
-    #     print(f"  Output channels: {dev_info['maxOutputChannels']}")
-    #     print(f"  Default sample rate: {dev_info['defaultSampleRate']} Hz")
-    #     print()
-    # p_temp.terminate()

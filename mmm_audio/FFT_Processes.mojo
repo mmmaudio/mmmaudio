@@ -54,3 +54,35 @@ struct Hilbert[window_type: Int = WindowType.sine](Movable, Copyable):
         o = self.hilbert.next(input)
         delayed: Float64 = self.delay.next(input, MInt[1](self.window_size))
         return Tuple(delayed, o)
+
+struct SpectralFreezeWindow[window_size: Int](FFTProcessable):
+    var world: World
+    var stored_mags: List[MFloat[2]]
+    var prev_phases: List[MFloat[2]]
+    var diff_phases: List[MFloat[2]]
+    var mono_mags: List[Float64]
+    var frozen: Bool
+    
+    def __init__(out self, world: World):
+        self.world = world
+        self.prev_phases = [MFloat[2](0.0) for _ in range(Self.window_size)]
+        self.diff_phases = [MFloat[2](0.0) for _ in range(Self.window_size)]
+        self.stored_mags = [MFloat[2](0.0) for _ in range(Self.window_size)]
+        self.mono_mags = [0.0 for _ in range(Self.window_size)]
+        self.frozen = False
+
+    def next_stereo_frame(mut self, mut mags: List[MFloat[2]], mut phases: List[MFloat[2]]) -> None:
+        for i in range(Self.window_size//2):
+            self.mono_mags[i] = (mags[i][0] + mags[i][1])
+
+        if not self.frozen:
+            for i in range(Self.window_size//2):
+                self.diff_phases[i] = phases[i]-self.prev_phases[i]
+                self.prev_phases[i] = phases[i]
+                self.stored_mags[i] = mags[i]
+        else:
+            for i in range(Self.window_size//2):
+                self.prev_phases[i] = self.prev_phases[i] + self.diff_phases[i]
+                phases[i] = self.prev_phases[i]
+                
+            mags = self.stored_mags.copy()

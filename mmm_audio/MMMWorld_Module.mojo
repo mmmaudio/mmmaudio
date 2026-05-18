@@ -10,10 +10,10 @@ struct MMMWorld(Movable, Copyable):
     """
     var sample_rate: Float64
     var block_size: Int
-    var osc_buffers: UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]
+    var osc_buffers: Optional[UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]]
     # windows
-    var windows: UnsafePointer[mut=True, Windows, MutExternalOrigin]
-    var messenger_manager: UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]
+    var windows: Optional[UnsafePointer[mut=True, Windows, MutExternalOrigin]]
+    var messenger_manager: Optional[UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]]
     
     var num_in_chans: Int
     var num_out_chans: Int
@@ -39,7 +39,14 @@ struct MMMWorld(Movable, Copyable):
 
     var print_counter: UInt16
 
-    def __init__(out self, sample_rate: Float64 = 48000.0, block_size: Int = 64, num_in_chans: Int = 2, num_out_chans: Int = 2, osc_buffers_ptr: UnsafePointer[mut=True, OscBuffers, MutExternalOrigin] = UnsafePointer[mut=True, OscBuffers, MutExternalOrigin](), windows_ptr: UnsafePointer[mut=True, Windows, MutExternalOrigin] = UnsafePointer[mut=True, Windows, MutExternalOrigin](), messenger_manager_ptr: UnsafePointer[mut=True, MessengerManager, MutExternalOrigin] = UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]()):
+    def __init__(out self, sample_rate: Float64, 
+        block_size: Int = 128, 
+        num_in_chans: Int = 2, 
+        num_out_chans: Int = 2, 
+        osc_buffers_ptr: Optional[UnsafePointer[OscBuffers, MutExternalOrigin]] = None, 
+        windows_ptr: Optional[UnsafePointer[Windows, MutExternalOrigin]] = None, 
+        messenger_manager_ptr: Optional[UnsafePointer[MessengerManager, MutExternalOrigin]] = None
+    ):
         """Initializes the MMMWorld struct.
 
         Args:
@@ -68,10 +75,9 @@ struct MMMWorld(Movable, Copyable):
         for i in range(5):  # Initialize multipliers for oversampling ratios
             self.os_multiplier.append(1.0 / MFloat[1](2 ** i))  # Example multipliers, can be adjusted as needed
 
-        # I don't know why, but objects don't see these as updated? maybe it is copying the world when I pass it?
         self.mouse_x = 0.0
         self.mouse_y = 0.0
-        self.screen_dims = [0.0, 0.0]  # Initialize screen dimensions with zeros
+        self.screen_dims = [1000.0, 1000.0]
 
         self.block_state = 0
 

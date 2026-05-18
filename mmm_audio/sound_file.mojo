@@ -139,9 +139,9 @@ def bytes_to_float64_le(data: List[UInt8], offset: Int) -> Float64:
 @doc_hidden
 def check_bytes_match(data: List[UInt8], offset: Int, expected: String) -> Bool:
     """Check if bytes at offset match expected string."""
-    if offset + len(expected) > len(data):
+    if offset + expected.byte_length() > len(data):
         return False
-    for i in range(len(expected)):
+    for i in range(expected.byte_length()):
         if data[offset + i] != UInt8(ord(expected[byte=i])):
             return False
     return True
@@ -529,7 +529,7 @@ def write_wav_header(
     
     # Helper functions
     def write_str(mut d: List[UInt8], s: String):
-        for i in range(len(s)):
+        for i in range(s.byte_length()):
             d.append(UInt8(ord(s[byte=i])))
     
     def write_u16(mut d: List[UInt8], val: Int):

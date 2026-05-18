@@ -36,10 +36,11 @@ struct NessStretchWindow[num_iterations: Int=1](FFTProcessable):
         for i in range(len(mags)):
             mags[i] *= self.lrbp_window[i]
 
-        def call_back(mut phases: List[MFloat[2]]):
+        def call_back(mut phases: List[MFloat[2]]) capturing -> None:
             for ref p in phases:
                 p = MFloat[2](rrand(0.0, 2.0 * 3.141592653589793), rrand(0.0, 2.0 * 3.141592653589793))
-        get_best_coherence[num_iterations=Self.num_iterations](mags, phases, self.previous_mags, self.previous_phases, self.window_size, self.hop_size, call_back)
+
+        get_best_coherence[2, Self.num_iterations, call_back](mags, phases, self.previous_mags, self.previous_phases, self.window_size, self.hop_size)
 
         self.previous_phases = phases.copy()
         

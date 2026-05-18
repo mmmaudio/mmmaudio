@@ -16,7 +16,7 @@ struct StandardScaler(Copyable, Movable):
     var mean: List[Float64]
     var scale: List[Float64]
 
-    fn __init__(out self, sklearn_path: Optional[String] = None):
+    def __init__(out self, sklearn_path: Optional[String] = None):
         """Initializes the StandardScaler struct. If a sklearn_path is provided, 
         it will attempt to load a fitted sklearn StandardScaler object from Python. 
         The StandardScaler object must have been fit in Python before saving, and should be saved
@@ -28,7 +28,7 @@ struct StandardScaler(Copyable, Movable):
         if sklearn_path:
             self.load_from_sklearn(sklearn_path.value())
 
-    fn load_from_sklearn(mut self, path_joblib: String):
+    def load_from_sklearn(mut self, path_joblib: String):
         """Loads StandardScaler data from a fitted sklearn StandardScaler 
         object saved with joblib. The StandardScaler object must have been 
         fit in Python before saving, and should be saved from Python 
@@ -48,7 +48,7 @@ struct StandardScaler(Copyable, Movable):
         except e:
             abort("Error importing sklearn.preprocessing module:" + String(e))
     
-    fn inverse_transform_point(mut self, input: List[Float64], mut output: List[Float64]):
+    def inverse_transform_point(mut self, input: List[Float64], mut output: List[Float64]):
         """Inverse transform a single point from scaled space back to original space.
 
         Nothing is returned, the result is written to the output list.
@@ -90,7 +90,7 @@ struct PCA(Copyable, Movable):
     var d: Int # original Dimensionality
     var x: List[Float64]
 
-    fn __init__(out self, joblib_path: Optional[String] = None):
+    def __init__(out self, joblib_path: Optional[String] = None):
         """Initializes the PCA struct. If a joblib_path is provided, 
         it will attempt to load the PCA data from a sklearn PCA 
         object saved with joblib. The PCA object must have been fit 
@@ -111,7 +111,7 @@ struct PCA(Copyable, Movable):
         if joblib_path:
             self.load_from_sklearn(joblib_path.value())
 
-    fn load_from_sklearn(mut self, joblib_path: String):
+    def load_from_sklearn(mut self, joblib_path: String):
         """Loads PCA data from a sklearn PCA object saved with joblib. 
         The PCA object must have been fit in Python before saving, and 
         should be saved from Python using `joblib.dump(pca, path)`.
@@ -143,7 +143,7 @@ struct PCA(Copyable, Movable):
         except e:
             abort("Error importing sklearn.decomposition module:" + String(e))
 
-    fn transform_point(mut self, input: List[Float64], mut output: List[Float64]):
+    def transform_point(mut self, input: List[Float64], mut output: List[Float64]):
         """Transform a single point from original space to PCA space.
         
         Nothing is returned, the result is written to the output list.
@@ -170,7 +170,7 @@ struct PCA(Copyable, Movable):
                     dot_val += self.x[j] * self.components[i][j]
                 output[i] = dot_val
 
-    fn inverse_transform_point(mut self, input: List[Float64], mut output: List[Float64]):
+    def inverse_transform_point(mut self, input: List[Float64], mut output: List[Float64]):
         """Inverse transform a single point from PCA space back to original space.
 
         Nothing is returned, the result is written to the output list.

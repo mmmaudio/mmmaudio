@@ -66,14 +66,14 @@ def splay[num_simd: Int](*input: MFloat[num_simd], world: World) -> MFloat[2]:
 
             index0 = i // num_simd
             index1 = i % num_simd
-            
+            temp = world[].windows.value()
             pan_mul = SpanInterpolator.read[
                         interp=Interp.none,
                         bWrap=False,
                         mask=255
                     ](
                         world = world,
-                        data=world[].windows[].pan2,
+                        data=temp[].pan2,
                         f_idx=pan * 255.0
                     )
             out += input[index0][index1] * pan_mul
@@ -104,14 +104,14 @@ def splay[num_simd: Int](input: Span[MFloat[num_simd], ...], world: World) -> MF
 
             index0 = i // num_simd
             index1 = i % num_simd
-            
+            temp = world[].windows.value()
             pan_mul = SpanInterpolator.read[
                         interp=Interp.none,
                         bWrap=False,
                         mask=255
                     ](
                         world = world,
-                        data=world[].windows[].pan2,
+                        data=temp[].pan2,
                         f_idx=pan * 255.0
                     )
             out += input[index0][index1] * pan_mul
@@ -126,14 +126,14 @@ def splay[num_input_channels: Int](input: MFloat[num_input_channels], world: Wor
             out = input[0] * MFloat[2](0.7071, 0.7071)
         else:
             pan = Float64(i) / Float64(num_input_channels - 1)
-
+            temp = world[].windows.value()
             pan_mul = SpanInterpolator.read[
                         interp=Interp.none,
                         bWrap=False,
                         mask=255
                     ](
                         world = world,
-                        data=world[].windows[].pan2,
+                        data=temp[].pan2,
                         f_idx=pan * 255.0
                     )
             out += input[i] * pan_mul
@@ -168,26 +168,15 @@ def pan_az[simd_out_size: Int = 2](sample: Float64, pan: Float64, num_speakers: 
 
     out = MFloat[simd_out_size](0.0)
 
-    comptime simd_width: Int = simd_width_of[DType.float64]() * 2
-
-    @parameter
-    def process_speakers[simd_width: Int](i: Int) unified {mut}:
-        # Create index vector
-        var indices = MFloat[simd_width]()
-        for j in range(simd_width):
-            indices[j] = MFloat[1](i + j)
-        
-        # Compute chan_pos
-        var pos = (constant - indices) * rwidth
+    # this needs to be checked
+    for i in range(num_speakers):
+        var pos = (constant - Float64(i)) * rwidth
         pos = (pos - frange * floor(rrange * pos)) * pi
-        
-        # Compute chan_amp with conditional
-        var mask: MBool[simd_width] = pos.lt(pi)
-        sig = mask.select(sin(pos), MFloat[simd_width](0.0)) * sample
-        for j in range(simd_width):
-            out[Int(i + j)] = sig[j]
 
-    vectorize[simd_width](Int(num_speakers), process_speakers)
+        if pos < pi:
+            out[i] = sin(pos) * sample
+        else:
+            out[i] = 0.0
 
     return out
 

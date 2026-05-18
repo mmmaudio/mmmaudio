@@ -366,26 +366,26 @@ struct HeapItem(Copyable, Movable, ImplicitlyCopyable):
     var priority: Float64
     var index: Int
 
-    fn __init__(out self, priority: Float64, index: Int):
+    def __init__(out self, priority: Float64, index: Int):
         self.priority = priority
         self.index = index
 
-    fn __lt__(self, other: Self) -> Bool:
+    def __lt__(self, other: Self) -> Bool:
         return self.priority < other.priority
 
-    fn __le__(self, other: Self) -> Bool:
+    def __le__(self, other: Self) -> Bool:
         return self.priority <= other.priority
 
-    fn __gt__(self, other: Self) -> Bool:
+    def __gt__(self, other: Self) -> Bool:
         return self.priority > other.priority
 
-    fn __ge__(self, other: Self) -> Bool:
+    def __ge__(self, other: Self) -> Bool:
         return self.priority >= other.priority
 
-    fn __eq__(self, other: Self) -> Bool:
+    def __eq__(self, other: Self) -> Bool:
         return self.priority == other.priority and self.index == other.index
 
-    fn __ne__(self, other: Self) -> Bool:
+    def __ne__(self, other: Self) -> Bool:
         return not (self == other)
 
 
@@ -394,25 +394,25 @@ struct MaxHeap(Copyable, Movable):
     """Simple max heap implementation for RTPGHI."""
     var items: List[HeapItem]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.items = List[HeapItem]()
 
-    fn __init__(out self, capacity: Int):
+    def __init__(out self, capacity: Int):
         self.items = List[HeapItem]()
         self.items.reserve(capacity)
 
-    fn clear(mut self):
+    def clear(mut self):
         self.items.clear()
 
-    fn size(self) -> Int:
+    def size(self) -> Int:
         return len(self.items)
 
-    fn push(mut self, item: HeapItem):
+    def push(mut self, item: HeapItem):
         """Push an item onto the heap."""
         self.items.append(item)
         self._bubble_up(len(self.items) - 1)
 
-    fn pop(mut self) -> HeapItem:
+    def pop(mut self) -> HeapItem:
         """Pop the maximum item from the heap."""
         var result = self.items[0]
         var last = self.items.pop()
@@ -421,7 +421,7 @@ struct MaxHeap(Copyable, Movable):
             self._bubble_down(0)
         return result
 
-    fn _bubble_up(mut self, idx: Int):
+    def _bubble_up(mut self, idx: Int):
         """Move item up to maintain heap property."""
         var current = idx
         while current > 0:
@@ -434,7 +434,7 @@ struct MaxHeap(Copyable, Movable):
             else:
                 break
 
-    fn _bubble_down(mut self, idx: Int):
+    def _bubble_down(mut self, idx: Int):
         """Move item down to maintain heap property."""
         var current = idx
         var size = len(self.items)
@@ -505,7 +505,7 @@ struct RTPGHI(Copyable, Movable):
     
     var frame_count: Int
 
-    fn __init__(out self, fft_size: Int, hop_size: Int):
+    def __init__(out self, fft_size: Int, hop_size: Int):
         """Initialize RTPGHI with FFT size and hop size.
         
         Args:
@@ -546,7 +546,7 @@ struct RTPGHI(Copyable, Movable):
         # Pre-compute initial phase gradients
         _compute_phi_t(self.log_mag_n_minus_2, self.phi_t_n_minus_2, self.fft_size, self.hop_size, self.gamma)
 
-    fn reset(mut self):
+    def reset(mut self):
         """Reset the RTPGHI state."""
         for i in range(self.bins):
             self.log_mag_n_minus_2[i] = Self.LOG_EPSILON
@@ -560,7 +560,7 @@ struct RTPGHI(Copyable, Movable):
             self.phi_omega_n_minus_1[i] = 0.0
         self.frame_count = 0
 
-    fn process_frame(
+    def process_frame(
         mut self,
         mut magnitudes: List[Float64],
         mut phases: List[Float64],
@@ -717,7 +717,7 @@ struct RTPGHI(Copyable, Movable):
 
 
 @doc_hidden
-fn _compute_phi_t(log_mag: List[Float64], mut phi_t: List[Float64], fft_size: Int, hop_size: Int, gamma: Float64):
+def _compute_phi_t(log_mag: List[Float64], mut phi_t: List[Float64], fft_size: Int, hop_size: Int, gamma: Float64):
     """Compute phase time gradient using frequency derivative of log-magnitude.
     
     From paper equation (14):
@@ -747,7 +747,7 @@ fn _compute_phi_t(log_mag: List[Float64], mut phi_t: List[Float64], fft_size: In
 
 
 @doc_hidden
-fn _compute_phi_omega(
+def _compute_phi_omega(
     log_mag_prev: List[Float64],
     log_mag_next: List[Float64],
     mut phi_omega: List[Float64],

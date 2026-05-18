@@ -1408,7 +1408,8 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
         for i in range(self.num_peaks):
             index = top_N[i]
             if index > 0 and index < len(mags) - 1:
-                val, mag = find_quadratic_peak(mags[index-1], mags[index], mags[index+1])
+                a_db = ampdb(MFloat[4](mags[index-1], mags[index], mags[index+1], 0.0))
+                val, mag = find_quadratic_peak(a_db[0], a_db[1], a_db[2])
                 offset = val - 1.0
                 freq = (MFloat[1](index) + offset) * self.bin_freq
                 self.freq_amp_pairs[i] = Tuple(freq, mag * (4.0/MFloat[1](self.window_size)))
