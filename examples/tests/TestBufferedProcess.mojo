@@ -21,7 +21,7 @@ struct BufferedMultiply(BufferedProcessable):
         self.m = Messenger(self.world)
 
     def get_messages(mut self) -> None:
-        self.m.update(self.factor,"factor")
+        self.m.update("factor", self.factor) 
 
     def next_window(mut self, mut input: List[Float64]) -> None:
 
@@ -45,7 +45,7 @@ struct TestBufferedProcess(Movable, Copyable):
         self.ps = List[Print](length=2,fill=Print(self.world))
 
     def next(mut self) -> SIMD[DType.float64,2]:
-        self.m.update(self.input,"input")
+        self.m.update("input", self.input) 
         self.ps[0].next(self.input,"input  ")
         o = self.my_buffered_mul.next(self.input)
         self.ps[1].next(o,"output ")

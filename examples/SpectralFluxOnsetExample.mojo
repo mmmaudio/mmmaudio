@@ -24,9 +24,9 @@ struct SpectralFluxOnsetExample(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
         
-        self.m.update(self.onsets.thresh,"thresh")
-        self.m.update(self.impulse_vol,"impulse_vol")
-        self.m.update(self.onsets.min_slice_len,"minSliceLength")
+        self.m.update("thresh", self.onsets.thresh) 
+        self.m.update("impulse_vol", self.impulse_vol)
+        self.m.update("minSliceLength", self.onsets.min_slice_len) 
         
         # play the audio file
         audio = self.playBuf.next(self.buffer)

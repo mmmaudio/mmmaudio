@@ -19,8 +19,8 @@ struct TestBiquad(Movable, Copyable):
             self.filts.append(Biquad[1](self.world))
 
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.cutoff, "cutoff")
-        self.messenger.update(self.q, "q")
+        self.messenger.update("cutoff", self.cutoff) 
+        self.messenger.update("q", self.q) 
         var sample = self.noise.next()
         var outs = MFloat[2](0.0, 0.0)
         outs[0] = self.filts[0].lpf(sample, MFloat[1](self.cutoff), MFloat[1](self.q))[0]

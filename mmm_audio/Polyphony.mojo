@@ -58,7 +58,7 @@ struct PolyTrigger(Movable, Copyable):
         self._reset(poly_objects)
         vals = List[Int]()
         for i in range(self.num_messages):
-            trig = self.m.notify_update(vals, String(i))
+            trig = self.m.notify_update(String(i), vals)
             # if we received a trig, find and play a free voice
             if trig:
                 free_voice = self.poly.find_voice_and_trigger(poly_objects, trig) # get the index of the free voice and trigger the PolyObject
@@ -69,7 +69,7 @@ struct PolyTrigger(Movable, Copyable):
         self._reset(poly_objects)
         vals = List[Float64]()
         for i in range(self.num_messages):
-            trig = self.m.notify_update(vals, String(i))
+            trig = self.m.notify_update(String(i), vals)
             # if we received a trig, find and play a free voice
             if trig:
                 free_voice = self.poly.find_voice_and_trigger(poly_objects, trig) # get the index of the free voice and trigger the PolyObject
@@ -80,7 +80,7 @@ struct PolyTrigger(Movable, Copyable):
         self._reset(poly_objects)
         val: Int = 0
         for i in range(self.num_messages):
-            trig = self.m.notify_update(val, String(i))
+            trig = self.m.notify_update(String(i), val)
             # if we received a trig, find and play a free voice
             if trig:
                 free_voice = self.poly.find_voice_and_trigger(poly_objects, trig) # get the index of the free voice and trigger the PolyObject
@@ -91,7 +91,7 @@ struct PolyTrigger(Movable, Copyable):
         self._reset(poly_objects)
         val: Float64 = 0.0
         for i in range(self.num_messages):
-            trig = self.m.notify_update(val, String(i))
+            trig = self.m.notify_update(String(i), val)
             # if we received a trig, find and play a free voice
             if trig:
                 free_voice = self.poly.find_voice_and_trigger(poly_objects, trig) # get the index of the free voice and trigger the PolyObject
@@ -143,7 +143,7 @@ struct PolyGate(Movable, Copyable):
         if self.world[].top_of_block:
             vals = List[Int]()
             for i in range(self.num_messages):
-                trig = self.m.notify_update(vals, String(i))
+                trig = self.m.notify_update(String(i), vals)
                 if trig:
                     if vals[1] > 0: # if the velocity is greater than 0, trigger the note on
                         free_voice = self._find_voice_and_open_gate(poly_objects, trig, vals[0]) # get the index of the free voice
@@ -170,7 +170,7 @@ struct PolyGate(Movable, Copyable):
             
             for i in range(self.num_messages):
                 # Mojo 1.0 requires explicit var definitions for block scope bindings
-                var trig = self.m.notify_update(vals, String(i)) 
+                var trig = self.m.notify_update(String(i), vals) 
                 
                 if trig:
                     if vals[1] > 0.0: 

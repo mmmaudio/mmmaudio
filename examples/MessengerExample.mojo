@@ -16,10 +16,10 @@ struct Tone(Movable,Copyable):
 
     def next(mut self) -> Float64:
 
-        if self.m.notify_update(self.freq,"freq"):
+        if self.m.notify_update("freq", self.freq) :
             print("Tone freq updated to ", self.freq)
 
-        if self.m.notify_update(self.gate,"gate"):
+        if self.m.notify_update("gate", self.gate) :
             print("Tone gate updated to ", self.gate)
 
         sig = self.osc.next(self.freq) if self.gate else 0.0
@@ -59,30 +59,30 @@ struct MessengerExample(Copyable, Movable):
     def next(mut self) -> MFloat[2]:
 
         
-        if self.m.notify_update(self.bool,"bool"):
+        if self.m.notify_update("bool", self.bool) :
             print("Bool value is now: " + String(self.bool))
 
-        if self.m.notify_update(self.float,"float"):
+        if self.m.notify_update("float", self.float) :
             print("Float value is now: " + String(self.float))
 
-        if self.m.notify_update(self.floats,"floats"):
+        if self.m.notify_update("floats", self.floats) :
             print("Updated floats to ")
             for f in self.floats:
                 print("  ", f)
 
-        if self.m.notify_update(self.int,"int"):
+        if self.m.notify_update("int", self.int) :
             print("Updated int to ", self.int)
 
-        if self.m.notify_update(self.ints,"ints"):
+        if self.m.notify_update("ints", self.ints) :
             print("Updated ints to:", end="")
             for i in self.ints:
                 print("  ", i, end="")
             print("")
 
-        if self.m.notify_update(self.string,"string"):
+        if self.m.notify_update("string", self.string) :
             print("Updated string to ", self.string)
 
-        if self.m.notify_update(self.strings,"strings"):
+        if self.m.notify_update("strings", self.strings) :
             print("Updated strings to ")
             for s in self.strings:
                 print("  ", s)

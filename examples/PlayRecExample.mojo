@@ -44,9 +44,9 @@ struct PlayRecExample(Movable, Copyable):
         self.messenger = Messenger(self.world)
 
     def next(mut self) -> MFloat[num_chans]:
-        self.messenger.update(self.lpf_freq, "lpf_freq")
-        self.messenger.update(self.play_rate, "play_rate")
-        load_buffer = self.messenger.notify_update(self.filepath, "load_buffer")
+        self.messenger.update("lpf_freq", self.lpf_freq)
+        self.messenger.update("play_rate", self.play_rate)
+        load_buffer = self.messenger.notify_update("load_buffer", self.filepath)
         if load_buffer:
             print("Loading new buffer from:", self.filepath)
             temp_buffer = SIMDBuffer.load(self.filepath)
@@ -64,7 +64,7 @@ struct PlayRecExample(Movable, Copyable):
             self.record_bool = False
         
 
-        save_buffer = self.messenger.notify_update(self.filepath, "save_buffer")
+        save_buffer = self.messenger.notify_update("save_buffer", self.filepath)
         if save_buffer:
             print("Saving current buffer to:", self.filepath)
             self.recorder.buf.write_to_file(self.filepath, self.recorder.write_head)

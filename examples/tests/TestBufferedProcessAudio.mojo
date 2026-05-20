@@ -22,7 +22,7 @@ struct BufferedMultiply(BufferedProcessable):
         self.m = Messenger(self.world)
 
     def get_messages(mut self) -> None:
-        self.m.update(self.vol,"vol")
+        self.m.update("vol", self.vol) 
 
     def next_window(self, mut input: List[Float64]) -> None:
         amp = dbamp(self.vol)
@@ -56,7 +56,7 @@ struct TestBufferedProcessAudio(Movable, Copyable):
         o = self.my_buffered_mul.next(i)
         # self.ps[0].next(i[0],"input")
         self.ps[1].next(o[0],"output")
-        self.m.update(self.which,"which")
+        self.m.update("which", self.which) 
         o = select(self.which,i,o)
         return SIMD[DType.float64,2](o,o)
 

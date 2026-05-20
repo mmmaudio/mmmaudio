@@ -18,8 +18,8 @@ struct TestASR(Movable, Copyable):
         self.gate = False
 
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.curves,"curves")
-        self.messenger.update(self.gate,"gate")
+        self.messenger.update("curves", self.curves) 
+        self.messenger.update("gate", self.gate) 
 
         env = self.env.next(self.world[].mouse_x, 1, self.world[].mouse_y, self.gate, self.curves)
         sample = self.synth.next(200)

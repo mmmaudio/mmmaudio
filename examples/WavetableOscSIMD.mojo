@@ -73,7 +73,7 @@ struct WavetableOscSIMD(Movable, Copyable):
         self.buffer = SIMDBuffer[Self.wavetables_per_channel].load(self.file_name, num_wavetables=self.wavetables_per_channel)
 
     def next(mut self) -> MFloat[2]:
-        if self.messenger.notify_update(self.file_name, "load_file"):
+        if self.messenger.notify_update("load_file", self.file_name):
             self.loadBuffer()
 
         # the callback function sent to the Poly, to be called whenever a new trigger is received from Python.
@@ -93,10 +93,10 @@ struct WavetableOscSIMD(Movable, Copyable):
         for ref voice in self.voices:
             out += voice.next(self.buffer)
 
-        self.messenger.update(self.filter_cutoff, "filter_cutoff")
-        self.messenger.update(self.filter_resonance, "filter_resonance")
+        self.messenger.update("filter_cutoff", self.filter_cutoff)
+        self.messenger.update("filter_resonance", self.filter_resonance)
         wubb_rate = 0.0
-        got_wubbed = self.messenger.notify_update(wubb_rate, "wubb_rate")
+        got_wubbed = self.messenger.notify_update("wubb_rate", wubb_rate)
         if got_wubbed:
             for ref voice in self.voices:
                 voice.wubb_rate = wubb_rate

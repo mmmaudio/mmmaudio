@@ -28,9 +28,9 @@ struct TestLineExpLine[](Movable, Copyable):
         self.curveline = Line[num, 2](self.world)
 
     def next(mut self) -> MFloat[2]:
-        trig = self.m.notify_update(self.line_vals, "line_vals")
+        trig = self.m.notify_update("line_vals", self.line_vals)
         trig2 = MBool[num](fill = trig)
-        self.m.update(self.which, "which")
+        self.m.update("which", self.which) 
         
         line = self.line.next(self.line_vals[0], self.line_vals[1], self.line_vals[2], trig2)
         expline = self.expline.next(self.line_vals[0], self.line_vals[1], self.line_vals[2], trig2)

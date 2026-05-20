@@ -33,11 +33,11 @@ struct TestAmpComp(Movable, Copyable):
 
     def next(mut self) -> MFloat[num_chans+2]:
 
-        self.m.update(self.thresh, "thresh")
-        self.m.update(self.ratio, "ratio")
-        self.m.update(self.attack, "attack")
-        self.m.update(self.release, "release")
-        self.m.update(self.knee_width, "knee_width")
+        self.m.update("thresh", self.thresh) 
+        self.m.update("ratio", self.ratio) 
+        self.m.update("attack", self.attack) 
+        self.m.update("release", self.release) 
+        self.m.update("knee_width", self.knee_width)
 
         sig = self.play_buf.next[num_chans=num_chans](self.buffer, 1.0, True)
         amp = self.amp.next(sig)

@@ -27,7 +27,7 @@ struct TestVAMoogLadder[N: Int = 2](Movable, Copyable):
         freq = linexp(self.world[].mouse_x, 0.0, 1.0, 20.0, 24000.0)
         q = linexp(self.world[].mouse_y, 0.0, 1.0, 0.01, 1.04)
 
-        self.m.update(self.which, "which")
+        self.m.update("which", self.which) 
         
         sample0 = self.filt0.next(sample, freq, q)  # Get the next sample from the filter
         sample2 = self.filt2.next(sample, freq, q)  # Get the next sample from the filter

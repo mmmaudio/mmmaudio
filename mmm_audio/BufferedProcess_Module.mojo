@@ -16,7 +16,7 @@ trait BufferedProcessable(Movable, Copyable, ImplicitlyDestructible):
       to replace the samples that you receive in the input list.
     
     - `get_messages() -> None`: This function is called at the top of each audio block to allow the user to retrieve any messages
-      they may have sent to this process. Put your [Messenger](Messenger.md) message retrieval code here. (e.g. `self.messenger.update(self.param, "param_name")`)
+      they may have sent to this process. Put your [Messenger](Messenger.md) message retrieval code here. (e.g. `self.messenger.update("param_name", self.param)`)
     """
     def next_window(mut self, mut samples: List[Float64]) -> None:
         return None

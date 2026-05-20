@@ -42,10 +42,10 @@ struct MelBandsExample(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
         
-        self.m.update(self.viz_mul,"viz_mul")
-        self.m.update(self.mix,"mix")
-        self.m.update(self.sines_vol,"sines_vol")
-        self.m.update(self.update_modulus,"update_modulus")
+        self.m.update("viz_mul", self.viz_mul)
+        self.m.update("mix", self.mix) 
+        self.m.update("sines_vol", self.sines_vol)
+        self.m.update("update_modulus", self.update_modulus)
         flute = self.playBuf.next(self.buffer)
         
         # do the analysis

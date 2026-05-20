@@ -27,8 +27,8 @@ struct BinDelaysWindow[window_size: Int](FFTProcessable):
         self.one_samp = 1.0 / self.world[].sample_rate
 
     def get_messages(mut self):
-        self.m.update(self.delay_times, "delay_times")
-        self.m.update(self.feedback, "feedback")
+        self.m.update("delay_times", self.delay_times)
+        self.m.update("feedback", self.feedback) 
 
     def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]):
         for i in range(0, len(mags)):

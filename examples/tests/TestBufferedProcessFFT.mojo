@@ -24,7 +24,7 @@ struct FFTLowPass[window_size: Int](BufferedProcessable):
         self.phases = List[Float64](length=(Self.window_size // 2) + 1, fill=0.0)
 
     def get_messages(mut self) -> None:
-        self.m.update(self.bin,"bin")
+        self.m.update("bin", self.bin) 
 
     def next_window(mut self, mut input: List[Float64]) -> None:
         # self.fft.fft(input,self.complex)

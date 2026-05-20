@@ -42,12 +42,12 @@ struct Record(Movable, Copyable):
         print("Recording stopped. Now playing.")
 
     def next(mut self) -> MFloat[1]:
-        if self.messenger.notify_update(self.input_chan,"set_input_chan"):
+        if self.messenger.notify_update("set_input_chan", self.input_chan):
             if self.input_chan < 0 and self.input_chan >= self.world[].num_in_chans:
                 print("Input channel out of range, resetting to 0")
                 self.input_chan = 0
 
-        notified = self.messenger.notify_update(self.is_recording,"is_recording")
+        notified = self.messenger.notify_update("is_recording", self.is_recording)
         if notified and self.is_recording:
             self.start_recording()
         elif notified and not self.is_recording:

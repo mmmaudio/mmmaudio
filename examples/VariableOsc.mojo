@@ -26,9 +26,9 @@ struct VariableOsc(Movable, Copyable):
         self.asr = ASREnv(self.world)
 
     def next(mut self) -> MFloat[2]:
-        self.m.update(self.x, "x")
-        self.m.update(self.y, "y")
-        self.m.update(self.is_down, "mouse_down")
+        self.m.update("x", self.x) 
+        self.m.update("y", self.y) 
+        self.m.update("mouse_down", self.is_down)
 
         env = self.asr.next(0.05, 1, 0.05, self.is_down)
 

@@ -65,19 +65,19 @@ struct EQSynth(Movable, Copyable):
         self.hs_gain = 0.0
 
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.ls_freq, "ls_freq")
-        self.messenger.update(self.ls_gain, "ls_gain")
-        self.messenger.update(self.b1_freq, "b1_freq")
-        self.messenger.update(self.b1_gain, "b1_gain")
-        self.messenger.update(self.b1_q, "b1_q")
-        self.messenger.update(self.b2_freq, "b2_freq")
-        self.messenger.update(self.b2_gain, "b2_gain")
-        self.messenger.update(self.b2_q, "b2_q")
-        self.messenger.update(self.b3_freq, "b3_freq")
-        self.messenger.update(self.b3_gain, "b3_gain")
-        self.messenger.update(self.b3_q, "b3_q")
-        self.messenger.update(self.hs_freq, "hs_freq")
-        self.messenger.update(self.hs_gain, "hs_gain")
+        self.messenger.update("ls_freq", self.ls_freq)
+        self.messenger.update("ls_gain", self.ls_gain)
+        self.messenger.update("b1_freq", self.b1_freq)
+        self.messenger.update("b1_gain", self.b1_gain)
+        self.messenger.update("b1_q", self.b1_q)
+        self.messenger.update("b2_freq", self.b2_freq)
+        self.messenger.update("b2_gain", self.b2_gain)
+        self.messenger.update("b2_q", self.b2_q)
+        self.messenger.update("b3_freq", self.b3_freq)
+        self.messenger.update("b3_gain", self.b3_gain)
+        self.messenger.update("b3_q", self.b3_q)
+        self.messenger.update("hs_freq", self.hs_freq)
+        self.messenger.update("hs_gain", self.hs_gain)
         
         var out = self.play_buf.next[num_chans=2](self.buffer, 1.0, True)
         

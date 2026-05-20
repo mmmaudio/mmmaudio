@@ -23,7 +23,7 @@ struct TestRMS(Movable, Copyable):
         self.vol = 0.0
 
     def next(mut self) -> SIMD[DType.float64,2]:
-        self.m.update(self.vol,"vol")
+        self.m.update("vol", self.vol) 
         
         i = self.playBuf.next(self.buffer, 1.0, True)  # Read samples from the buffer
         

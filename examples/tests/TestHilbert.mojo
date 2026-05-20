@@ -18,8 +18,8 @@ struct TestHilbert(Movable, Copyable):
         self.radians = pi/2.0
 
     def next(mut self) -> SIMD[DType.float64,2]:
-        self.m.update(self.freq, "freq")
-        self.m.update(self.radians, "radians")
+        self.m.update("freq", self.freq) 
+        self.m.update("radians", self.radians) 
         s = self.sine.next(self.freq)
         o = self.hilbert.next(s, self.radians)
         return SIMD[DType.float64,2](o[0],o[1]) * 0.1

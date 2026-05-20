@@ -25,7 +25,7 @@ struct MFCCExample(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
         
-        self.m.update(self.update_modulus,"update_modulus")
+        self.m.update("update_modulus", self.update_modulus)
         flute = self.playBuf.next(self.buffer)
         
         # do the analysis

@@ -41,16 +41,16 @@ struct PitchShiftExample(Movable, Copyable):
 
     @always_inline
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.in_chan, "in_chan")
+        self.messenger.update("in_chan", self.in_chan)
 
-        self.messenger.update(self.shift,"pitch_shift")
-        self.messenger.update(self.grain_dur,"grain_dur")
-        self.messenger.update(self.pitch_dispersion,"pitch_dispersion")
-        self.messenger.update(self.time_dispersion,"time_dispersion")
-        self.messenger.update(self.overlaps,"overlaps")
-        self.messenger.update(self.added_delay_low,"added_delay_low")
-        self.messenger.update(self.added_delay_high,"added_delay_high")
-        self.messenger.update(self.fb_perc,"fb_perc")
+        self.messenger.update("pitch_shift", self.shift)
+        self.messenger.update("grain_dur", self.grain_dur)
+        self.messenger.update("pitch_dispersion", self.pitch_dispersion)
+        self.messenger.update("time_dispersion", self.time_dispersion)
+        self.messenger.update("overlaps", self.overlaps) 
+        self.messenger.update("added_delay_low", self.added_delay_low)
+        self.messenger.update("added_delay_high", self.added_delay_high)
+        self.messenger.update("fb_perc", self.fb_perc)
 
         temp = self.world[].sound_in[self.in_chan]
         input_sig = MFloat[2](temp, temp) + (self.fb * self.fb_perc)

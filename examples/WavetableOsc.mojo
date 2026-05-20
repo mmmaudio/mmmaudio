@@ -21,9 +21,9 @@ struct OscVoice(Movable, Copyable):
         self.world = world
 
     def next(mut self, ref buffer: Buffer) -> MFloat[1]:
-        self.messenger.update(self.gate, "gate")
-        self.messenger.update(self.freq, "freq")
-        self.messenger.update(self.wubb_rate, "wubb_rate")
+        self.messenger.update("gate", self.gate) 
+        self.messenger.update("freq", self.freq) 
+        self.messenger.update("wubb_rate", self.wubb_rate)
         osc_frac = self.tri.next[OscType.triangle](self.wubb_rate, 0.75, trig=self.gate) * 0.5 + 0.5
         return self.osc.next_vwt(buffer, self.freq, osc_frac = osc_frac) * self.env.next(0.01,0.2,0.1,self.gate,2)
 
@@ -56,16 +56,16 @@ struct WavetableOsc(Movable, Copyable):
         self.buffer = Buffer.load(self.file_name, num_wavetables=self.wavetables_per_channel)
 
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.wavetables_per_channel, "wavetables_per_channel")
-        if self.messenger.notify_update(self.file_name, "load_file"):
+        self.messenger.update("wavetables_per_channel", self.wavetables_per_channel)
+        if self.messenger.notify_update("load_file", self.file_name):
             self.loadBuffer()
 
         var sample = 0.0
         for ref voice in self.osc_voices:
             sample += voice.next(self.buffer)
 
-        self.messenger.update(self.filter_cutoff, "filter_cutoff")
-        self.messenger.update(self.filter_resonance, "filter_resonance")
+        self.messenger.update("filter_cutoff", self.filter_cutoff)
+        self.messenger.update("filter_resonance", self.filter_resonance)
         sample = self.moog_filter.next(sample, self.filter_cutoff, self.filter_resonance)
 
         return sample * 0.5

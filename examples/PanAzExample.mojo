@@ -21,9 +21,9 @@ struct PanAz_Synth(Movable, Copyable):
         self.messenger = Messenger(self.world)
 
     def next(mut self) -> MFloat[8]:
-        self.messenger.update(self.freq, "freq")
-        self.messenger.update(self.num_speakers, "num_speakers")
-        self.messenger.update(self.width, "width")
+        self.messenger.update("freq", self.freq) 
+        self.messenger.update("num_speakers", self.num_speakers)
+        self.messenger.update("width", self.width) 
 
         # PanAz needs to be given a SIMD size that is a power of 2, in this case [8], but the speaker size can be anything smaller than that
         panned = pan_az[8](self.osc.next(self.freq, osc_type=2), self.pan_osc.next(0.1), self.num_speakers, self.width) * 0.1

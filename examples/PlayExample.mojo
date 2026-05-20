@@ -37,8 +37,8 @@ struct BufSynth(Movable, Copyable):
         self.messenger = Messenger(self.world)
 
     def next(mut self) -> MFloat[num_chans]:
-        self.messenger.update(self.lpf_freq, "lpf_freq")
-        self.messenger.update(self.play_rate, "play_rate")
+        self.messenger.update("lpf_freq", self.lpf_freq)
+        self.messenger.update("play_rate", self.play_rate)
 
         out = self.play_buf.next[num_chans=num_chans](self.buffer, self.play_rate, True)
 

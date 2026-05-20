@@ -88,16 +88,16 @@ struct MLP[input_size: Int = 2, output_size: Int = 16](Copyable, Movable):
         The model input is taken from `model_input`, and the output is written to `model_output`.
         """
 
-        self.messenger.update(self.inference_gate, "toggle_inference")
+        self.messenger.update("toggle_inference", self.inference_gate)
         
-        if self.messenger.notify_update(self.file_name, "load_mlp_training"):
+        if self.messenger.notify_update("load_mlp_training", self.file_name):
             file_name = ""
-            self.messenger.update(file_name, "load_mlp_training")
+            self.messenger.update("load_mlp_training", file_name)
             print("loading model from file: ", file_name)
             self.reload_model(file_name)
 
         if not self.inference_gate:
-            if self.messenger.notify_update(self.fake_model_output,"fake_model_output"):
+            if self.messenger.notify_update("fake_model_output", self.fake_model_output):
                 comptime for i in range(self.output_size):
                     if i < len(self.fake_model_output):
                         self.model_output[Int(i)] = self.fake_model_output[i]

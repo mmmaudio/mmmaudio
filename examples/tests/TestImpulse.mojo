@@ -24,19 +24,19 @@ struct TestImpulse(Movable, Copyable):
 
 
     def next(mut self) -> MFloat[2]:
-        if self.messenger.notify_update(self.ints, "trig"):
+        if self.messenger.notify_update("trig", self.ints) :
             for i in range(min(2, len(self.ints))):
                 self.trig[i] = self.ints[i] > 0
         else:
             self.trig = MBool[2](fill = False)
 
         offsets = [0.0,0.0]
-        if self.messenger.notify_update(offsets, "phase_offsets"):
+        if self.messenger.notify_update("phase_offsets", offsets):
             for i in range(min(2, len(offsets))):
                 self.phase_offsets[i] = offsets[i]
 
         freqs = List[Float64]()
-        if self.messenger.notify_update(freqs, "freqs"):
+        if self.messenger.notify_update("freqs", freqs) :
             for i in range(min(2, len(freqs))):
                 self.freqs[i] = freqs[i]
 

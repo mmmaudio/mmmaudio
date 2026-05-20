@@ -38,15 +38,15 @@ struct TestFlangerPhaser(Movable, Copyable):
         self.mix = MFloat[1](0.5)
 
     def next(mut self) -> MFloat[2]:
-        self.m.update(self.which_source, "which_source")
-        self.m.update(self.which_fx, "which_fx")
-        self.m.update(self.center, "center_freq")
-        self.m.update(self.Q, "Q")
-        self.m.update(self.feedback_coef, "feedback_coef")
-        self.m.update(self.lfo_freq, "lfo_freq")
-        self.m.update(self.lfo_octaves, "lfo_octaves")
-        self.m.update(self.freq_offset, "freq_offset")
-        self.m.update(self.mix, "mix")
+        self.m.update("which_source", self.which_source)
+        self.m.update("which_fx", self.which_fx)
+        self.m.update("center_freq", self.center)
+        self.m.update("Q", self.Q) 
+        self.m.update("feedback_coef", self.feedback_coef)
+        self.m.update("lfo_freq", self.lfo_freq)
+        self.m.update("lfo_octaves", self.lfo_octaves)
+        self.m.update("freq_offset", self.freq_offset)
+        self.m.update("mix", self.mix) 
 
         sample = self.play.next(self.buf)
 

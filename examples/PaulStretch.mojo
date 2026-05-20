@@ -42,7 +42,7 @@ struct PaulStretch(Movable, Copyable):
         self.dur_mult = 40.0
 
     def next(mut self) -> SIMD[DType.float64,2]:
-        self.m.update(self.dur_mult,"dur_mult")
+        self.m.update("dur_mult", self.dur_mult)
         speed = 1.0/self.buffer.duration * (1.0/self.dur_mult)
         phase = self.phasor.next(speed)
         o = self.paul_stretch.next_from_stereo_buffer(self.buffer, phase)

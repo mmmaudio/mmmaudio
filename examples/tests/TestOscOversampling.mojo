@@ -26,7 +26,7 @@ struct TestOscOversampling(Movable, Copyable):
         self.lag = Lag(world, 0.1)
 
     def next(mut self) -> Float64:
-        self.messenger.update(self.which, "which")
+        self.messenger.update("which", self.which) 
         freq = self.lag.next(linexp(self.world[].mouse_x, 0.0, 1.0, 20.0, 20000.0))
 
         sample = select(self.which, 

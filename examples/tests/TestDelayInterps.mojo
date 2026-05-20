@@ -41,11 +41,11 @@ struct TestDelayInterps(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
 
-        self.m.update(self.lfo_freq,"lfo_freq")
-        self.m.update(self.mix,"mix")
-        self.m.update(self.mouse_onoff, "mouse_onoff")
-        self.m.update(self.which_delay, "which_delay")
-        self.m.update(self.max_delay_time,"max_delay_time")  
+        self.m.update("lfo_freq", self.lfo_freq)
+        self.m.update("mix", self.mix) 
+        self.m.update("mouse_onoff", self.mouse_onoff)
+        self.m.update("which_delay", self.which_delay)
+        self.m.update("max_delay_time", self.max_delay_time)  
         self.max_delay_time = self.lag.next(self.max_delay_time) 
         delay_time = linlin(self.lfo.next(self.lfo_freq),-1,1,0.001,self.max_delay_time)
 

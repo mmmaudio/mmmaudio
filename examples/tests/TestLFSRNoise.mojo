@@ -19,12 +19,12 @@ struct TestLFSRNoise(Movable, Copyable):
         self.width2 = 7
 
     def next(mut self) -> SIMD[DType.float64, 2]:
-        self.messenger.update(self.freq[0], "freq1")
-        self.messenger.update(self.freq[1], "freq2")
-        self.messenger.update(self.gain[0], "gain1")
-        self.messenger.update(self.gain[1], "gain2")
-        self.messenger.update(self.width1, "width1")
-        self.messenger.update(self.width2, "width2")
+        self.messenger.update("freq1", self.freq[0]) 
+        self.messenger.update("freq2", self.freq[1]) 
+        self.messenger.update("gain1", self.gain[0]) 
+        self.messenger.update("gain2", self.gain[1]) 
+        self.messenger.update("width1", self.width1) 
+        self.messenger.update("width2", self.width2) 
 
         var sample = self.lfsr.next(self.freq, MInt[2](MInt[1](self.width1), MInt[1](self.width2)), False)
         return sample * self.gain

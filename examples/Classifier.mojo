@@ -59,7 +59,7 @@ struct Classifier(Movable,Copyable):
     
     def next(mut self) -> MFloat[2]:
 
-        if self.m.notify_update(self.src_path,"src_path"):
+        if self.m.notify_update("src_path", self.src_path):
             self.src = Buffer.load(self.src_path)
 
         src = self.player.next(self.src)

@@ -1,4 +1,4 @@
-"""Benjolin-inspired Synthesizer
+"""Benjolin-inspired Synthesizer.
 
 Based on the SuperCollider implementation by Hyppasus
 https://scsynth.org/t/benjolin-inspired-instrument/1074/1
@@ -84,19 +84,19 @@ struct Benjolin(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
 
-        self.m.update(self.freq1,"freq1")
-        self.m.update(self.freq2,"freq2")
-        self.m.update(self.scale,"scale")
-        self.m.update(self.rungler1,"rungler1")
-        self.m.update(self.rungler2,"rungler2")
-        self.m.update(self.runglerFiltMul,"runglerFiltMul")
-        self.m.update(self.loop,"loop")
-        self.m.update(self.filterFreq,"filterFreq")
-        self.m.update(self.q,"q")
-        self.m.update(self.gain,"gain")
-        self.m.update(self.filterType,"filterType")
-        self.m.update(self.outSignalL,"outSignalL")
-        self.m.update(self.outSignalR,"outSignalR")
+        self.m.update("freq1", self.freq1) 
+        self.m.update("freq2", self.freq2) 
+        self.m.update("scale", self.scale) 
+        self.m.update("rungler1", self.rungler1) 
+        self.m.update("rungler2", self.rungler2) 
+        self.m.update("runglerFiltMul", self.runglerFiltMul) 
+        self.m.update("loop", self.loop) 
+        self.m.update("filterFreq", self.filterFreq) 
+        self.m.update("q", self.q) 
+        self.m.update("gain", self.gain) 
+        self.m.update("filterType", self.filterType) 
+        self.m.update("outSignalL", self.outSignalL) 
+        self.m.update("outSignalR", self.outSignalR) 
         
         tri1 = self.tri1.next((self.rungler*self.rungler1)+self.freq1,osc_type=3)
         tri2 = self.tri2.next((self.rungler*self.rungler2)+self.freq2,osc_type=3)

@@ -42,14 +42,14 @@ struct DelaySynth(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
 
-        self.m.update(self.play,"play")
-        self.m.update(self.feedback,"feedback")
-        self.m.update(self.delay_input,"delay-input")
-        self.m.update(self.ffreq,"ffreq")
-        self.m.update(self.delaytime_m,"delay_time")
-        self.m.update(self.q,"q")
-        self.m.update(self.mix,"mix")
-        self.m.update(self.main,"main")
+        self.m.update("play", self.play) 
+        self.m.update("feedback", self.feedback) 
+        self.m.update("delay-input", self.delay_input)
+        self.m.update("ffreq", self.ffreq) 
+        self.m.update("delay_time", self.delaytime_m)
+        self.m.update("q", self.q) 
+        self.m.update("mix", self.mix) 
+        self.m.update("main", self.main) 
 
         var sample = self.playBuf.next[num_chans=2](self.buf, 1.0 if self.play else 0.0)  # Read samples from the buffer
         deltime = self.delay_time_lag.next(MFloat[2](self.delaytime_m, self.delaytime_m * 0.9))

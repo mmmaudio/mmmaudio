@@ -22,7 +22,7 @@ struct TestTopNFreqs(Movable, Copyable):
         self.changed = [Changed[Int](0) for _ in range(3)]
 
     def next(mut self) -> MFloat[2]:
-        self.m.update(self.freqs, "freqs")
+        self.m.update("freqs", self.freqs) 
         s = 0.0
         mul = linlin(self.world[].mouse_x, 0., 1., 1., 1.2)
         for i in range(len(self.sines)):

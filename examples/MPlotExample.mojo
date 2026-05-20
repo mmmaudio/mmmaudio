@@ -70,10 +70,10 @@ struct MPlotExample(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
 
-        if self.m.notify_update(self.path, "load_sound"):
+        if self.m.notify_update("load_sound", self.path):
             self.buf = self.buf.load(self.path)
 
-        trig = self.m.notify_update(self.play_data, "play_data")
+        trig = self.m.notify_update("play_data", self.play_data)
 
         if trig:
             print("Playing slice: start=",self.play_data[0], ", num=", self.play_data[1])

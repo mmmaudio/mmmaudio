@@ -38,10 +38,10 @@ struct FreeverbSynth(Copyable, Movable):
     @always_inline
     def next(mut self) -> MFloat[2]:
 
-        self.m.update(self.room_size,"room_size")
-        self.m.update(self.lpf_comb,"lpf_comb")
-        self.m.update(self.added_space,"added_space")
-        self.m.update(self.mix,"mix")
+        self.m.update("room_size", self.room_size)
+        self.m.update("lpf_comb", self.lpf_comb)
+        self.m.update("added_space", self.added_space)
+        self.m.update("mix", self.mix) 
 
         added_space_simd = MFloat[num_chans](self.added_space, self.added_space * 0.99)
         out = self.play_buf.next[num_chans=num_chans](self.buffer, 1.0, True)

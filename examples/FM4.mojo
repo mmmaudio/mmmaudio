@@ -59,27 +59,27 @@ struct FM4(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
 
-        self.m.update(self.osc0_freq, "osc0_freq")
-        self.m.update(self.osc1_freq, "osc1_freq")
-        self.m.update(self.osc2_freq, "osc2_freq")
-        self.m.update(self.osc3_freq, "osc3_freq")
+        self.m.update("osc0_freq", self.osc0_freq)
+        self.m.update("osc1_freq", self.osc1_freq)
+        self.m.update("osc2_freq", self.osc2_freq)
+        self.m.update("osc3_freq", self.osc3_freq)
 
-        self.m.update(self.osc0_mul[0], "osc0_mula")
-        self.m.update(self.osc0_mul[1], "osc0_mulb")
+        self.m.update("osc0_mula", self.osc0_mul[0])
+        self.m.update("osc0_mulb", self.osc0_mul[1])
 
-        self.m.update(self.osc1_mul[0], "osc1_mula")
-        self.m.update(self.osc1_mul[1], "osc1_mulb")
+        self.m.update("osc1_mula", self.osc1_mul[0])
+        self.m.update("osc1_mulb", self.osc1_mul[1])
 
-        self.m.update(self.osc2_mul[0], "osc2_mula")
-        self.m.update(self.osc2_mul[1], "osc2_mulb")
+        self.m.update("osc2_mula", self.osc2_mul[0])
+        self.m.update("osc2_mulb", self.osc2_mul[1])
 
-        self.m.update(self.osc3_mul[0], "osc3_mula")
-        self.m.update(self.osc3_mul[1], "osc3_mulb")
+        self.m.update("osc3_mula", self.osc3_mul[0])
+        self.m.update("osc3_mulb", self.osc3_mul[1])
 
-        self.m.update(self.osc_frac[0], "osc_frac0")
-        self.m.update(self.osc_frac[1], "osc_frac1")
-        self.m.update(self.osc_frac[2], "osc_frac2")
-        self.m.update(self.osc_frac[3], "osc_frac3")
+        self.m.update("osc_frac0", self.osc_frac[0])
+        self.m.update("osc_frac1", self.osc_frac[1])
+        self.m.update("osc_frac2", self.osc_frac[2])
+        self.m.update("osc_frac3", self.osc_frac[3])
 
 
         for _ in range(Self.times_oversampling):

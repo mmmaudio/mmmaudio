@@ -28,8 +28,8 @@ struct TestCombAllpass(Movable, Copyable):
         self.delay_time = 0.1
 
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.which, "which_fx")
-        self.messenger.update(self.delay_time, "delay_time")
+        self.messenger.update("which_fx", self.which)
+        self.messenger.update("delay_time", self.delay_time)
 
         sample = self.synth.next(0.4)  # Get the next sample from the synth
 

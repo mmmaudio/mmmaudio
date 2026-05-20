@@ -13,16 +13,16 @@ struct DattorroReverbExample(Movable, Copyable):
                 self.in_chan = 0
 
         def next(mut self) -> MFloat[2]:
-                self.m.update(self.in_chan, "in_chan")
+                self.m.update("in_chan", self.in_chan)
                 input = MFloat[2](self.world[].sound_in[self.in_chan])
 
-                self.m.update(self.reverb.pre_delay_time, "pre_delay_time")
-                self.m.update(self.reverb.decay, "decay")
-                self.m.update(self.reverb.bandwidth, "bandwidth")
-                self.m.update(self.reverb.damping, "damping")
-                self.m.update(self.reverb.decay_diffusion1, "decay_diffusion1")
-                self.m.update(self.reverb.decay_diffusion2, "decay_diffusion2")
-                self.m.update(self.reverb.input_diffusion1, "input_diffusion1")
-                self.m.update(self.reverb.input_diffusion2, "input_diffusion2")
+                self.m.update("pre_delay_time", self.reverb.pre_delay_time)
+                self.m.update("decay", self.reverb.decay) 
+                self.m.update("bandwidth", self.reverb.bandwidth) 
+                self.m.update("damping", self.reverb.damping) 
+                self.m.update("decay_diffusion1", self.reverb.decay_diffusion1)
+                self.m.update("decay_diffusion2", self.reverb.decay_diffusion2)
+                self.m.update("input_diffusion1", self.reverb.input_diffusion1)
+                self.m.update("input_diffusion2", self.reverb.input_diffusion2)
 
                 return self.reverb.next(input)

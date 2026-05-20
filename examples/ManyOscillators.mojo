@@ -81,7 +81,7 @@ struct ManyOscillators(Copyable, Movable):
     @always_inline
     def next(mut self) -> MFloat[2]:
 
-        if self.messenger.notify_update(self.num_pairs,"num_pairs"):
+        if self.messenger.notify_update("num_pairs", self.num_pairs):
             if len(self.synths) != Int(self.num_pairs):
                 if self.num_pairs > len(self.synths):
                     # add more

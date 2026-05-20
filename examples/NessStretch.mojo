@@ -81,8 +81,8 @@ struct NessStretch(Movable, Copyable):
         self.dur_mult = 40.0
 
     def next(mut self) -> SIMD[DType.float64,2]:
-        self.m.update(self.dur_mult,"dur_mult")
-        new_file = self.m.notify_update(self.file_name, "file_name")
+        self.m.update("dur_mult", self.dur_mult)
+        new_file = self.m.notify_update("file_name", self.file_name)
         if new_file:
             self.buffer = SIMDBuffer.load(self.file_name)
         speed = 1.0/self.buffer.duration * (1.0/self.dur_mult)

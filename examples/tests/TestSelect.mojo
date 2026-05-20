@@ -21,8 +21,8 @@ struct TestSelect(Movable, Copyable):
         self.printers[1] = Print(self.world)
 
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.vs, "vs")
-        self.messenger.update(self.which,"which")
+        self.messenger.update("vs", self.vs) 
+        self.messenger.update("which", self.which) 
 
         val = select(self.which, self.vs)
         self.printers[0].next(val, "selected value in self.vs: ")

@@ -42,8 +42,8 @@ struct FFTScrambleWindow(FFTProcessable):
             self.swaps.append((i,j))
     
     def get_messages(mut self) -> None:
-        self.m.update(self.nscrambles,"n_scrambles")
-        self.m.update(self.scramble_range,"scramble_range")
+        self.m.update("n_scrambles", self.nscrambles)
+        self.m.update("scramble_range", self.scramble_range)
         if self.m.notify_trig("scramble"):
             self.scramble()
 

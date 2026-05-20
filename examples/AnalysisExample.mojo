@@ -51,8 +51,8 @@ struct AnalysisExample(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
         
-        self.m.update(self.freq,"freq")
-        self.m.update(self.which,"which")
+        self.m.update("freq", self.freq) 
+        self.m.update("which", self.which) 
 
         oscs = self.osc.next(self.freq,0,False,[OscType.sine, OscType.saw])
         flute = self.playBuf.next(self.buffer)

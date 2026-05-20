@@ -61,7 +61,7 @@ struct TestPolyGateSig(Movable, Copyable):
         self.dust_vals = [1.0, 2.0]
     
     def next(mut self) -> MFloat[2]:
-        self.m.update(self.dust_vals, "dust_vals")
+        self.m.update("dust_vals", self.dust_vals)
         for i in range(Self.num_gates):
             if self.gates[i].next_bool(self.dust_vals[0], self.dust_vals[1]): self.gated_sigs[i] = not self.gated_sigs[i]
 

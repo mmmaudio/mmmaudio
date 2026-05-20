@@ -18,7 +18,7 @@ struct SpectralFreezeWindow[window_size: Int](FFTProcessable):
         self.stored_phases = [MFloat[2](0.0) for _ in range(Self.window_size)]
         self.stored_mags = [MFloat[2](0.0) for _ in range(Self.window_size)]
     def get_messages(mut self) -> None:
-        self.m.update(self.freeze_gate, "freeze_gate")
+        self.m.update("freeze_gate", self.freeze_gate)
 
     def next_stereo_frame(mut self, mut mags: List[MFloat[2]], mut phases: List[MFloat[2]]) -> None:
         if not self.freeze_gate:
@@ -55,7 +55,7 @@ struct SpectralFreeze[window_size: Int](Movable, Copyable):
         self.asr = ASREnv(self.world)
 
     def next(mut self, sample: MFloat[2]) -> MFloat[2]:
-        self.m.update(self.freeze_gate, "freeze_gate")
+        self.m.update("freeze_gate", self.freeze_gate)
         env = self.asr.next(0.01, 1.0, 0.01, self.freeze_gate, 1.0)
         freeze = self.freeze.next_stereo(sample)
         return select(env, sample, freeze) * 0.3
@@ -79,7 +79,7 @@ struct SpectralFreezeExample(Movable, Copyable):
         self.stereo_switch: Bool = False
 
     def next(mut self) -> SIMD[DType.float64,2]:
-        self.m.update(self.stereo_switch,"stereo_switch")
+        self.m.update("stereo_switch", self.stereo_switch)
 
         out = self.play_buf.next[2](self.buffer,1)
 

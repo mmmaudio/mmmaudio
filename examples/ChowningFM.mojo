@@ -25,19 +25,19 @@ struct ChowningFM(Movable, Copyable):
     @always_inline
     def update_envs(mut self):
         
-        self.m.update(self.index_env.params.values,"index_vals")
-        self.m.update(self.index_env.params.times,"index_times")
-        self.m.update(self.index_env.params.curves,"index_curves")
-        self.m.update(self.amp_env.params.values,"amp_vals")
-        self.m.update(self.amp_env.params.times,"amp_times")
-        self.m.update(self.amp_env.params.curves,"amp_curves")
+        self.m.update("index_vals", self.index_env.params.values)
+        self.m.update("index_times", self.index_env.params.times)
+        self.m.update("index_curves", self.index_env.params.curves)
+        self.m.update("amp_vals", self.amp_env.params.values)
+        self.m.update("amp_times", self.amp_env.params.times)
+        self.m.update("amp_curves", self.amp_env.params.curves)
 
     @always_inline
     def next(mut self) -> MFloat[2]:
 
-        self.m.update(self.cfreq,"c_freq")
-        self.m.update(self.mfreq,"m_freq")
-        self.m.update(self.vol,"vol")
+        self.m.update("c_freq", self.cfreq)
+        self.m.update("m_freq", self.mfreq)
+        self.m.update("vol", self.vol) 
         trig = self.m.notify_trig("trigger")
         self.update_envs()
 

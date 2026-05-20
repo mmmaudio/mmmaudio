@@ -23,7 +23,7 @@ struct TestPatterns(Movable, Copyable):
         self.pxrand = Pxrand([0, 1, 2, 3])
 
     def next(mut self) -> MFloat[2]:
-        self.messenger.update(self.which, "which")
+        self.messenger.update("which", self.which) 
         trig = self.imp.next_bool(1)
         if trig:
             if self.which == 0:

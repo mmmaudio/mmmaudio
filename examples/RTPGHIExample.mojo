@@ -18,7 +18,7 @@ struct RTPGHIWindow(FFTProcessable):
         self.rtpghi = RTPGHI(windowsize,hopsize)
 
     def get_messages(mut self) -> None:
-        self.m.update(self.which,"which")
+        self.m.update("which", self.which) 
 
     def next_frame(mut self, mut magnitudes: List[Float64], mut phases: List[Float64]) -> None:
         if self.which == 1:

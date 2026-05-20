@@ -54,9 +54,9 @@ struct ScrambleAndLowPass[window_size: Int = 1024](FFTProcessable):
         self.bin_scramble = BinScramble(nbins=(self.window_size // 2) + 1, nscrambles=20)
 
     def get_messages(mut self) -> None:
-        self.m.update(self.bin,"lpbin")
-        self.m.update(self.bin_scramble.nscrambles,"nscrambles")
-        self.m.update(self.bin_scramble.scramble_range,"scramble_range")
+        self.m.update("lpbin", self.bin) 
+        self.m.update("nscrambles", self.bin_scramble.nscrambles) 
+        self.m.update("scramble_range", self.bin_scramble.scramble_range)
         if self.m.notify_trig("rescramble"):
             self.bin_scramble.new_swaps()
 
@@ -90,8 +90,8 @@ struct TestFFTProcess(Movable, Copyable):
 
     def next(mut self) -> SIMD[DType.float64,2]:
 
-        self.m.update(self.onsets.thresh,"onsets_thresh")
-        self.m.update(self.onsets.min_slice_len,"onsets_min_slice_len")
+        self.m.update("onsets_thresh", self.onsets.thresh)
+        self.m.update("onsets_min_slice_len", self.onsets.min_slice_len)
 
         input = self.playBuf.next(self.buffer, 1.0, True)  # Read samples from the buffer
         onset = self.onsets.next(input)

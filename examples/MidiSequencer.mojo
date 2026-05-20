@@ -100,8 +100,8 @@ struct MidiSequencer(Movable, Copyable):
         for i in range(len(self.voices)):
             out += self.voices[i].next()
 
-        self.messenger.update(self.filt_freq, "filt_freq")
-        if self.messenger.notify_update(self.bend_mul, "bend_mul"):
+        self.messenger.update("filt_freq", self.filt_freq)
+        if self.messenger.notify_update("bend_mul", self.bend_mul):
             # if bend_mul changes, update all the voices
             for i in range(len(self.voices)):
                 self.voices[i].bend_mul = self.bend_mul

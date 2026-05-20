@@ -34,10 +34,10 @@ struct Grains(Movable, Copyable):
 
     @always_inline
     def next(mut self) -> MFloat[num_simd_chans]:
-        self.m.update(self.max_trig_rate, "max_trig_rate")
-        c1 = self.m.notify_update(self.env_params.times, "times")
-        c2 = self.m.notify_update(self.env_params.values, "values")
-        c3 = self.m.notify_update(self.env_params.curves, "curves")
+        self.m.update("max_trig_rate", self.max_trig_rate)
+        c1 = self.m.notify_update("times", self.env_params.times) 
+        c2 = self.m.notify_update("values", self.env_params.values) 
+        c3 = self.m.notify_update("curves", self.env_params.curves) 
         if c1 or c2 or c3:
             self.tgrains.set_env_params(self.env_params)
 
