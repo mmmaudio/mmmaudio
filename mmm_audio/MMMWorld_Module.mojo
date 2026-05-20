@@ -39,7 +39,7 @@ struct MMMWorld(Movable, Copyable):
 
     var print_counter: UInt16
 
-    def __init__(out self, sample_rate: Float64, 
+    def __init__(out self, sample_rate: Float64 = 48000, 
         block_size: Int = 128, 
         num_in_chans: Int = 2, 
         num_out_chans: Int = 2, 
