@@ -58,8 +58,8 @@ struct Messenger(Copyable, Movable):
         """Update a Bool variable with a value sent from Python.
 
         Args:
-            param: A `Bool` variable to be updated.
             name: A `String` to identify the Bool sent from Python.
+            param: A `Bool` variable to be updated.
         """
         if self.world[].top_of_block:
             try:
@@ -75,8 +75,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a Bool variable with a value sent from Python.
 
         Args:
-            param: A `Bool` variable to be updated.
             name: A `String` to identify the Bool sent from Python.
+            param: A `Bool` variable to be updated.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
@@ -119,8 +119,8 @@ struct Messenger(Copyable, Movable):
         """Update a Float64 variable with a value sent from Python.
 
         Args:
-            param: A `Float64` variable to be updated.
             name: A `String` to identify the Float64 sent from Python.
+            param: A `Float64` variable to be updated.
         """
         
         if self.world[].top_of_block:
@@ -137,8 +137,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a Float64 variable with a value sent from Python.
 
         Args:
-            param: A `Float64` variable to be updated.
             name: A `String` to identify the Float64 sent from Python.
+            param: A `Float64` variable to be updated.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
@@ -159,8 +159,8 @@ struct Messenger(Copyable, Movable):
         """Update a List[Float64] variable with a value sent from Python.
 
         Args:
-            param: A `List[Float64]` variable to be updated. The List will be resized to match the incoming data.
             name: A `String` to identify the List[Float64] sent from Python.
+            param: A `List[Float64]` variable to be updated. The List will be resized to match the incoming data.
         """
         if self.world[].top_of_block:
             try:
@@ -176,8 +176,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a List[Float64] variable with a value sent from Python.
 
         Args:
-            param: A `List[Float64]` variable to be updated. The List will be resized to match the incoming data.
             name: A `String` to identify the List[Float64] sent from Python.
+            param: A `List[Float64]` variable to be updated. The List will be resized to match the incoming data.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
@@ -197,8 +197,8 @@ struct Messenger(Copyable, Movable):
         """Update a SIMD[DType.float64] variable with a value sent from Python.
 
         Args:
-            param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
             name: A `String` to identify the SIMD[DType.float64] sent from Python.
+            param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
         """
         if self.world[].top_of_block:
             try:
@@ -214,8 +214,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a SIMD[DType.float64] variable with a value sent from Python.
 
         Args:
-            param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
             name: A `String` to identify the SIMD[DType.float64] sent from Python.
+            param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
@@ -237,8 +237,8 @@ struct Messenger(Copyable, Movable):
         """Update a Int variable with a value sent from Python.
 
         Args:
-            param: A `Int` variable to be updated.
             name: A `String` to identify the Int sent from Python.
+            param: A `Int` variable to be updated.
         """
         if self.world[].top_of_block:
             try:
@@ -254,8 +254,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a Int variable with a value sent from Python.
 
         Args:
-            param: A `Int` variable to be updated.
             name: A `String` to identify the Int sent from Python.
+            param: A `Int` variable to be updated.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
@@ -276,8 +276,8 @@ struct Messenger(Copyable, Movable):
         """Update a List[Int] variable with a value sent from Python.
 
         Args:
-            param: A `List[Int]` variable to be updated. The List will be resized to match the incoming data.
             name: A `String` to identify the List[Int] sent from Python.
+            param: A `List[Int]` variable to be updated. The List will be resized to match the incoming data.
         """
         if self.world[].top_of_block:
             try:
@@ -293,8 +293,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a List[Int] variable with a value sent from Python.
 
         Args:
-            param: A `List[Int]` variable to be updated. The List will be resized to match the incoming data.
             name: A `String` to identify the List[Int] sent from Python.
+            param: A `List[Int]` variable to be updated. The List will be resized to match the incoming data.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
@@ -315,8 +315,8 @@ struct Messenger(Copyable, Movable):
         """Update a String variable with a value sent from Python.
         
         Args:
-            param: A `String` variable to be updated.
             name: A `String` to identify the String sent from Python.
+            param: A `String` variable to be updated.
         """
         if self.world[].top_of_block:
             try:
@@ -332,8 +332,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a String variable with a value sent from Python.
 
         Args:
-            param: A `String` variable to be updated.
             name: A `String` to identify the String sent from Python.
+            param: A `String` variable to be updated.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
@@ -354,8 +354,8 @@ struct Messenger(Copyable, Movable):
         """Update a List[String] variable with a value sent from Python.
 
         Args:
-            param: A `List[String]` variable to be updated. The List will be resized to match the incoming data.
             name: A `String` to identify the List[String] sent from Python.
+            param: A `List[String]` variable to be updated. The List will be resized to match the incoming data.
         """
         if self.world[].top_of_block:
             try:
@@ -371,8 +371,8 @@ struct Messenger(Copyable, Movable):
         """Notify and update a List[String] variable with a value sent from Python.
 
         Args:
-            param: A `List[String]` variable to be updated. The List will be resized to match the incoming data.
             name: A `String` to identify the List[String] sent from Python.
+            param: A `List[String]` variable to be updated. The List will be resized to match the incoming data.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
