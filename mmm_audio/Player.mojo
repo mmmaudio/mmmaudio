@@ -318,7 +318,7 @@ struct Grain(PolyObject):
             loop: Whether to loop the grain (default: False).
             start_frame: Starting frame position in the buffer.
             duration: Duration of the grain in seconds.
-            pan: Panning position from -1.0 (left) to 1.0 (right). This is not applied in this function, but is used by the panning functions that call this function.
+            pan: Panning position from -1.0 (left) to 1.0 (right). As this function is used by the panning functions, the pan value is saved to self.pan in this function when a trigger is received, but there is no direct use of it here.
             gain: Amplitude scaling factor for the grain.
         """
         trig2 = False
