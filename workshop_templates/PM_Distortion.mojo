@@ -1,8 +1,10 @@
 
-from mmm_audio import *
+# get it working
+# add messages for the frequency
+# add the wavefolder back in
+# talk through the interpolation and oversampling options
 
-# there can only be one graph in an MMMAudio instance
-# a graph can have as many synths as you want
+from mmm_audio import *
 struct PM_Distortion(Movable, Copyable):
     var world: World
     var mod: Osc[]
@@ -16,8 +18,10 @@ struct PM_Distortion(Movable, Copyable):
         self.world = world
         self.mod = Osc(self.world)
         self.carrier = Osc[1, Interp.lagrange4, 1](self.world)
+        
         self.xy = MFloat[2](0.0, 0.0)
         self.lag = Lag[2](self.world, 0.2)
+
         self.folder = BuchlaWavefolder[1, 1](self.world)
         self.m = Messenger(self.world)
 

@@ -179,25 +179,27 @@ struct Env(Movable, Copyable):
         return clip(self.sweep.phase, 0.0, 1.0)
 
     @staticmethod
-    def get_env_buffer[num_chans: Int = 1, win_type: Int = WindowType.none, interp: Int = Interp.linear](world: World, *env_defs: EnvParams, size: Int = 1024) -> SIMDBuffer[num_chans]:
+    def get_env_buffer[num_chans: Int = 1, win_type: Int = WindowType.none, interp: Int = Interp.linear](world: World, size: Int, *env_defs: EnvParams) -> SIMDBuffer[num_chans]:
         """Get a SIMDBuffer of envelope values.
 
         Args:
             world: Pointer to the MMMWorld.
+            size: Size of the output table.
             env_defs: One or more EnvParams structs defining the envelope parameters to generate the table from.
-            size: Size of the output table. Default is 1024.
 
         Returns:
             A SIMDBuffer containing `num_chans` of envelope values.
         """
         env = Env(world)
         buffer = SIMDBuffer[num_chans].zeros(size)
+        print(env_defs.__len__())
         for i in range(min(env_defs.__len__(), num_chans)):
+            print(i)
             env.params = env_defs[i].copy()
             
             for j in range(size):
                 phase = Float64(j) / Float64(size - 1)
-                buffer.data[j][i] = env.next[win_type, interp](False, phase)  # Get envelope value at the specified phase without triggering
+                buffer.data[j][i] = env.next[win_type, interp](True, phase)
         return buffer^
 
 def win_env[window_type: Int = WindowType.sine, interp: Int = Interp.none](world: World, win_phase: MFloat[1]) -> MFloat[1]:

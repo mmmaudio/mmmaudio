@@ -12,6 +12,8 @@ struct TestEnv(Movable, Copyable):
     var impulse: Impulse[]
     var mul: Float64
 
+    var env_buffer: SIMDBuffer[1]
+
     def __init__(out self, world: World):
         self.world = world
         self.envs = [Env(self.world) for _ in range(3)]
@@ -24,6 +26,9 @@ struct TestEnv(Movable, Copyable):
         self.impulse = Impulse(self.world)
         self.mul = 0.1
 
+        self.env_buffer = Env.get_env_buffer[win_type = WindowType.hann](self.world, 1024, self.envs[0].params)
+        print(len(self.env_buffer.data))
+
     def next(mut self) -> MFloat[8]:
         line = self.line.next(0, 1.0, 0.1)
         env0 = self.envs[0].next(True, line)
@@ -33,8 +38,10 @@ struct TestEnv(Movable, Copyable):
         env4 = min_env[WindowType.hann](self.world, line, 0.3)
         gate = line < 0.8
         env5 = self.asr_env.next[WindowType.kaiser](0.025, 1., 0.025, gate, line)
+        
+        env6 = buf_env(self.world, self.env_buffer, line)
 
-        return MFloat[8](env1, env2, env3, env4, env5, 0., 0., 0.) * 0.9
+        return MFloat[8](env6, env1, env3, env4, env5, 0., 0., 0.) * 0.9
 
 
 
