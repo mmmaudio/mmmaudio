@@ -6,6 +6,8 @@ Currently Mojo's compiler is MacOS(Apple Silicon) & Linux(x86 and arm - builds d
 
 Please see the [MMMAudio YouTube Playlist](https://www.youtube.com/playlist?list=PLeOjmNO6F-TQ6p9pEYT3zt1dEfFaUWezr) to view the available video tutorials about MMMAudio!
 
+Join the [Discourse](https://mmmaudio.discourse.group/) Community!
+
 ## 1. Clone the Repository
 
 ```

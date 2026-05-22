@@ -12,7 +12,6 @@ from .FFTs import *
 from .Filters import *
 from .MBufAnalysisBridge import *
 from .MLP_Module import *
-from .MedianFilter_Module import *
 from .Noise import *
 from .Oscillators import *
 from .Oversampling_Module import *
