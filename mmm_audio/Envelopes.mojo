@@ -202,18 +202,50 @@ struct Env(Movable, Copyable):
                 buffer.data[j][i] = env.next[win_type, interp](True, phase)
         return buffer^
 
-def win_env[window_type: Int = WindowType.sine, interp: Int = Interp.none](world: World, win_phase: MFloat[1]) -> MFloat[1]:
+def win_env[window_type: Int = WindowType.sine, interp: Int = Interp.none](world: World, phase: MFloat[1]) -> MFloat[1]:
+    """Phase lookup into a window function stored in MMMWorld's windows variable.
+
+    Parameters:
+        window_type: The type of window to look up. See `WindowType` struct for available window types.
+        interp: Interpolation type to apply to the window. Default is Interp.none, which means no interpolation. See `Interp` struct for available interpolation types.
+
+    Args:
+        world: Pointer to the MMMWorld.
+        phase: The current phase of the window, between 0 and 1.
+
+    Returns:
+        The window value at the specified phase.
+    """
     temp = world[].windows.value()
-    val = temp[].at_phase[window_type, interp](world, win_phase)
+    val = temp[].at_phase[window_type, interp](world, phase)
     return val
 
-def buf_env[num_chans: Int = 1, interp: Int = Interp.linear, bWrap: Bool = True](world: World, env_buffer: SIMDBuffer[num_chans], phase: MFloat[1]) -> MFloat[num_chans]:
-    val = SpanInterpolator.read[interp=interp,bWrap=bWrap](
-        world=world,
-        data=env_buffer.data,
-        f_idx=phase * Float64(len(env_buffer.data) - 1),
-        prev_f_idx=0.0
-    )
+def buf_env[num_chans: Int = 1, interp: Int = Interp.linear, bWrap: Bool = True](world: World, env_buffer: SIMDBuffer[num_chans], phase: MFloat[1], prev_phase: MFloat[1] = 0.0) -> MFloat[num_chans]:
+    """Reads a buffer by indexing with the provided phase.
+
+    Args:
+        world: Pointer to the MMMWorld.
+        env_buffer: The buffer containing the envelope values.
+        phase: The phase at which to read the buffer, between 0 and 1.
+        prev_phase: The previous phase, used for sinc interpolation. Otherwise, this argument can be ignored.
+
+    Returns:
+        The envelope value at the specified phase.
+    """
+    comptime if interp == Interp.sinc:
+        val = SpanInterpolator.read[interp=interp,bWrap=bWrap](
+            world=world,
+            data=env_buffer.data,
+            f_idx=phase * Float64(len(env_buffer.data) - 1),
+            prev_f_idx=prev_phase * Float64(len(env_buffer.data) - 1)
+        )
+    else:
+         val = SpanInterpolator.read[interp=interp,bWrap=bWrap](
+            world=world,
+            data=env_buffer.data,
+            f_idx=phase * Float64(len(env_buffer.data) - 1),
+            prev_f_idx=0.0
+        )
     return val
 
 # min_env is just a function, not a struct
