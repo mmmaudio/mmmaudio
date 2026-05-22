@@ -52,8 +52,10 @@ struct Grains(Movable, Copyable):
 
             return MFloat[num_simd_chans](out[0], out[1])
         else:
+            pass
+            # for > 2 output channels, uncomment these lines to use the next_pan_az method
             # pan each channel separately to num_output_chans speakers
-            out_az1 = self.tgrains.next_pan_az[num_simd_chans=num_simd_chans](self.buffer, 1, impulse, start_frame, 0.4, random_float64(-1.0, 1.0), 1.0, num_output_chans, 0)
-            out_az2 = self.tgrains2.next_pan_az[num_simd_chans=num_simd_chans](self.buffer, 1, impulse, start_frame, 0.4, random_float64(-1.0, 1.0), 1.0, num_output_chans, 1)
+            # out_az1 = self.tgrains.next_pan_az[num_simd_chans=num_simd_chans](self.buffer, 1, impulse, start_frame, 0.4, random_float64(-1.0, 1.0), 1.0, num_output_chans, 0)
+            # out_az2 = self.tgrains2.next_pan_az[num_simd_chans=num_simd_chans](self.buffer, 1, impulse, start_frame, 0.4, random_float64(-1.0, 1.0), 1.0, num_output_chans, 1)
   
-            return out_az1 + out_az2
+            # return out_az1 + out_az2

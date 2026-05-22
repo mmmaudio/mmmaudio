@@ -8,7 +8,7 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
     Struct for high-quality audio resampling using sinc interpolation. This struct precomputes a sinc table and provides methods for performing sinc interpolation
     on audio data with adjustable ripples and table size. It is used in Osc for resampling oscillator signals.
 
-    As a user, you won't need to interact with this struct directly. Instead use the [ListInterpolator](Buffer.md#struct-listinterpolator) struct.
+    As a user, you won't need to interact with this struct directly. Instead use the [ListInterpolator](Buffer.md#struct-spaninterpolator) struct.
 
     Parameters:
         ripples: Number of ripples in the sinc function, affecting interpolation quality.

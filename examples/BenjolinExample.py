@@ -24,7 +24,13 @@ def add_handle(layout, mmm_audio, name: str, min: float, max: float, exp: float,
 
 def main():
     # instantiate and load the graph
-    mmm_audio = MMMAudio(128, graph_name="BenjolinExample", package_name="examples")
+    mmm_audio = MMMAudio(
+        blocksize=128, 
+        graph_name="BenjolinExample", 
+        package_name="examples", 
+        in_device=None, 
+        out_device="default"
+        )
     mmm_audio.start_audio()
 
     app = QApplication([])

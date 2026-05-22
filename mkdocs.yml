@@ -43,12 +43,14 @@ nav:
     - API Reference: api/index.md
     - Contributing: contributing/index.md
     - Examples: examples/index.md
+    - Join the Forum: https://mmmaudio.discourse.group/
   - Getting Started:
     - Getting Started: getting_started/index.md
   - API Reference:
     - Overview: api/index.md
     - Core DSP: 
       - Analysis: api/Analysis.md
+      - Buffer Analysis: api/BufAnalysis.md
       - Buffer: api/Buffer.md
       - BufferedProcess: api/BufferedProcess.md
       - Data: api/Data.md
@@ -57,6 +59,7 @@ nav:
       - Env: api/Envelopes.md
       - FFT: api/FFTs.md
       - FFTProcess: api/FFTProcess.md
+      - FFT Processes: api/FFT_Processes.md
       - Filters: api/Filters.md
       - MLP Mojo: api/MLP.md
       - MLP PyTorch: api/MLP_Python.md
@@ -67,7 +70,7 @@ nav:
       - Play: api/Player.md
       - Polyphony: api/Polyphony.md
       - Recorder: api/Recorder.md
-      - Reverb: api/Reverbs.md
+      - Reverbs & Delay FX: api/ReverbsDelayFX.md
       - Utilities: api/functions.md
       - Sinc Interpolation: api/SincInterpolator.md
     - Core Framework:
@@ -82,17 +85,15 @@ nav:
       - Windows: api/Windows.md
       - Print: api/Print.md
       - GUIs: api/GUI.md
-      - RisingBoolDetector: api/RisingBoolDetector.md
+      - Mojo Boolean Tests: api/BooleanTests.md
       - OSC Messaging: api/OSCServer.md
-      - Python Functions: api/python_utils.md
-      - Python FFT: api/fft.md
   # - Examples nav tree is built dynamically from the examples directory
   - Contributing:
     - Overview: contributing/index.md
     - Documentation Guide: contributing/documentation.md
     - Roadmap: contributing/Roadmap.md
     - Testing: contributing/testing.md
-
+  - Join the Forum: https://mmmaudio.discourse.group/
 
 markdown_extensions:
   - admonition

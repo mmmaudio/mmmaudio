@@ -191,7 +191,7 @@ class OSCServer:
         
         Args:
             target_name (str): Name of a registered target.
-            address (str): OSC address pattern.
+            key (str): OSC address pattern.
             *args: Values to send with the message.
             
         Example:

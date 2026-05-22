@@ -191,7 +191,6 @@ def lincurve(
                curve = 0: linear
                curve > 0: exponential-like (slow start, steep end)
                curve < 0: logarithmic-like (steep start, slow end)
-        clip: If True, clamp input to [in_min, in_max]
     
     Returns:
         Curved output value
@@ -245,7 +244,6 @@ def curvelin(
                curve = 0: linear
                curve > 0: undoes exponential curve
                curve < 0: undoes logarithmic curve
-        clip: If True, clamp input to [in_min, in_max]
     
     Returns:
         Linearized output value
@@ -337,9 +335,6 @@ def dbamp(db: float) -> float:
     """Converts decibel values to amplitude.
 
     amplitude = 10^(dB/20).
-
-    Parameters:
-        width: Size of the SIMD vector. This parameter is inferred by the values passed to the function.
 
     Args:
         db: The decibel values to convert.

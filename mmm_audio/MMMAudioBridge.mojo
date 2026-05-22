@@ -11,6 +11,7 @@ from mmm_audio import *
 from examples.Grains import Grains
 
 # this is needed to make the module importable in Python - so simple!
+@doc_hidden
 @export
 def PyInit_GrainsBridge() -> PythonObject:
     try:
