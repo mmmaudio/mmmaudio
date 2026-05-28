@@ -92,7 +92,7 @@ struct Freeverb[num_chans: Int = 1](Movable, Copyable):
 
 comptime dattoro_sr = 29761.
 
-struct DattorroReverb[interp: Int = Interp.none](Movable, Copyable):
+struct DattorroReverb[interp: Interp = Interp.none](Movable, Copyable):
   """Dattorro reverb algorithm created by Jon Dattorro in his classic paper "Effect Design Part 1: Reverberator and Other Filters".
   
   Parameters:
@@ -285,7 +285,7 @@ struct Phaser[num_chans: Int = 1, stages: Int = 8](Movable, Copyable):
         return (allpass_out * wet_dry[0]) + (input * wet_dry[1])
 
 
-struct Flanger[num_chans: Int = 1, interp: Int = Interp.lagrange4](Movable, Copyable):
+struct Flanger[num_chans: Int = 1, interp: Interp = Interp.lagrange4](Movable, Copyable):
     """A flanger effect implemented as a single comb filter with the delay time modulated by an LFO.
 
     Parameters:

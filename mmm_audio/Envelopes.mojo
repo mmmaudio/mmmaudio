@@ -88,7 +88,7 @@ struct Env(Movable, Copyable):
         else:
             self.freq = 0.0
 
-    def next[win_type: Int = WindowType.none, interp: Int = Interp.none](mut self, trig: Bool = True) -> Float64:
+    def next[win_type: Int = WindowType.none, interp: Interp = Interp.none](mut self, trig: Bool = True) -> Float64:
          """Generate the next envelope value. Uses the internal `params` struct for envelope parameters. See `EnvParams` for more details on the parameters. Uses an internal phasor to track the progression of the envelope, which is reset on each trigger.
 
         Parameters:
@@ -135,7 +135,7 @@ struct Env(Movable, Copyable):
         
         return env
 
-    def next[win_type: Int = WindowType.none, interp: Int = Interp.linear](mut self, trig: Bool, phase: MFloat[1]) -> MFloat[1]:
+    def next[win_type: Int = WindowType.none, interp: Interp = Interp.linear](mut self, trig: Bool, phase: MFloat[1]) -> MFloat[1]:
         """Generate the next envelope value with a provided phase rather than using the internal phasor. Works well with a Line UGen. Uses the internal `params` struct for envelope parameters. See `EnvParams` for more details on the parameters.
 
         Parameters:
@@ -177,7 +177,7 @@ struct Env(Movable, Copyable):
         return clip(self.sweep.phase, 0.0, 1.0)
 
     @staticmethod
-    def get_env_buffer[num_chans: Int = 1, win_type: Int = WindowType.none, interp: Int = Interp.linear](world: World, size: Int, *env_defs: EnvParams) -> SIMDBuffer[num_chans]:
+    def get_env_buffer[num_chans: Int = 1, win_type: Int = WindowType.none, interp: Interp = Interp.linear](world: World, size: Int, *env_defs: EnvParams) -> SIMDBuffer[num_chans]:
         """Get a SIMDBuffer of envelope values.
 
         Args:
@@ -200,7 +200,7 @@ struct Env(Movable, Copyable):
                 buffer.data[j][i] = env.next[win_type, interp](True, phase)
         return buffer^
 
-def win_read[window_type: Int = WindowType.sine, interp: Int = Interp.none](world: World, phase: MFloat[1]) -> MFloat[1]:
+def win_read[window_type: Int = WindowType.sine, interp: Interp = Interp.none](world: World, phase: MFloat[1]) -> MFloat[1]:
     """Reads a window function from MMMWorld's default Window by indexing into it with the provided phase.
 
     Parameters:
@@ -218,7 +218,7 @@ def win_read[window_type: Int = WindowType.sine, interp: Int = Interp.none](worl
     val = temp[].at_phase[window_type, interp](world, phase)
     return val
 
-def buf_read[num_chans: Int, interp: Int = Interp.linear, bWrap: Bool = True](world: World, env_buffer: SIMDBuffer[num_chans], phase: MFloat[1], prev_phase: MFloat[1] = 0.0) -> MFloat[num_chans]:
+def buf_read[num_chans: Int, interp: Interp = Interp.linear, bWrap: Bool = True](world: World, env_buffer: SIMDBuffer[num_chans], phase: MFloat[1], prev_phase: MFloat[1] = 0.0) -> MFloat[num_chans]:
     """Reads a buffer by indexing into it with the provided phase.
 
     Args:
@@ -247,7 +247,7 @@ def buf_read[num_chans: Int, interp: Int = Interp.linear, bWrap: Bool = True](wo
     return val
 
 # min_env is just a function, not a struct
-def min_env[win_type: Int = WindowType.none, interp: Int = Interp.none](world: World, phase: MFloat[1] = 0.0, ramp_amount: MFloat[1] = 0.01) -> MFloat[1]:
+def min_env[win_type: Int = WindowType.none, interp: Interp = Interp.none](world: World, phase: MFloat[1] = 0.0, ramp_amount: MFloat[1] = 0.01) -> MFloat[1]:
     """Simple envelope.
 
     Envelope that creates a simple trapezoidal envelope with linear ramps. The attack and release ramps are determined by the `ramp_amount` parameter.
@@ -301,7 +301,7 @@ struct ASREnv(Movable, Copyable):
         self.eoc_rbd = RisingBoolDetector() 
         self.world = world
 
-    def next[win_type: Int = WindowType.none, interp: Int = Interp.none](mut self, attack: Float64, sustain: Float64, release: Float64, gate: Bool, curve: MFloat[2] = 1) -> Float64:
+    def next[win_type: Int = WindowType.none, interp: Interp = Interp.none](mut self, attack: Float64, sustain: Float64, release: Float64, gate: Bool, curve: MFloat[2] = 1) -> Float64:
         """Simple ASR envelope generator.
         
         Parameters:

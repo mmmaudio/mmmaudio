@@ -181,7 +181,7 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
         self.read_head = (self.read_head + 1) % self.window_size
         return outval
 
-    def next_from_buffer[interp: Int = Interp.none, bWrap: Bool = False](mut self, ref buffer: SIMDBuffer[1], phase: Float64, chan: Int = 0) -> Float64:
+    def next_from_buffer[interp: Interp = Interp.none, bWrap: Bool = False](mut self, ref buffer: SIMDBuffer[1], phase: Float64, chan: Int = 0) -> Float64:
         """Used for non-real-time, buffer-based, processing. At the onset of the next window, reads a block of window_size samples from the provided buffer, starting at the given phase and channel. Phase values between zero and one will read samples within the provided buffer. If the provided phase tries to read samples with an index below zero or above the duration of the buffer, zeros will be returned.
 
         Args:
@@ -226,7 +226,7 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
         self.read_head = (self.read_head + 1) % self.window_size
         return outval
 
-    def next_from_stereo_buffer[interp: Int = Interp.none, bWrap: Bool = False](mut self, ref buffer: SIMDBuffer[2], phase: Float64) -> SIMD[DType.float64,2]:
+    def next_from_stereo_buffer[interp: Interp = Interp.none, bWrap: Bool = False](mut self, ref buffer: SIMDBuffer[2], phase: Float64) -> SIMD[DType.float64,2]:
         """Used for non-real-time, buffer-based, processing of stereo files. At the onset of the next window, reads a window_size block of samples from the provided buffer, starting at the given phase and channel. Phase values between zero and one will read samples within the provided buffer. If the provided phase results in reading samples with an index below zero or above the duration of the buffer, zeros will be returned.
 
         Args:

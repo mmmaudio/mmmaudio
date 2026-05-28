@@ -154,7 +154,7 @@ struct Impulse[num_chans: Int = 1, os_index: Int = 0](Movable, Copyable):
 
         return self.phasor.next_impulse(freq, phase_offset, trig)
 
-struct Osc[num_chans: Int = 1, interp: Int = Interp.linear, os_index: Int = 0](Movable, Copyable):
+struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, os_index: Int = 0](Movable, Copyable):
     """Wavetable Oscillator Core.
 
     A wavetable oscillator capable of all standard waveforms and also able to load custom wavetables. Capable of linear, cubic, quadratic, lagrange, or sinc interpolation. Also capable of [Oversampling](Oversampling.md).
@@ -676,7 +676,7 @@ struct TTrig(Movable, Copyable):
             self.counter = Int(time * self.world[].sample_rate)
         return self.next(False, 0)
 
-struct LFNoise[num_chans: Int = 1, interp: Int = Interp.cubic](Movable, Copyable):
+struct LFNoise[num_chans: Int = 1, interp: Interp = Interp.cubic](Movable, Copyable):
     """Low-frequency interpolating noise generator generating numbers between -1.0 and 1.0. With stepped (none), linear, or cubic interpolation.
 
     Parameters:
@@ -866,7 +866,7 @@ struct OscBuffers(Movable, Copyable):
     var buffers: List[List[Float64]]
     var basic_waveforms: List[MFloat[4]]
 
-    def at_phase[osc_type: Int, interp: Int = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0) -> Float64:
+    def at_phase[osc_type: Int, interp: Interp = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0) -> Float64:
         comptime if osc_type < 4 and osc_type >= 0:
             return SpanInterpolator.read[
                 interp=interp,
@@ -881,7 +881,7 @@ struct OscBuffers(Movable, Copyable):
         else:
             return 0.0
 
-    def at_phase_basic_waveform[osc_type: Int, interp: Int = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0) -> MFloat[4]:
+    def at_phase_basic_waveform[osc_type: Int, interp: Interp = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0) -> MFloat[4]:
         return SpanInterpolator.read[
             num_chans = 4,
             interp=interp,

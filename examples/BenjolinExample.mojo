@@ -13,11 +13,11 @@ struct Benjolin(Movable, Copyable):
     var m: Messenger
     var feedback: Float64
     var rungler: Float64
-    var tri1: Osc[interp=2,os_index=1]
-    var tri2: Osc[interp=2,os_index=1]
-    var pulse1: Osc[interp=2,os_index=1]
-    var pulse2: Osc[interp=2,os_index=1]
-    var delays: List[Delay[1,3]]
+    var tri1: Osc[interp=Interp.quad,os_index=1]
+    var tri2: Osc[interp=Interp.quad,os_index=1]
+    var pulse1: Osc[interp=Interp.quad,os_index=1]
+    var pulse2: Osc[interp=Interp.quad,os_index=1]
+    var delays: List[Delay[1,Interp.cubic]]
     var latches: List[Latch[]]
     var filters: List[SVF[]]
     var filter_outputs: List[Float64]
@@ -44,11 +44,11 @@ struct Benjolin(Movable, Copyable):
         self.m = Messenger(self.world)
         self.feedback = 0.0
         self.rungler = 0.0
-        self.tri1 = Osc[interp=2,os_index=1](self.world)
-        self.tri2 = Osc[interp=2,os_index=1](self.world)
-        self.pulse1 = Osc[interp=2,os_index=1](self.world)
-        self.pulse2 = Osc[interp=2,os_index=1](self.world)
-        self.delays = List[Delay[1,3]](capacity=8)
+        self.tri1 = Osc[interp=Interp.quad,os_index=1](self.world)
+        self.tri2 = Osc[interp=Interp.quad,os_index=1](self.world)
+        self.pulse1 = Osc[interp=Interp.quad,os_index=1](self.world)
+        self.pulse2 = Osc[interp=Interp.quad,os_index=1](self.world)
+        self.delays = List[Delay[1,Interp.cubic]](capacity=8)
         self.latches = List[Latch[]](capacity=8)
         self.filters = List[SVF[]](capacity=9)
         self.filter_outputs = List[Float64](capacity=9)
@@ -71,7 +71,7 @@ struct Benjolin(Movable, Copyable):
         self.outSignalR = 3
 
         for _ in range(8):
-            self.delays.append(Delay[1,3](self.world, max_delay_time=0.1))
+            self.delays.append(Delay[1,Interp.cubic](self.world, max_delay_time=0.1))
             self.latches.append(Latch())
 
         for _ in range(9):

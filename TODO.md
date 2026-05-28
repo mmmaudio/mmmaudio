@@ -18,7 +18,7 @@
 * The interpolation `fn`s are not owned by anything. They will live in `.functions`. They get called as `fn`s in `Player`
 * trait `Playable`
   * `def __getitem__`
-  * `def at_phase[interp: Int = Interp.none]` for convenience re: windowing, etc.
+  * `def at_phase[interp: Interp = Interp.none]` for convenience re: windowing, etc.
 * struct `Buffer` is for loading sound files and VWTs.
   * `var sample_rate`
 * struct `OscBuffer` will hold wavetables 2^14 in size
