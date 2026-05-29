@@ -246,7 +246,7 @@ struct SpanInterpolator(Movable, Copyable):
     # a reference to the MMMWorld is not needed for every read call.
     @always_inline
     @staticmethod
-    def read[num_chans: Int = 1, interp: Int = Interp.none, bWrap: Bool = True, mask: Int = 0](world: World, data: Span[MFloat[num_chans], ...], f_idx: Float64, prev_f_idx: Float64 = 0.0) -> MFloat[num_chans]:
+    def read[num_chans: Int = 1, interp: Interp = Interp.none, bWrap: Bool = True, mask: Int = 0](world: World, data: Span[MFloat[num_chans], ...], f_idx: Float64, prev_f_idx: Float64 = 0.0) -> MFloat[num_chans]:
         """Read a value from a Span[MFloat[num_chans], ...] using provided index and interpolation method, which is determined at compile time.
         
         Parameters:

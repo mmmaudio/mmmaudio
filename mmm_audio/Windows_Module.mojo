@@ -21,7 +21,7 @@ struct Windows(Movable, Copyable):
         self.kaiser = kaiser_window(self.size, 5.0)
         self.pan2 = pan2_window(256)
 
-    def at_phase[window_type: Int,interp: Int = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0.0) -> Float64:
+    def at_phase[window_type: Int,interp: Interp = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0.0) -> Float64:
         """Get window value at given phase (0.0 to 1.0) for specified window type."""
 
         comptime if window_type == WindowType.hann:

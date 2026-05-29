@@ -129,29 +129,36 @@ struct MMMWorld(Movable, Copyable):
 # ========================================
 # once Mojo has enums, these will probably be converted to enums
 
-struct Interp:
+@fieldwise_init
+struct Interp(Equatable, ImplicitlyCopyable):
     """Interpolation types for use in various UGens.
 
     Specify an interpolation type by typing it explicitly.
-    For example, to specify linear interpolation, one could use the number `1`, 
-    but it is clearer to type `Interp.linear`.
 
-    | Interpolation Type | Value | Notes                                        |
-    | ------------------ | ----- | -------------------------------------------- |
-    | Interp.none        | 0     |                                              |
-    | Interp.linear      | 1     |                                              |
-    | Interp.quad        | 2     |                                              |
-    | Interp.cubic       | 3     |                                              |
-    | Interp.lagrange4   | 4     |                                              |
-    | Interp.sinc        | 5     | Should only be used with oscillators         |
+    | Interpolation Type | Notes                                       |
+    | ------------------ | ------------------------------------------- |
+    | Interp.none        |                                             |
+    | Interp.linear      |                                             |
+    | Interp.quad        |                                             |
+    | Interp.cubic       |                                             |
+    | Interp.lagrange4   |                                             |
+    | Interp.sinc        | Should only be used with oscillators        |
     
     """
-    comptime none: Int = 0
-    comptime linear: Int = 1
-    comptime quad: Int = 2
-    comptime cubic: Int = 3
-    comptime lagrange4: Int = 4
-    comptime sinc: Int = 5
+    var _value: Int
+
+    comptime none = Interp(0)
+    comptime linear = Interp(1)
+    comptime quad = Interp(2)
+    comptime cubic = Interp(3)
+    comptime lagrange4 = Interp(4)
+    comptime sinc = Interp(5)
+
+    def __eq__(self, other: Self) -> Bool:
+        return self._value == other._value
+
+    def __ne__(self, other: Self) -> Bool:
+        return not (self == other)
 
 struct WindowType:
     """Window types for predefined windows found in world[].windows.

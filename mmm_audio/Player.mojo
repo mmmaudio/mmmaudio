@@ -30,7 +30,7 @@ struct Play(Movable, Copyable):
         self.reset_phase_point = 0.0
         self.phase_offset = 0.0
 
-    def next[num_chans: Int = 1, interp: Int = Interp.linear, bWrap: Bool = False](mut self, buf: SIMDBuffer[num_chans], rate: Float64 = 1, loop: Bool = True, trig: Bool = True, start_frame: Int = 0, var num_frames: Int = -1) -> MFloat[num_chans]: 
+    def next[num_chans: Int = 1, interp: Interp = Interp.linear, bWrap: Bool = False](mut self, buf: SIMDBuffer[num_chans], rate: Float64 = 1, loop: Bool = True, trig: Bool = True, start_frame: Int = 0, var num_frames: Int = -1) -> MFloat[num_chans]: 
         """Get the next sample from a SIMD audio buf (SIMDBuffer). The internal phasor is advanced according to the specified rate. If a trigger is received, playback starts at the specified start_frame. If looping is enabled, playback will loop back to the start when reaching the end of the specified num_frames. A key difference between SIMDBuffer and Buffer is that calling next on a SIMDBuffer always returns the entire SIMD vector of samples for the current phase, whereas with Buffer, you can specify the number of channels to read.
 
         Parameters:
@@ -89,7 +89,7 @@ struct Play(Movable, Copyable):
 
     @doc_hidden
     @always_inline
-    def get_sample[num_chans: Int, interp: Int, bWrap: Bool = False](self, buf: SIMDBuffer[num_chans], prev_phase: Float64) -> MFloat[num_chans]:
+    def get_sample[num_chans: Int, interp: Interp, bWrap: Bool = False](self, buf: SIMDBuffer[num_chans], prev_phase: Float64) -> MFloat[num_chans]:
         f_idx = ((self.impulse.phase + self.phase_offset)) * buf.num_frames_f64
         out = SpanInterpolator.read[num_chans, interp=interp,bWrap=bWrap](
                 world=self.world,
@@ -100,7 +100,7 @@ struct Play(Movable, Copyable):
         return out
 
     @always_inline
-    def next[num_chans: Int = 1, interp: Int = Interp.linear, bWrap: Bool = False](mut self, buf: Buffer, rate: Float64 = 1, loop: Bool = True, trig: Bool = True, start_frame: Int = 0, var num_frames: Int = -1, start_chan: Int = 0) -> MFloat[num_chans]: 
+    def next[num_chans: Int = 1, interp: Interp = Interp.linear, bWrap: Bool = False](mut self, buf: Buffer, rate: Float64 = 1, loop: Bool = True, trig: Bool = True, start_frame: Int = 0, var num_frames: Int = -1, start_chan: Int = 0) -> MFloat[num_chans]: 
         """Get the next sample from an audio buf (Buffer). The internal phasor is advanced according to the specified rate. If a trigger is received, playback starts at the specified start_frame. If looping is enabled, playback will loop back to the start when reaching the end of the specified num_frames.
 
         Parameters:
@@ -158,7 +158,7 @@ struct Play(Movable, Copyable):
 
     @doc_hidden
     @always_inline
-    def get_sample[num_chans: Int, interp: Int, bWrap: Bool = False](self, buf: Buffer, prev_phase: Float64, start_chan: Int) -> MFloat[num_chans]:
+    def get_sample[num_chans: Int, interp: Interp, bWrap: Bool = False](self, buf: Buffer, prev_phase: Float64, start_chan: Int) -> MFloat[num_chans]:
         
         out = MFloat[num_chans](0.0)
         comptime for out_chan in range(num_chans):

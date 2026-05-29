@@ -6,10 +6,10 @@ from mmm_audio import *
 struct TestOscOversampling(Movable, Copyable):
     var world: World
     var osc: Osc[]
-    var osc1: Osc[1,1,1]
-    var osc2: Osc[1,1,2]
-    var osc3: Osc[1,1,3]
-    var osc4: Osc[1,1,4]
+    var osc1: Osc[1,Interp.linear,1]
+    var osc2: Osc[1,Interp.linear,2]
+    var osc3: Osc[1,Interp.linear,3]
+    var osc4: Osc[1,Interp.linear,4]
     var which: Float64
     var messenger: Messenger
     var lag: Lag[]
@@ -17,10 +17,10 @@ struct TestOscOversampling(Movable, Copyable):
     def __init__(out self, world: World):
         self.world = world
         self.osc = Osc(world)
-        self.osc1 = Osc[1,1,1](world)
-        self.osc2 = Osc[1,1,2](world)
-        self.osc3 = Osc[1,1,3](world)
-        self.osc4 = Osc[1,1,4](world)
+        self.osc1 = Osc[1,Interp.linear,1](world)
+        self.osc2 = Osc[1,Interp.linear,2](world)
+        self.osc3 = Osc[1,Interp.linear,3](world)
+        self.osc4 = Osc[1,Interp.linear,4](world)
         self.which = 0.0
         self.messenger = Messenger(world)
         self.lag = Lag(world, 0.1)
