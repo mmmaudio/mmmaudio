@@ -2,7 +2,7 @@ from mmm_audio import *
 
 struct PAF[
     num_chans: Int = 1,
-    interp: Int = Interp.linear,
+    interp: Interp = Interp.linear,
     os_index: Int = 0,
     wrap_gaussian: Bool = False,
 ](Copyable, Movable):
@@ -74,12 +74,6 @@ struct PAF[
             The next sample of the synthesizer output.
         """
         fund = self.lag.next(fundamental)
-        cos1 = MFloat[Self.num_chans](0.0)
-        cos2 = MFloat[Self.num_chans](0.0)
-        sin = MFloat[Self.num_chans](0.0)
-        gaussian_phase = MFloat[Self.num_chans](0.0)
-        gaussian = MFloat[Self.num_chans](0.0)
-        mod = MFloat[Self.num_chans](0.0)
         out = MFloat[Self.num_chans](0.0)
 
         a = center_freq / fund
@@ -90,32 +84,31 @@ struct PAF[
 
             cos1_phase = phasor * (a - b)
             cos2_phase = cos1_phase + phasor
-            for chan in range(Self.num_chans):
-                cos1[chan] = self.cos1.next(
-                    freq=0, phase_offset=cos1_phase[chan] + 0.25
-                )[chan]
+            cos1 = self.cos1.next(
+                freq=0, phase_offset=cos1_phase + 0.25
+            )
 
-                cos2[chan] = self.cos2.next(
-                    freq=0, phase_offset=cos2_phase[chan] + 0.25
-                )[chan]
+            cos2 = self.cos2.next(
+                freq=0, phase_offset=cos2_phase + 0.25
+            )
 
-                sin[chan] = self.sin.at_phase[
-                    window_type=WindowType.sine, interp=Self.interp
-                ](self.world, phasor[chan], self.sin_last_phase[chan])
+            sin = self.sin.at_phase[
+                window_type=WindowType.sine, interp=Self.interp
+            ](self.world, phasor, self.sin_last_phase)
 
-                gaussian_phase[chan] = (
-                    sin[chan] * ((bandwidth[chan] / fund[chan]) * 0.25)
-                ) + 0.5
+            gaussian_phase = (
+                sin * ((bandwidth / fund) * 0.25)
+            ) + 0.5
 
-                gaussian[chan] = self.gaussian.at_phase[
-                    window_type=WindowType.gaussian, interp=Self.interp
-                ](self.world, gaussian_phase[chan], self.gauss_last_phase[chan])
+            gaussian = self.gaussian.at_phase[
+                window_type=WindowType.gaussian, interp=Self.interp
+            ](self.world, gaussian_phase, self.gauss_last_phase)
 
-                mod[chan] = ((cos2[chan] - cos1[chan]) * b[chan]) + cos1[chan]
-                out[chan] = mod[chan] * gaussian[chan]
-                self.gauss_last_phase[chan] = gaussian_phase[chan]
-                self.sin_last_phase[chan] = phasor[chan]
-                self.cos1_last_phase[chan] = cos1_phase[chan]
+            mod = ((cos2 - cos1) * b) + cos1
+            out = mod * gaussian
+            self.gauss_last_phase = gaussian_phase
+            self.sin_last_phase = phasor
+            self.cos1_last_phase = cos1_phase
 
             # add sample to oversampling buffer each iteration
             if self.os_index != 0:
