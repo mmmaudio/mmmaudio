@@ -50,13 +50,20 @@ pixi-kernel = ">=0.7.1,<0.8"
 # libhidapi = ">=0.15,<1"
 # pyaudio = "*"
 
+[target.osx-arm64.dependencies]
+cxx-compiler = "*"
+
 [pypi-dependencies]
 torch = ">=2.10.0, <3"
 pyautogui = ">=0.9.54, <0.10"
 python-osc = ">=1.9.3, <2"
-python-rtmidi = ">=1.5.8, <2"
+# python-rtmidi = ">=1.5.8, <2"
 hidapi = ">=0.15.0, <0.16"
 pyaudio = ">=0.2.14, <0.3"
 mkdocs-pdf = ">=0.1.2, <0.2"
 mkdocs-with-pdf = ">=0.9.3, <0.10"
 mkdocs-simple-hooks = ">=0.1.5, <0.2"
+
+[tasks]
+build = "pip install python-rtmidi --no-binary :all: -v"
+test = { cmd = "python -c \"import rtmidi; print(rtmidi.API_LINUX_ALSA)\"", depends-on = ["build"] }
