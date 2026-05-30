@@ -5,6 +5,9 @@ name = "MMMAudio"
 platforms = ["osx-arm64"]
 version = "0.0.0"
 
+[tasks]
+build-rtmidi = "pip install python-rtmidi --no-binary :all: -v"
+
 [tasks.validate]
 args = [
   { "arg" = "plots", "default" = "" }
@@ -32,6 +35,7 @@ numpy = ">=2.3.5,<3"
 scipy = ">=1.17.0,<2"
 librosa = ">=0.11.0,<0.12"
 python = "3.13.*"
+pip = "*"
 mido = ">=1.2.10,<2"
 matplotlib = ">=3.10.8,<4"
 pyside6 = ">=6.10.2,<7"
@@ -50,11 +54,14 @@ pixi-kernel = ">=0.7.1,<0.8"
 # libhidapi = ">=0.15,<1"
 # pyaudio = "*"
 
+[target.osx-arm64.dependencies]
+cxx-compiler = "*"
+
 [pypi-dependencies]
 torch = ">=2.10.0, <3"
 pyautogui = ">=0.9.54, <0.10"
 python-osc = ">=1.9.3, <2"
-python-rtmidi = ">=1.5.8, <2"
+# python-rtmidi = ">=1.5.8, <2"
 hidapi = ">=0.15.0, <0.16"
 pyaudio = ">=0.2.14, <0.3"
 mkdocs-pdf = ">=0.1.2, <0.2"
