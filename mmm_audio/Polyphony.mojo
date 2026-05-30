@@ -326,15 +326,15 @@ trait GrainObject(PolyObject):
         """An __init__ with this layout must be implemented for the GrainObject trait."""
         ...
 
-    def next_2[num_buf_chans: Int, num_playback_chans: Int = 2, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans]) -> MFloat[2]:
+    def next_2[num_buf_chans: Int, num_playback_chans: Int = 2, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans]) -> MFloat[2]:
         """This is the function to create if you want to output 2 channels using pan2 or pan_stereo."""
         return 0.0
 
-    def next_az[num_buf_chans: Int, num_out_chans: Int, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans], buffer_chan: Int = 0, num_speakers: Int = 2, width: Float64 = 2.0, orientation: Float64 = 0.5) -> MFloat[num_out_chans]:
+    def next_az[num_buf_chans: Int, num_out_chans: Int, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans], buffer_chan: Int = 0, num_speakers: Int = 2, width: Float64 = 2.0, orientation: Float64 = 0.5) -> MFloat[num_out_chans]:
         """This is the function to create if you want to output more than 2 channels using azimuth panning. This will only pan 1 buffer channel."""
         return 0.0
 
-    def next_all[num_chans: Int, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_chans]) -> MFloat[num_chans]:
+    def next_all[num_chans: Int, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_chans]) -> MFloat[num_chans]:
         """This is the function to create if you want to output all channels of the buffer with no panning."""
         return 0.0
 
@@ -432,7 +432,7 @@ struct GrainAll(GrainObject):
         self.gain = gain
         self.pan = pan
 
-    def next_all[num_chans: Int, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_chans]) -> MFloat[num_chans]:
+    def next_all[num_chans: Int, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_chans]) -> MFloat[num_chans]:
         """Get the next sample of the grain. This function returns all channels of the buffer with no panning.
 
         Parameters:
@@ -519,7 +519,7 @@ struct Grain(GrainObject):
         self.grain.set_vals(rate, start_frame, duration, pan, gain)
         self.start_chan = start_chan
 
-    def next_2[num_buf_chans: Int, num_playback_chans: Int = 2, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans]) -> MFloat[2]:
+    def next_2[num_buf_chans: Int, num_playback_chans: Int = 2, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans]) -> MFloat[2]:
         """Get the next sample of the grain as a stereo signal with panning.
 
         Parameters:
@@ -542,7 +542,7 @@ struct Grain(GrainObject):
             panned = pan_stereo(MFloat[2](sample[self.start_chan], sample[(self.start_chan + 1) % buffer.get_num_chans()]), self.grain.pan) 
             return panned
 
-    def next_az[num_buf_chans: Int, num_out_chans: Int = 2, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans], buffer_chan: Int = 0, num_speakers: Int = 2, width: Float64 = 2.0, orientation: Float64 = 0.5) -> MFloat[num_out_chans]:
+    def next_az[num_buf_chans: Int, num_out_chans: Int = 2, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans], buffer_chan: Int = 0, num_speakers: Int = 2, width: Float64 = 2.0, orientation: Float64 = 0.5) -> MFloat[num_out_chans]:
         """Get the next sample of the grain as a multi-channel signal with azimuth panning. This only pans 1 channel of the buffer, specified by buffer_chan. See next_2 for param/arg descriptions and pan_az for details on the panning parameters.
         """
         var sample = self.grain.next_all[win_type=win_type, bWrap=bWrap](buffer)
@@ -551,13 +551,13 @@ struct Grain(GrainObject):
 
         return panned
 
-    def next_all[num_chans: Int, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_chans]) -> MFloat[num_chans]:
+    def next_all[num_chans: Int, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_chans]) -> MFloat[num_chans]:
         """Get the next sample of the grain with no panning. This returns all channels of the buffer. See next_2 for param/arg descriptions.
         """
         var sample = self.grain.next_all[win_type=win_type, bWrap=bWrap](buffer)
         return sample
 
-struct TGrains[T: GrainObject = Grain[], win_type: Int = WindowType.hann, custom_curve: Int = WindowType.none](Movable, Copyable):
+struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none](Movable, Copyable):
     """
     Triggered granular synthesis. Each trigger starts a new grain.
     """
@@ -695,7 +695,7 @@ struct TGrains[T: GrainObject = Grain[], win_type: Int = WindowType.hann, custom
                 out += self.grains[i].next_all[win_type=Self.win_type, custom_curve=Self.custom_curve, bWrap=bWrap](buffer)
         return out * gain
 
-struct PitchShift[num_chans: Int = 1, win_type: Int = WindowType.hann](Movable, Copyable):
+struct PitchShift[num_chans: Int = 1, win_type: WindowType = WindowType.hann](Movable, Copyable):
     """
     An N channel granular pitchshifter. Each channel is processed in parallel.
 

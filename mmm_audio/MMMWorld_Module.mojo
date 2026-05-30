@@ -154,45 +154,56 @@ struct Interp(Equatable, ImplicitlyCopyable):
     comptime lagrange4 = Interp(4)
     comptime sinc = Interp(5)
 
+    @doc_hidden
     def __eq__(self, other: Self) -> Bool:
         return self._value == other._value
 
+    @doc_hidden
     def __ne__(self, other: Self) -> Bool:
         return not (self == other)
 
-struct WindowType:
+@fieldwise_init
+struct WindowType(Equatable, ImplicitlyCopyable):
     """Window types for predefined windows found in world[].windows.
 
     Specify a window type by typing it explicitly.
-    For example, to specify a hann window, one could use the number `1`, 
-    but it is clearer to type `WindowType.hann`.
 
-    | Window Type         | Value |
-    | ------------------- | ----- |
-    | WindowType.none     | -1    |
-    | WindowType.rect     | 0     |
-    | WindowType.hann     | 1     |
-    | WindowType.hamming  | 2     |
-    | WindowType.blackman | 3     |
-    | WindowType.kaiser   | 4     |
-    | WindowType.sine     | 5     |
-    | WindowType.tri      | 6     |
-    | WindowType.pan2     | 7     |
-    | WindowType.gaussian | 8     |
-    | WindowType.user_defined | 9 | 
+    | Window Type         | 
+    | ------------------- |
+    | WindowType.none     | 
+    | WindowType.rect     | 
+    | WindowType.hann     | 
+    | WindowType.hamming  | 
+    | WindowType.blackman | 
+    | WindowType.kaiser   | 
+    | WindowType.sine     | 
+    | WindowType.tri      | 
+    | WindowType.pan2     | 
+    | WindowType.gaussian | 
+    | WindowType.user_defined |
     """
 
-    comptime none: Int = -1
-    comptime rect: Int = 0
-    comptime hann: Int = 1
-    comptime hamming: Int = 2
-    comptime blackman: Int = 3
-    comptime kaiser: Int = 4
-    comptime sine: Int = 5
-    comptime tri: Int = 6
-    comptime pan2: Int = 7
-    comptime gaussian: Int = 8
-    comptime user_defined: Int = 9
+    var _value: Int
+
+    comptime none = WindowType(0)
+    comptime rect = WindowType(1)
+    comptime hann = WindowType(2)
+    comptime hamming = WindowType(3)
+    comptime blackman = WindowType(4)
+    comptime kaiser = WindowType(5)
+    comptime sine = WindowType(6)
+    comptime tri = WindowType(7)
+    comptime pan2 = WindowType(8)
+    comptime gaussian = WindowType(9)
+    comptime user_defined = WindowType(10)
+
+    @doc_hidden
+    def __eq__(self, other: Self) -> Bool:
+        return self._value == other._value
+
+    @doc_hidden
+    def __ne__(self, other: Self) -> Bool:
+        return not (self == other)
 
 struct OscType:
     """Oscillator types for selecting waveform types.

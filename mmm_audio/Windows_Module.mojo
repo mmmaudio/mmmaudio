@@ -23,7 +23,7 @@ struct Windows(Movable, Copyable):
         self.pan2 = pan2_window(256)
         self.gaussian = gaussian_window(self.size)
 
-    def at_phase[num_chans: Int, window_type: Int, interp: Interp = Interp.none](self, world: World, phase: MFloat[num_chans], prev_phase: MFloat[num_chans] = 0.0) -> MFloat[num_chans]:
+    def at_phase[num_chans: Int, window_type: WindowType, interp: Interp = Interp.none](self, world: World, phase: MFloat[num_chans], prev_phase: MFloat[num_chans] = 0.0) -> MFloat[num_chans]:
         """Get window value at given phase (0.0 to 1.0) for specified window type."""
 
         out = MFloat[num_chans](0.0)
@@ -58,7 +58,7 @@ struct Windows(Movable, Copyable):
         return out
 
     @staticmethod
-    def make_window[window_type: Int](size: Int, beta: Float64 = 5.0) -> List[Float64]:
+    def make_window[window_type: WindowType](size: Int, beta: Float64 = 5.0) -> List[Float64]:
         """Generate a window of specified type and size.
         
         Parameters:

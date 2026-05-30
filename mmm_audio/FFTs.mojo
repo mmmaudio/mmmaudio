@@ -300,7 +300,7 @@ struct RealFFT[num_chans: Int = 1](Copyable, Movable):
         return freqs^
 
     @staticmethod
-    def buf_analysis[input_window_shape: Int = WindowType.hann](buf: Buffer, chan: Int,start_frame: Int, var num_frames: Int, window_size: Int, hop_size: Int) -> Tuple[List[List[Float64]], List[List[Float64]]]:
+    def buf_analysis[input_window_shape: WindowType = WindowType.hann](buf: Buffer, chan: Int,start_frame: Int, var num_frames: Int, window_size: Int, hop_size: Int) -> Tuple[List[List[Float64]], List[List[Float64]]]:
         """Compute the Short-Time Fourier Transform (STFT) of a buffer.
 
         Parameters:
