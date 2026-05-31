@@ -1370,7 +1370,8 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
     var num_peaks: Int
     var sort_by_freq: Bool
     var bin_freq: Float64
-    var top_n_indices: TopNIndices
+    var top_n_peaks: TopNPeaks
+    var output_peak_indices: List[Int]
     
     def get_features(self) -> List[Float64]:
         state = List[Float64]()
@@ -1399,17 +1400,18 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
         self.num_peaks = num_peaks
         self.sort_by_freq = sort_by_freq
         self.bin_freq = sample_rate / Float64(self.window_size)
-        self.top_n_indices = TopNIndices()
+        self.top_n_peaks = TopNPeaks()
+        self.output_peak_indices = List[Int](length=self.num_peaks, fill=0)
 
     def get_messages(mut self) -> None:
         pass
 
     def next_frame(mut self, mut mags: List[MFloat[]], mut phases: List[MFloat[]]) -> None:
-        ref top_N = self.top_n_indices.process(mags, self.num_peaks,self.thresh)
+        n_valid_peaks = self.top_n_peaks.process(mags, self.num_peaks, self.output_peak_indices, self.thresh)
 
         for i in range(self.num_peaks):
-            index = top_N[i]
-            if index > 0 and index < len(mags) - 1:
+            index = self.output_peak_indices[i]
+            if i < n_valid_peaks:
                 a_db = ampdb(MFloat[4](mags[index-1], mags[index], mags[index+1], 0.0))
                 val, mag = find_quadratic_peak(a_db[0], a_db[1], a_db[2])
                 offset = val - 1.0
