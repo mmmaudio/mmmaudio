@@ -52,7 +52,7 @@ trait FFTProcessable(Movable,Copyable, ImplicitlyDestructible):
     def get_messages(mut self) -> None:
         return None
 
-struct FFTProcess[T: FFTProcessable, ifft: Bool = True,input_window_shape: Int = WindowType.hann, output_window_shape: Int = WindowType.hann](Movable,Copyable):
+struct FFTProcess[T: FFTProcessable, ifft: Bool = True,input_window_shape: WindowType = WindowType.hann, output_window_shape: WindowType = WindowType.hann](Movable,Copyable):
     """Create an FFTProcess for audio manipulation in the frequency domain.
 
     Parameters:

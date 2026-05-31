@@ -79,7 +79,7 @@ struct GrainBPF(GrainObject):
 
     @always_inline
     # this is a stereo grain, but you can make a pan_az grain by making a .next_az function instead
-    def next_2[num_buf_chans: Int, num_playback_chans: Int = 1, win_type: Int = WindowType.hann, custom_curve: Int = WindowType.hann, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans]) -> MFloat[2]:
+    def next_2[num_buf_chans: Int, num_playback_chans: Int = 1, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.hann, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans]) -> MFloat[2]:
         
         # get all the channels from the grain
         var sample = self.grain.next_all[win_type=win_type, custom_curve=custom_curve, bWrap=bWrap](buffer)

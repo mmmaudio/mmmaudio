@@ -20,7 +20,7 @@ struct HilbertWindow(ComplexFFTProcessable):
         for i in range(1, self.window_size):
             complex[i] *= ComplexSIMD[DType.float64, 1](math.cos(self.radians), math.sin(self.radians))
 
-struct Hilbert[window_type: Int = WindowType.sine](Movable, Copyable):
+struct Hilbert[window_type: WindowType = WindowType.sine](Movable, Copyable):
     var world: World
     var hilbert: ComplexFFTProcess[HilbertWindow,True,Self.window_type,Self.window_type]
     var window_size: Int

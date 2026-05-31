@@ -60,7 +60,7 @@ trait ComplexFFTProcessable(Movable,Copyable, ImplicitlyDestructible):
     def get_messages(mut self) -> None:
         return None
 
-struct ComplexFFTProcess[T: ComplexFFTProcessable, ifft: Bool = True,input_window_shape: Int = WindowType.hann, output_window_shape: Int = WindowType.hann](Movable,Copyable):
+struct ComplexFFTProcess[T: ComplexFFTProcessable, ifft: Bool = True,input_window_shape: WindowType = WindowType.hann, output_window_shape: WindowType = WindowType.hann](Movable,Copyable):
     """Create an FFTProcess for audio manipulation in the frequency domain. This version will output and input complex frequency bins directly rather than magnitude and phase. This is currently untested.
 
     Parameters:
