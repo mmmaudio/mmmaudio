@@ -311,3 +311,71 @@ struct SplayN[num_channels: Int = 2, pan_points: Int = 128](Movable, Copyable):
             out += input[index0][index1] * self.mul_list[Int(Float64(i) / Float64(in_len - 1) * Float64(self.pan_points - 1))]
             
         return out
+
+
+# XBAP Algorithms
+
+
+@always_inline
+def dbap2D[simd_out_size: Int = 4, num_speakers: Int = 4, speaker_pos: InlineArray[MFloat[2], num_speakers] = [MFloat[2](0, 0)], weights: InlineArray[Float64, num_speakers] = 0](sample: Float64, pos: MFloat[2], blur: Float64 = 0.1, rolloff: Float64 = 6) -> MFloat[simd_out_size]:
+    """
+    Implements DBAP (Distance Based Amplitude Panning). Takes in a mono signal and produces a signal of arbitrary channel size.
+    For more on DBAP see the paper written by Trond Lossius, Pascal Baltazar, and Theo de la Hague.
+    https://jamoma.org/publications/attachments/icmc2009-dbap-rev1.pdf .
+
+    Parameters:
+        simd_out_size: The size of the MFloat vector out. Must be a power of 2.
+        num_speakers: The number of speakers as an integer. Must be <= simd_out_size.
+        speaker_pos: The speaker positions as an InlineArray of MFloat[2] x/y pairs in meters.
+        weights:  An InlineArray of Float64s defining speaker weights for DBAP.
+
+    Args:
+        sample: Mono input sample.
+        pos: X/Y position of the source in meters as an MFloat[2].
+        blur: Blur between speakers. Values > 0 spread the source to more speakers.
+        rolloff: The dB Rolloff (defaults to 6db).
+    
+    Returns:
+        MFloat[simd_out_size]: The panned output sample for each speaker.
+    """
+    # comptime simd_out_size = next_power_of_two(num_speakers) currently this is causing an error.
+    comptime vec_weights = array_to_mfloat[simd_out_size, weights]()
+    
+    var blur_sq = pow(blur, 2)
+
+    # Calculates the a coefficient given a rolloff in dB
+    var a = rolloff/6.02059991328
+
+   # Set dists to 1.0 by default to avoid divide by 0 when calculating k
+    var dists = MFloat[simd_out_size](1.0)
+ 
+    # Calculates the k coefficient and gets distances for every speaker from the source
+    for i in range(num_speakers):
+        speaker = speaker_pos[i]
+        xy = (speaker - pos) * (speaker - pos)
+        # y = pow(speaker[1] - pos[1], 2)
+        dists[i] = sqrt(xy.reduce_add() + blur_sq)  
+
+    k = 1/((vec_weights * vec_weights) / pow(dists, 2 * a)).reduce_add()
+
+    amps = (k * vec_weights) / pow(dists, a)
+    amps *= sample
+
+    return amps
+
+@always_inline  
+def array_to_mfloat[simd_out_size: Int = 4, array: InlineArray[Float64, _] = 0]() -> MFloat[simd_out_size]:
+    """
+    Creates an MFloat 2 vector of size 2^n from a given array. If the given array is not a power of two the additional vector values will be initialized to 0.
+    
+    Parameters:
+        simd_out_size: The size of the MFloat vector to be returned. Must be a power of two.
+        array: The source array. Its length must be less than or equal two simd_out_size.
+    
+    """
+    
+    new_vec = MFloat[simd_out_size](0)
+    for i in range(len(array)):
+        new_vec[i] = array[i]
+    return new_vec
+
