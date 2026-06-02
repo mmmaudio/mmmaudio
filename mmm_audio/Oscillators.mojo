@@ -597,6 +597,14 @@ struct LFOsc[num_chans: Int = 1] (Movable, Copyable):
             phase = self.phasor.next(freq, phase_offset, trig_mask)
             return sin(phase * two_pi)
 
+    def set_looped_times_oversampling(mut self, times_oversampling: Int):
+        """Sets times oversampling for the oscillator when it is used in an Oversampling loop. This is not for when using the oscillator with the built-in oversampling, but rather for when the oscillator is used as part of a custom oversampling implementation.
+
+        Args:
+            times_oversampling: The new oversampling multiplier (1 for no oversampling, 2 for 2x, 4 for 4x, etc.).
+        """
+        self.phasor.set_looped_times_oversampling(times_oversampling)
+
 struct Dust[num_chans: Int = 1] (Movable, Copyable):
     """A dust noise oscillator that generates random impulses at random intervals.
     
@@ -660,6 +668,14 @@ struct Dust[num_chans: Int = 1] (Movable, Copyable):
     def set_phase(mut self, phase: MFloat[self.num_chans]):
         self.impulse.phase = phase
 
+    def set_looped_times_oversampling(mut self, times_oversampling: Int):
+        """Sets times oversampling for the oscillator when it is used in an Oversampling loop. This is not for when using the oscillator with the built-in oversampling, but rather for when the oscillator is used as part of a custom oversampling implementation.
+
+        Args:
+            times_oversampling: The new oversampling multiplier (1 for no oversampling, 2 for 2x, 4 for 4x, etc.).
+        """
+        self.impulse.set_looped_times_oversampling(times_oversampling)
+
 
 struct TTrig(Movable, Copyable):
     """A trigger that outputs True for a specified number of samples or amount of time after receiving a trigger signal."""
@@ -709,7 +725,6 @@ struct LFNoise[num_chans: Int = 1, interp: Interp = Interp.cubic](Movable, Copya
         num_chans: Number of channels.
         interp: Interpolation method. Options are Interp.none (stepped), Interp.linear, Interp.cubic.
     """
-    var world: World  # Pointer to the MMMWorld instance
     var impulse: Phasor[Self.num_chans]
 
     # Cubic inerpolation only needs 4 points, but it needs to know the true previous point so the history
@@ -726,7 +741,6 @@ struct LFNoise[num_chans: Int = 1, interp: Interp = Interp.cubic](Movable, Copya
         Args:
             world: Pointer to the MMMWorld instance.
         """
-        self.world = world
         self.history_index = [0 for _ in range(self.num_chans)]
         self.impulse = Phasor[Self.num_chans](world)
         self.history = [MFloat[Self.num_chans](0.0) for _ in range(5)]
@@ -784,6 +798,14 @@ struct LFNoise[num_chans: Int = 1, interp: Interp = Interp.cubic](Movable, Copya
             # Cubic interpolation
             return cubic_interp(p0, p1, p2, p3, self.impulse.phase)
 
+    def set_looped_times_oversampling(mut self, times_oversampling: Int):
+        """Sets times oversampling for the oscillator when it is used in an Oversampling loop. This is not for when using the oscillator with the built-in oversampling, but rather for when the oscillator is used as part of a custom oversampling implementation.
+
+        Args:
+            times_oversampling: The new oversampling multiplier (1 for no oversampling, 2 for 2x, 4 for 4x, etc.).
+        """
+        self.impulse.set_looped_times_oversampling(times_oversampling)
+
 struct Sweep[num_chans: Int = 1](Movable, Copyable):
     """A phase accumulator.
     
@@ -828,6 +850,14 @@ struct Sweep[num_chans: Int = 1](Movable, Copyable):
         self.phase = resets.select(0.0, self.phase)
 
         return self.phase
+
+    def set_looped_times_oversampling(mut self, times_oversampling: Int):
+        """Sets times oversampling for the oscillator when it is used in an Oversampling loop. This is not for when using the oscillator with the built-in oversampling, but rather for when the oscillator is used as part of a custom oversampling implementation.
+
+        Args:
+            times_oversampling: The new oversampling multiplier (1 for no oversampling, 2 for 2x, 4 for 4x, etc.).
+        """
+        self.freq_mul = 1.0 / (self.world[].sample_rate * Float64(times_oversampling))
 
 struct Line[num_chans: Int = 1, linexpcurve: Int = 0](Movable, Copyable):
     """
@@ -882,6 +912,14 @@ struct Line[num_chans: Int = 1, linexpcurve: Int = 0](Movable, Copyable):
             return lincurve(self.phase, 0.0, 1.0, start, end, self.curve)
         else:
             return linlin(self.phase, 0.0, 1.0, start, end)
+
+    def set_looped_times_oversampling(mut self, times_oversampling: Int):
+        """Sets times oversampling for the oscillator when it is used in an Oversampling loop. This is not for when using the oscillator with the built-in oversampling, but rather for when the oscillator is used as part of a custom oversampling implementation.
+
+        Args:
+            times_oversampling: The new oversampling multiplier (1 for no oversampling, 2 for 2x, 4 for 4x, etc.).
+        """
+        self.freq_mul = 1.0 / (self.world[].sample_rate * Float64(times_oversampling))
 
 comptime OscBuffersSize: Int = 16384  # 2^14
 comptime OscBuffersMask: Int = 16383  # 2^14 - 1

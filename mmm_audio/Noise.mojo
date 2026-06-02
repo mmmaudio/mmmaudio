@@ -203,22 +203,32 @@ struct LFSRNoise[num_chans: Int = 1](Copyable, Movable):
         num_chans: Number of SIMD channels.
     """
 
+    var world:                  World
     var state:                  MInt[Self.num_chans]
     var width:                  MInt[Self.num_chans]
     var mask:                   MInt[Self.num_chans]
-    var phase:                  SIMD[DType.float64, Self.num_chans]
+    var phase:                  MFloat[Self.num_chans]
     var freq_mul:               Float64
     var rising_bool_detector:   RisingBoolDetector[Self.num_chans]
-    var world:                  World
+    var top_freq:               Float64
 
     def __init__(out self, world: World):
         self.world                = world
-        self.freq_mul             = 1.0 / self.world[].sample_rate
+        self.freq_mul             = 1.0 / world[].sample_rate
+        self.top_freq             = world[].sample_rate / 2.0
         self.state                = MInt[Self.num_chans](1)
         self.phase                = MFloat[Self.num_chans](0.0)
         self.width                = MInt[Self.num_chans](0)
         self.mask                 = MInt[Self.num_chans](0)
         self.rising_bool_detector = RisingBoolDetector[Self.num_chans]()
+
+    def set_looped_times_oversampling(mut self, times_oversampling: Int):
+        """Sets times oversampling for the oscillator when it is used in an Oversampling loop. This is not for when using the oscillator with the built-in oversampling, but rather for when the oscillator is used as part of a custom oversampling implementation.
+
+        Args:
+            times_oversampling: The new oversampling multiplier (1 for no oversampling, 2 for 2x, 4 for 4x, etc.).
+        """
+        self.freq_mul = 1.0 / (self.world[].sample_rate * Float64(times_oversampling))
 
     @doc_hidden
     @always_inline
@@ -231,7 +241,7 @@ struct LFSRNoise[num_chans: Int = 1](Copyable, Movable):
         self.state &= self.mask
 
     @always_inline
-    def next(mut self, freq: SIMD[DType.float64, Self.num_chans] = 1.0, width: MInt[Self.num_chans] = 15, trig: Bool = False) -> SIMD[DType.float64, Self.num_chans]:
+    def next(mut self, freq: MFloat[Self.num_chans] = 1.0, width: MInt[Self.num_chans] = 15, trig: Bool = False) -> MFloat[Self.num_chans]:
         """Generate the next LFSR noise sample.
 
         Args:
@@ -247,16 +257,16 @@ struct LFSRNoise[num_chans: Int = 1](Copyable, Movable):
             MInt[Self.num_chans](0xFFFFFFFF),
             (MInt[Self.num_chans](1) << self.width) - 1
         )
-        var trig_mask = SIMD[DType.bool, Self.num_chans](fill=trig)
+        var trig_mask = MBool[Self.num_chans](fill=trig)
         var resets = self.rising_bool_detector.next(trig_mask)
-        var clamped_freq = clip(freq, SIMD[DType.float64, Self.num_chans](0.0), SIMD[DType.float64, Self.num_chans](self.world[].sample_rate))
+        var clamped_freq = clip(freq, MFloat[Self.num_chans](0.0), MFloat[Self.num_chans](self.top_freq))
         var incremented_phase = self.phase + (clamped_freq * self.freq_mul)
-        var wrapped: SIMD[DType.bool, Self.num_chans] = incremented_phase.ge(1.0)
+        var wrapped: MBool[Self.num_chans] = incremented_phase.ge(1.0)
         var old_state = self.state
         self.step()
         self.state = wrapped.select(self.state, old_state)
         self.phase = wrapped.select(incremented_phase - 1.0, incremented_phase)
         self.state = resets.select(MInt[Self.num_chans](1), self.state)
-        self.phase = resets.select(SIMD[DType.float64, Self.num_chans](0.0), self.phase)
+        self.phase = resets.select(MFloat[Self.num_chans](0.0), self.phase)
         var out = (self.state & 1).cast[DType.float64]() * 2.0 - 1.0
         return out
