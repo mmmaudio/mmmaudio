@@ -344,7 +344,7 @@ def dbap2D[simd_out_size: Int = 4, num_speakers: Int = 4, speaker_pos: InlineArr
     var blur_sq = pow(blur, 2)
 
     # Calculates the a coefficient given a rolloff in dB
-    comptime a = rolloff/6.02059991328
+    var a = rolloff/6.02059991328
 
    # Set dists to 1.0 by default to avoid divide by 0 when calculating k
     var dists = MFloat[simd_out_size](1.0)
