@@ -1,7 +1,7 @@
 """
-A synthesis example that sends Dust, single sample triggers to a resonant band-pass filter.
+An example of Distance Based Amplitude Panning in a 4 channel speaker array where speakers are placed at (-1, 1), (1, 1), (-1,-1) and (1, -1) meters.
 
-Rates of the Dusts and frequencies of the filters are modulated by the mouse X and Y positions.
+The position of the audio source is controlled by the mouse. The corners of the screen are positioned directly on top of the speakers.
 """
 
 from mmm_python import * 

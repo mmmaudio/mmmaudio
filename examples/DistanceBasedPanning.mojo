@@ -7,10 +7,12 @@ struct DbapSynth(Movable, Copyable):
     var dust: Dust[1] 
     var messenger: Messenger
     var pos: MFloat[2]
+    var filt: Reson[1]
 
     def __init__(out self, world: World):
         self.world = world
         self.dust = Dust[1](world)
+        self.filt = Reson[1](world)
         self.messenger = Messenger(self.world)
         self.pos = [0, 0]
 
@@ -31,7 +33,7 @@ struct DbapSynth(Movable, Copyable):
 
         sig = self.dust.next(10, 40) * 0.5
 
-
+        sig = self.filt.bpf(sig, 1200, 10.0, 1.0)
         out = dbap2D[4, speakers, weights](sig, self.pos)
 
         # uncomment below for use the phase of the Dust oscillator instead of the impulse
