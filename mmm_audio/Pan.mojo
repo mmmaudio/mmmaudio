@@ -333,15 +333,15 @@ def dbap2D[
     https://jamoma.org/publications/attachments/icmc2009-dbap-rev1.pdf .
 
     Parameters:
-        num_speakers: The number of speakers as an integer. Must be <= simd_out_size.
-        speaker_pos: The speaker positions as an InlineArray of MFloat[2] x/y pairs in meters.
-        weights:  An InlineArray of Float64s defining speaker weights for DBAP.
+        num_speakers: The number of speakers as an integer.
+        speaker_pos: The speaker positions as an InlineArray of MFloat[2] x/y pairs in meters from a center position.
+        weights:  An InlineArray of Float64s (between 0.0 and 1.0) defining speaker weights for DBAP. Speaker weights allow for a source to be restricted to a subset of speakers. Speaker weights of 0.0 will disallow a source from playing through that speaker.
 
     Args:
         sample: Mono input sample.
         pos: X/Y position of the source in meters as an MFloat[2].
         blur: Blur between speakers. Values > 0 spread the source to more speakers.
-        rolloff: The dB Rolloff (defaults to 6db).
+        rolloff: The dB rolloff (defaults to 6db).
     
     Returns:
         MFloat[simd_out_size]: The panned output sample for each speaker.
@@ -349,7 +349,7 @@ def dbap2D[
     comptime simd_out_size = next_power_of_two(num_speakers)
     comptime vec_weights = array_to_mfloat[simd_out_size, weights]()
     
-    var blur_sq = pow(blur, 2)
+    var blur_sq = pow(max(0.00001, blur), 2)
 
     # Calculates the a coefficient given a rolloff in dB
     var a = rolloff/6.02059991328
