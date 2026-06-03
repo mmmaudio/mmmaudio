@@ -4,10 +4,10 @@ An example of Distance Based Amplitude Panning in a 4 channel speaker array wher
 The position of the audio source is controlled by the mouse. The corners of the screen are positioned directly on top of the speakers.
 """
 
-from mmm_python import * 
+from mmm_python import *
 
 # instantiate and load the graph
-mmm_audio = MMMAudio(128, num_output_channels=4, graph_name="DistanceBasedPanning", package_name="examples")
+mmm_audio = MMMAudio(128, num_output_channels=8, graph_name="DistanceBasedPanning", package_name="examples")
 
 
 mmm_audio.start_audio()
