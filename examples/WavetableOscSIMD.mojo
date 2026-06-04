@@ -1,7 +1,7 @@
 from mmm_audio import *
 
 struct OscVoice(PolyObject):
-    var osc: Osc[1,Interp.sinc,0]
+    var osc: Osc[1,Interp.sinc]
     var tri: LFOsc[]
     var world: World
     var env: ASREnv
@@ -21,7 +21,7 @@ struct OscVoice(PolyObject):
         self.gate = gate
 
     def __init__(out self, world: World, name_space: String = ""):
-        self.osc = Osc[1,Interp.sinc,0](world)
+        self.osc = Osc[1,Interp.sinc](world)
         self.tri = LFOsc(world)
         self.env = ASREnv(world)
         self.gate = False
@@ -52,7 +52,7 @@ struct WavetableOscSIMD(Movable, Copyable):
     var messenger: Messenger
     var filter_cutoff: Float64
     var filter_resonance: Float64
-    var moog_filter: VAMoogLadder[1,1]
+    var moog_filter: VAMoogLadder[1,TimesOversampling.x2]
 
 
     def __init__(out self, world: World):
@@ -67,7 +67,7 @@ struct WavetableOscSIMD(Movable, Copyable):
         self.messenger = Messenger(self.world)
         self.filter_cutoff = 20000.0
         self.filter_resonance = 0.5
-        self.moog_filter = VAMoogLadder[1,1](self.world)
+        self.moog_filter = VAMoogLadder[1,TimesOversampling.x2](self.world)
 
     def loadBuffer(mut self):
         self.buffer = SIMDBuffer[Self.wavetables_per_channel].load(self.file_name, num_wavetables=self.wavetables_per_channel)

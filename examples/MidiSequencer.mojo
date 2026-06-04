@@ -8,7 +8,7 @@ struct TrigSynthVoice(PolyObject):
     var world: World  # Pointer to the MMMWorld instance
     var env: Env
     var mod: Osc[]
-    var car: Osc[1, Interp.linear, 0]
+    var car: Osc[1, Interp.linear]
     var sub: Osc[]
     var bend_mul: Float64
     var note: List[Float64]
@@ -25,7 +25,7 @@ struct TrigSynthVoice(PolyObject):
     def __init__(out self, world: World):
         self.world = world
         self.mod = Osc(self.world)
-        self.car = Osc[1, Interp.linear, 0](self.world)
+        self.car = Osc[1, Interp.linear](self.world)
         self.sub = Osc(self.world)
         self.env = Env(self.world)
         self.env.params = EnvParams([0.0, 1.0, 0.75, 0.75, 0.0], [0.01, 0.1, 0.2, 0.5], [1.0])

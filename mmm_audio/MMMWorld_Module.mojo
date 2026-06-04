@@ -21,8 +21,6 @@ struct MMMWorld(Movable, Copyable):
     var sound_in: List[Float64]
 
     var screen_dims: List[Float64]  
-     
-    var os_multiplier: List[Float64]
 
     var mouse_x: Float64
     var mouse_y: Float64
@@ -70,10 +68,6 @@ struct MMMWorld(Movable, Copyable):
 
         self.osc_buffers = osc_buffers_ptr
         self.windows = windows_ptr
-
-        self.os_multiplier = List[Float64]()  # Initialize the list of multipliers
-        for i in range(5):  # Initialize multipliers for oversampling ratios
-            self.os_multiplier.append(1.0 / MFloat[1](2 ** i))  # Example multipliers, can be adjusted as needed
 
         self.mouse_x = 0.0
         self.mouse_y = 0.0
@@ -238,3 +232,26 @@ struct OscType(Equatable, ImplicitlyCopyable, Intable):
     @doc_hidden
     def __int__(self) -> Int:
         return self._value
+
+@fieldwise_init
+struct TimesOversampling(Equatable, ImplicitlyCopyable):
+    var times: Int
+
+    comptime none = TimesOversampling(1)
+    comptime x2 = TimesOversampling(2)
+    comptime x4 = TimesOversampling(4)
+    comptime x8 = TimesOversampling(8)
+    comptime x16 = TimesOversampling(16)
+
+    @doc_hidden
+    def __eq__(self, other: Self) -> Bool:
+        return self.times == other.times
+
+    @doc_hidden
+    def __ne__(self, other: Self) -> Bool:
+        return not (self == other)
+
+    @staticmethod
+    def get_freq_mul(world: World, ov_samp: TimesOversampling) -> Float64:
+        """Get the frequency multiplier for a given oversampling setting."""
+        return (1.0 /  world[].sample_rate) / Float64(ov_samp.times)

@@ -356,7 +356,6 @@ struct ASREnv(Movable, Copyable):
 
         return ramp * sustain
 
-
 struct Compressor[num_chans: Int](Movable, Copyable):
     """Compressor from Nathan Ho's [Negative Compression web post](https://nathan.ho.name/posts/negative-compression/).
     

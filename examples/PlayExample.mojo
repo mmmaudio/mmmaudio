@@ -10,7 +10,7 @@ struct BufSynth(Movable, Copyable):
     var play_buf: Play
     var play_rate: Float64
     
-    var moog: VAMoogLadder[num_chans, 1] # 2 channels, os_index == 1 (2x oversampling)
+    var moog: VAMoogLadder[num_chans, TimesOversampling.x2] # 2 channels, ov_samp == 1 (2x oversampling)
     var lpf_freq: Float64
     var lpf_freq_lag: Lag[]
     var messenger: Messenger
@@ -30,7 +30,7 @@ struct BufSynth(Movable, Copyable):
 
         self.play_buf = Play(self.world)
 
-        self.moog = VAMoogLadder[num_chans, 1](self.world)
+        self.moog = VAMoogLadder[num_chans, TimesOversampling.x2](self.world)
         self.lpf_freq = 20000.0
         self.lpf_freq_lag = Lag(self.world, 0.1)
 

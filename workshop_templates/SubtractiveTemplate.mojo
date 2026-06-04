@@ -28,11 +28,11 @@ struct SubtractiveTemplate(Movable, Copyable):
     var m: Messenger
 
     # Oscillator stuff
-    var saw: Osc[num_chans=num_chans,interp=Interp.quad,os_index=oversample_index]
+    var saw: Osc[num_chans=num_chans,interp=Interp.quad,ov_samp=oversample_index]
     var freq: MFloat[1]
 
     # Filter stuff
-    var lpf: VAMoogLadder[num_chans=num_chans,os_index=oversample_index]
+    var lpf: VAMoogLadder[num_chans=num_chans,ov_samp=oversample_index]
     var ffreq: MFloat[1]
     var res: MFloat[1]
 
@@ -41,23 +41,23 @@ struct SubtractiveTemplate(Movable, Copyable):
     var lfo_freq: MFloat[1]
 
     # Wavefolder
-    # var wavefolder: BuchlaWavefolder[num_chans=num_chans,os_index=oversample_index]
+    # var wavefolder: BuchlaWavefolder[num_chans=num_chans,ov_samp=oversample_index]
     # var fold_amt: MFloat[1]
 
     def __init__(out self, world: World):
         self.world = world
         self.m = Messenger(self.world)
         
-        self.saw = Osc[num_chans=num_chans,interp=Interp.quad,os_index=oversample_index](self.world)
+        self.saw = Osc[num_chans=num_chans,interp=Interp.quad,ov_samp=oversample_index](self.world)
         self.freq = MFloat[1](440.0)
 
-        # self.wavefolder = BuchlaWavefolder[num_chans=num_chans,os_index=oversample_index](self.world)
+        # self.wavefolder = BuchlaWavefolder[num_chans=num_chans,ov_samp=oversample_index](self.world)
         # self.fold_amt = MFloat[1](0.5)
         
         self.lfo = Osc[](self.world)
         self.lfo_freq = MFloat[1](3)
 
-        self.lpf = VAMoogLadder[num_chans=num_chans,os_index=oversample_index](self.world)
+        self.lpf = VAMoogLadder[num_chans=num_chans,ov_samp=oversample_index](self.world)
         self.ffreq = MFloat[1](1000.0)
         self.res = MFloat[1](0.5)
         

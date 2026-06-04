@@ -11,7 +11,7 @@ trait Tapable(Movable, Copyable):
 #     def tap[num_chans: Int](mut self, delay_time: MFloat[num_chans]) -> MFloat[num_chans]:
 #       ...
 
-struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
+struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyReset):
     """A variable delay line with interpolation.
 
     Parameters:
@@ -200,8 +200,8 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
 
         return out
 
-    def zero(mut self):
-        """Utility function to reset the delay line buffer to zero. Can be useful to avoid unwanted noise when changing delay times or for testing."""
+    def reset(mut self):
+        """Reset the delay line to its initial state. This will clear the internal buffer and reset the write head."""
         self.delay_line.buf.zero()
 
     @always_inline
@@ -247,7 +247,7 @@ def calc_feedback[num_chans: Int = 1](delaytime: MFloat[num_chans], decaytime: M
 
       return zero.select(MFloat[num_chans](0.0), dec_pos.select(absret, -absret))
 
-struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable):
+struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable, PolyReset):
     """
     A simple comb filter using a delay line with feedback.
 
@@ -277,6 +277,11 @@ struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable):
         
     def tap(mut self, delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         return self.delay.tap(delay_time)
+
+    def reset(mut self):
+        """Reset the Comb filter to its initial state. This will clear the internal buffer and reset the feedback."""
+        self.delay.reset()
+        self.fb = MFloat[Self.num_chans](0.0)
 
     def next(mut self, input: MFloat[self.num_chans], delay_time: MFloat[self.num_chans] = 0.0, feedback: MFloat[self.num_chans] = 0.0) -> MFloat[self.num_chans]:
         """Process one sample through the comb filter.
@@ -308,7 +313,7 @@ struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable):
         feedback = calc_feedback(delay_time, decay_time)
         return self.next(input, delay_time, feedback)
 
-struct LP_Comb[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
+struct LP_Comb[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyReset):
     """
     A simple comb filter with an integrated one-pole low-pass filter.
     
@@ -360,7 +365,13 @@ struct LP_Comb[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
 
         return out
 
-struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
+    def reset(mut self):
+      """Reset the LP_Comb filter to its initial state. This will clear the internal buffer and reset the feedback."""
+      self.delay.reset()
+      self.one_pole.reset()
+      self.fb = MFloat[Self.num_chans](0.0)
+
+struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyReset):
     """
     A simple allpass filter using a delay line with feedback.
     
@@ -441,25 +452,29 @@ struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
         """
         feedback = calc_feedback(delay_time, decay_time)
         return self.next(input, delay_time, feedback)
+
+    def reset(mut self):
+        """Reset the allpass filter to its initial state. This will clear the internal buffer."""
+        self.delay.reset()
         
 
-struct FB_Delay[num_chans: Int = 1, interp: Interp = Interp.lagrange4, ADAA_dist: Bool = False, os_index: Int = 0](Tapable):
+struct FB_Delay[num_chans: Int = 1, interp: Interp = Interp.lagrange4, ADAA_dist: Bool = False, ov_samp: TimesOversampling = TimesOversampling.none](Tapable, PolyReset):
     """A feedback delay structured like a Comb filter, but with possible feedback coefficient above 1 due to an integrated tanh function.
     
-    By default, Anti-aliasing is disabled and no [oversampling](Oversampling.md) is applied, but this can be changed by setting the ADAA_dist and os_index template parameters.
+    By default, Anti-aliasing is disabled and no [oversampling](Oversampling.md) is applied, but this can be changed by setting the ADAA_dist and ov_samp template parameters.
     
     Parameters:
       num_chans: Size of the SIMD vector.
       interp: The interpolation method to use. See the struct [Interp](MMMWorld.md#struct-interp) for interpolation options.
       ADAA_dist: Whether to apply ADAA distortion to the feedback signal instead of standard tanh.
-      os_index: The [oversampling](Oversampling.md) index for ADAA distortion. 0 = no oversampling, 1 = 2x, 2 = 4x, 3 = 8x, 4 = 16x.
+      ov_samp: The [oversampling](MMMWorld.md#struct-timesoversampling) for ADAA distortion.
     """
 
     var world: World
     var delay: Delay[Self.num_chans, Self.interp]
     var dc: DCTrap[Self.num_chans]
     var fb: MFloat[Self.num_chans]
-    var tanh_ad: TanhAD[Self.num_chans, Self.os_index]
+    var tanh_ad: TanhAD[Self.num_chans, Self.ov_samp]
 
     def __init__(out self, world: World, max_delay_time: Float64 = 1.0):
       """Initialize the FB_Delay.
@@ -473,13 +488,20 @@ struct FB_Delay[num_chans: Int = 1, interp: Interp = Interp.lagrange4, ADAA_dist
         self.delay = Delay[Self.num_chans, Self.interp](self.world, max_delay_time)
         self.dc = DCTrap[Self.num_chans](self.world)
         self.fb = MFloat[Self.num_chans](0.0)
-        self.tanh_ad = TanhAD[Self.num_chans, Self.os_index](self.world)
+        self.tanh_ad = TanhAD[Self.num_chans, Self.ov_samp](self.world)
 
     def tap(mut self, delay_samps: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
         return self.delay.tap(delay_samps)
         
     def tap(mut self, delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         return self.delay.tap(delay_time)
+
+    def reset(mut self):
+        """Reset the FB_Delay to its initial state. This will clear the internal buffer and reset the feedback."""
+        self.delay.reset()
+        self.dc.reset()
+        self.tanh_ad.reset()
+        self.fb = MFloat[Self.num_chans](0.0)
 
     def next(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans], feedback: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Process one sample or SIMD vector through the feedback delay.

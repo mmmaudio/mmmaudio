@@ -1,8 +1,7 @@
-if True:
-    from mmm_python import *
-    from random import getstate, setstate, randint
-    mmm_audio = MMMAudio(128, 2, 2, graph_name="PAF_example", package_name="examples")
-    mmm_audio.start_audio()
+from mmm_python import *
+from random import getstate, setstate, randint
+mmm_audio = MMMAudio(128, graph_name="PAF_example", package_name="examples", in_device=None, audio_init_timeout=60)
+mmm_audio.start_audio()
 
 mmm_audio.send_float("center_freq", 200)
 mmm_audio.send_float("bandwidth", 800)

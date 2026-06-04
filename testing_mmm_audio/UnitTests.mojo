@@ -442,6 +442,32 @@ def test_linlin2() raises:
         py_answer.append(py_to_float64(mmm_python.linlin(x[i], 0.0, 1.0, 1.0, -1.0)))
         assert_almost_equal(result[i], py_answer[i], "Test: linlin mismatch at index " + String(i))
 
+def test_linmap() raises:
+    x = MFloat[4](0.0, 0.25, 1.0, 1.5)
+    result = MFloat[4](0.0, 0.0, 0.0, 0.0)
+    for i in range(len(x)):
+        result[i] = linmap(x[i], (0.0, 0.0), (0.2, 1.0), (1.0, 0.0))
+    expected = MFloat[4](0.0, 0.9375, 0.0, 0.0)
+    assert_almost_equal(result, expected, "Test: linmap function failed")
+
+def test_env() raises:
+    osc_buffers: Optional[UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]] = alloc[OscBuffers](1)
+    osc_buffers.value().init_pointee_move(OscBuffers())
+    windows: Optional[UnsafePointer[mut=True, Windows, MutExternalOrigin]] = alloc[Windows](1)
+    windows.value().init_pointee_move(Windows())
+
+    world = alloc[MMMWorld](1) 
+    world.init_pointee_move(MMMWorld(48000., 64, 0, 0, osc_buffers, windows))
+
+    x = MFloat[4](0.0, 0.25, 1.0, 1.5)
+    result = MFloat[4](0.0, 0.0, 0.0, 0.0)
+    for i in range(len(x)):
+        result[i] = env[WindowType.hann, Interp.linear](world, x[i], (0.0, 0.0), (0.2, 1.0), (1.0, 0.0))
+    expected = MFloat[4](0.0, 0.9375, 0.0, 0.0)
+    for i in range(len(x)):
+        expected[i] = win_read[WindowType.hann, Interp.linear](world, expected[i]/2.0)
+    assert_almost_equal(result, expected, "Test: env function failed")
+
 
 def test_linexp() raises:
     x = MFloat[4](0.0, 0.5, 1.0, 1.5)

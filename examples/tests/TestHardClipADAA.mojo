@@ -8,13 +8,13 @@ struct TestHardClipADAA[num_chans: Int = 2](Movable, Copyable):
     var world: World
     var osc: Osc[]
     var lag: Lag[]
-    var clip: SoftClipAD[1,4]
+    var clip: SoftClipAD[1,TimesOversampling.x16]
     var overdrive: TanhAD[Self.num_chans]
 
     def __init__(out self, world: World):
         self.world = world
         self.osc = Osc(world)
-        self.clip = SoftClipAD[1,4](world)
+        self.clip = SoftClipAD[1,TimesOversampling.x16](world)
         self.overdrive = TanhAD[Self.num_chans](world)
         self.lag = Lag(world)
 

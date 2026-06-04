@@ -39,6 +39,28 @@ trait PolyObject(Movable, Copyable):
         """
         pass
 
+    def check_ability[T: AnyType](self, animal: T) -> Bool:
+        comptime if conforms_to(T, PolyReset):
+            return True
+        else:
+            return False
+
+    def reset_Resettable(mut self):
+        comptime r = reflect[Self]()
+        comptime names = r.field_names()
+        comptime types = r.field_types()
+        
+        comptime for idx in range(r.field_count()):
+            comptime comptime_field_type = types[idx]
+            comptime if conforms_to(comptime_field_type, PolyReset):
+                r.field_ref[idx](self).reset()
+
+trait PolyReset():
+    """A trait for UGens that need to be reset when a Poly voice is triggered or released. If a UGen implements this trait."""
+    def reset(mut self):
+        """A function called when a voice needs to be reset.
+        """
+        ...
 
 struct Poly(Movable, Copyable):
     """A Poly implementation for synths triggered by signals, like TGrains and PitchShift.
@@ -399,6 +421,10 @@ trait GrainObject(PolyObject):
         """
         pass
 
+    def reset(mut self):
+        """Reset the grain to its initial state. This can be used to retrigger the grain with the same parameters."""
+        pass
+
 
 struct GrainAll(GrainObject):
     """A single grain for granular synthesis. Returns all channels of a SIMDBuffer and does no panning.
@@ -514,6 +540,10 @@ struct GrainAll(GrainObject):
         
         return sample
 
+    def reset(mut self):
+        self.active = False
+        self.trigger = False
+
 struct Grain(GrainObject):
     """A single grain for granular synthesis with multiple output options: next_2, next_az, next_all.
 
@@ -622,8 +652,12 @@ struct Grain(GrainObject):
         """
         var sample = self.grain.next_all[win_type=win_type, bWrap=bWrap](buffer)
         return sample
+    
+    def reset(mut self):
+        """Reset the grain to its initial state. This can be used to retrigger the grain with the same parameters."""
+        self.grain.reset()
 
-struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none](Movable, Copyable):
+struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none](Movable, Copyable, PolyReset):
     """
     Triggered granular synthesis. Each trigger starts a new grain.
     """
@@ -783,7 +817,13 @@ struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann,
                 out += self.grains[i].next_all[win_type=Self.win_type, custom_curve=Self.custom_curve, bWrap=bWrap](buffer)
         return out * gain
 
-struct PitchShift[num_chans: Int = 1, win_type: WindowType = WindowType.hann](Movable, Copyable):
+    def reset(mut self):
+        """Reset all grains to be inactive and set their triggers to False. This can be used to stop all grains immediately.
+        """
+        for ref grain in self.grains:
+            grain.reset()
+
+struct PitchShift[num_chans: Int = 1, win_type: WindowType = WindowType.hann](Movable, Copyable, PolyReset):
     """
     An N channel granular pitchshifter. Each channel is processed in parallel.
 
@@ -860,3 +900,7 @@ struct PitchShift[num_chans: Int = 1, win_type: WindowType = WindowType.hann](Mo
         out = self.tgrains.next_all[Self.num_chans, bWrap = True](self.recorder.buf, gain)
 
         return out
+
+    def reset(mut self):
+        """Reset the PitchShift to its initial state. This will clear the internal buffer and reset all grains."""
+        self.tgrains.reset()

@@ -3,7 +3,7 @@ from mmm_audio import *
 struct PAF[
     num_chans: Int = 1,
     interp: Interp = Interp.linear,
-    os_index: Int = 0,
+    ov_samp: TimesOversampling = TimesOversampling.none,
     wrap_gaussian: Bool = False,
 ](Copyable, Movable):
     """Phase-Aligned Formant generator using a single phasor to synthesize multiple windows. From Miller Puckette's "Theory and Technique of Electronic Music," page 170.
@@ -11,7 +11,7 @@ struct PAF[
     Parameters:
         num_chans: Number of channels.
         interp: Interpolation method. See [Interp](MMMWorld.md/#struct-interp) struct for options.
-        os_index: [Oversampling](Oversampling.md) index (0 = no oversampling, 1 = 2x, 2 = 4x, etc.).
+        ov_samp: An [oversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
         wrap_gaussian: Whether to wrap indices that go out of bounds in the gaussian window. Puckette's design only uses half of the table, but enabling wrap_gaussian uses the entire table, resulting in a wider pallette of timbres.
     """
 
@@ -29,7 +29,7 @@ struct PAF[
     var gaussian: Windows
     var cos1_last_phase: MFloat[Self.num_chans]
 
-    var oversampling: Oversampling[Self.num_chans, 2**Self.os_index]
+    var oversampling: Oversampling[Self.num_chans, Self.ov_samp]
 
     def __init__(out self, world: World):
         """Initialize the phase-aligned formant synthesizer.
@@ -40,7 +40,7 @@ struct PAF[
         self.world = world
 
         self.phasor = Phasor[Self.num_chans](self.world)
-        self.phasor.freq_mul = self.world[].os_multiplier[Self.os_index] / self.world[].sample_rate
+        self.phasor.freq_mul = TimesOversampling.get_freq_mul(self.world,Self.ov_samp)
         
         self.cos1 = Osc[Self.num_chans, Self.interp](self.world)
         self.cos2 = Osc[Self.num_chans, Self.interp](self.world)
@@ -55,7 +55,7 @@ struct PAF[
         self.gaussian = Windows()
         self.cos1_last_phase = MFloat[self.num_chans](0.0)
 
-        self.oversampling = Oversampling[Self.num_chans, 2**Self.os_index](
+        self.oversampling = Oversampling[Self.num_chans, Self.ov_samp](
             self.world
         )
 
@@ -82,7 +82,7 @@ struct PAF[
         a = center_freq / fund
         b = wrap(a, 0.0, 1.0)
 
-        comptime for _ in range(2**Self.os_index):
+        comptime for _ in range(Self.ov_samp.times):
             phasor = self.phasor.next(fund)
 
             cos1_phase = phasor * (a - b)
@@ -114,11 +114,11 @@ struct PAF[
             self.cos1_last_phase = cos1_phase
 
             # add sample to oversampling buffer each iteration
-            if self.os_index != 0:
+            if Self.ov_samp != TimesOversampling.none:
                 self.oversampling.add_sample(out)
 
         # retrive sample from oversampling buffer only if oversampling is enabled
-        if self.os_index != 0:
+        if Self.ov_samp != TimesOversampling.none:
             return self.oversampling.get_sample()
         else:
             return out

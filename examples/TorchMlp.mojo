@@ -7,8 +7,8 @@ comptime model_out_size = 16  # Define the output size of the model
 # THE SYNTH - is imported from TorchSynth.mojo in this directory
 struct TorchSynth(Movable, Copyable):
     var world: World  # Pointer to the MMMWorld instance
-    var osc1: Osc[1, Interp.sinc, 1]
-    var osc2: Osc[1, Interp.sinc, 1]
+    var osc1: Osc[1, Interp.sinc, TimesOversampling.x2]  # Oscillator 1 with interpolation and oversampling
+    var osc2: Osc[1, Interp.sinc, TimesOversampling.x2]  # Oscillator 2 with interpolation and oversampling
 
     var model: MLP[2, model_out_size]  # Instance of the MLP model - 2 inputs, model_out_size outputs
     var lags: Lags[model_out_size]  # A Lags (Lags processed in parallel) for smoothing the model outputs
@@ -28,8 +28,8 @@ struct TorchSynth(Movable, Copyable):
 
     def __init__(out self, world: World):
         self.world = world
-        self.osc1 = Osc[1, Interp.sinc, 1](self.world)
-        self.osc2 = Osc[1, Interp.sinc, 1](self.world)
+        self.osc1 = Osc[1, Interp.sinc, TimesOversampling.x2](self.world)
+        self.osc2 = Osc[1, Interp.sinc, TimesOversampling.x2](self.world)
 
         # load the trained model
         self.model = MLP(self.world,"examples/nn_trainings/model_traced.pt", "mlp1", trig_rate=25.0)

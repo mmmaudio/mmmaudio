@@ -340,6 +340,76 @@ def curvelin[num_chans: Int, //](
     answer = out_min2 + linearized * (out_max2 - out_min2)
     return clip(answer, out_min2, out_max2)
 
+def linmap[num_chans: Int](x: MFloat[num_chans], *points: Tuple[MFloat[num_chans], MFloat[num_chans]]) -> MFloat[num_chans]:
+    """Linearly maps an input value `x` based on a series of input-output points.
+
+    The function takes a variable number of (input, output) pairs and linearly maps the input `x` to the corresponding output value based on which segment of the input range `x` falls into. If `x` is outside the range of the provided points, it will be clamped to the nearest segment.
+
+    Args:
+        x: The input value to be mapped.
+        points: A variable number of (input, output) pairs that define the mapping. For example, `linmap(x, (0, 0), (0.5, 1), (1, 0))` defines a mapping where 0 maps to 0, 0.5 maps to 1, and 1 maps to 0.
+
+    Returns:
+        The mapped output value corresponding to the input `x`.
+    """
+    length = len(points)
+    if length < 2:
+        return x
+    
+    # Handle cases where x is outside the range of provided points
+    if x <= points[0][0]:
+        return points[0][1]
+    if x >= points[length-1][0]:
+        return points[length-1][1]
+    # Find the segment that x falls into
+    for i in range(length - 1):
+        x0, y0 = points[i]
+        x1, y1 = points[i + 1]
+        if x0 <= x <= x1:
+            # Perform linear interpolation
+            return y0 + (y1 - y0) * ((x - x0) / (x1 - x0))
+    return points[length - 1][1]
+
+def env[win_type: WindowType = WindowType.none, interp: Interp = Interp.none](world: World, x: Float64, *points: Tuple[Float64, Float64]) -> Float64:
+    """Creates an envelope by linearly mapping an input value `x` based on a series of input-output points, with optional windowing.
+
+    The function takes a variable number of (input, output) pairs and linearly maps the input `x` to the corresponding output value based on which segment of the input range `x` falls into. If `x` is outside the range of the provided points, it will be clamped to the nearest segment.
+
+    Parameters:
+        win_type: An optional WindowType that specifies if the output should be processed through a window function. Default is WindowType.none (no windowing). If a window type is specified, the output values in the points should be in the range [0, 1] as they will be treated as positions within the window.
+        interp: An optional Interp that specifies the type of interpolation to use if win_type is not none. Default is Interp.none (no interpolation).
+
+    Args:
+        world: The World object, required if win_type is not none for window processing.
+        x: The input value to be mapped.
+        points: A variable number of (input, output) pairs that define the mapping. For example, `linmap(x, (0, 0), (0.5, 1), (1, 0))` defines a mapping where 0 maps to 0, 0.5 maps to 1, and 1 maps to 0.
+
+    Returns:
+        The mapped output value corresponding to the input `x`.
+    """
+    length = len(points)
+    if length < 2:
+        return x
+    
+    # Handle cases where x is outside the range of provided points
+    if x <= points[0][0]:
+        return points[0][1]
+    if x >= points[length-1][0]:
+        return points[length-1][1]
+
+    # Find the segment that x falls into
+    for i in range(length - 1):
+        x0, y0 = points[i]
+        x1, y1 = points[i + 1]
+        if x0 <= x <= x1:
+            # Perform linear interpolation
+            val = y0 + (y1 - y0) * ((x - x0) / (x1 - x0))
+            comptime if win_type == WindowType.none:
+                return val
+            else:
+                return win_read[win_type, interp](world, val/2)
+    return points[length - 1][1]
+
 def py_to_float64(py_float: PythonObject) raises -> Float64:
     return Float64(py=py_float)
 

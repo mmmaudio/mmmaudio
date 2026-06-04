@@ -3,7 +3,7 @@ from mmm_audio import *
 struct PAF_example(Copyable, Movable):
     var world: World
 
-    var paf: PAF[2, Interp.linear, 1, wrap_gaussian=True] # try changing wrap_gaussian to True
+    var paf: PAF[2, Interp.linear, TimesOversampling.x2, wrap_gaussian=True] # try changing wrap_gaussian to True
 
     var fund: MFloat[]
     var center: MFloat[]
@@ -17,7 +17,7 @@ struct PAF_example(Copyable, Movable):
     def __init__(out self, world: World):
         self.world = world
 
-        self.paf = PAF[2, Interp.linear, 1, wrap_gaussian=True](world)# try changing wrap_gaussian to True
+        self.paf = PAF[2, Interp.linear, TimesOversampling.x2, wrap_gaussian=True](world)# try changing wrap_gaussian to True
 
         self.fund = 73.0
         self.center = 440.0

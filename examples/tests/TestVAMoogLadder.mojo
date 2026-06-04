@@ -6,9 +6,9 @@ from mmm_audio import *
 struct TestVAMoogLadder[N: Int = 2](Movable, Copyable):
     var world: World
     var noise: WhiteNoise[Self.N]
-    var filt0: VAMoogLadder[Self.N, 0]
-    var filt2: VAMoogLadder[Self.N, 2]
-    var filt4: VAMoogLadder[Self.N, 4]
+    var filt0: VAMoogLadder[Self.N, TimesOversampling.none]  # 4-pole Moog ladder filter, no oversampling
+    var filt2: VAMoogLadder[Self.N, TimesOversampling.x4]
+    var filt4: VAMoogLadder[Self.N, TimesOversampling.x16]
     var m: Messenger
     var which: Float64
 
@@ -16,9 +16,9 @@ struct TestVAMoogLadder[N: Int = 2](Movable, Copyable):
     def __init__(out self, world: World):
         self.world = world
         self.noise = WhiteNoise[Self.N]()
-        self.filt0 = VAMoogLadder[Self.N, 0](world)
-        self.filt2 = VAMoogLadder[Self.N, 2](world)
-        self.filt4 = VAMoogLadder[Self.N, 4](world)
+        self.filt0 = VAMoogLadder[Self.N, TimesOversampling.none](world)
+        self.filt2 = VAMoogLadder[Self.N, TimesOversampling.x4](world)
+        self.filt4 = VAMoogLadder[Self.N, TimesOversampling.x16](world)
         self.m = Messenger(world)
         self.which = 0.0
 

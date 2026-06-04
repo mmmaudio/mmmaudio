@@ -7,7 +7,7 @@ comptime how_many = 16
 struct MoogPops(Movable, Copyable):
     var world: World  
     var dusts: Dust[how_many]
-    var filts: VAMoogLadder[how_many, 4]
+    var filts: VAMoogLadder[how_many, TimesOversampling.x16] # 4-pole Moog ladder filter, 16x oversampling
     var m: Messenger
     var t_exp_rand: TExpRand[how_many]
     var t_rand: TRand[how_many]
@@ -17,7 +17,7 @@ struct MoogPops(Movable, Copyable):
     def __init__(out self, world: World):
         self.world = world
         self.dusts = Dust[how_many](world)
-        self.filts = VAMoogLadder[how_many, 4](world)
+        self.filts = VAMoogLadder[how_many, TimesOversampling.x16](world)
         self.m = Messenger(world)
         self.t_exp_rand = TExpRand[how_many]()
         self.t_rand = TRand[how_many]()

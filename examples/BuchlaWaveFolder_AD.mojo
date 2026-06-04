@@ -4,7 +4,7 @@ struct BuchlaWaveFolder_AD(Movable, Copyable):
     var world: World  
     var osc: Osc[2]
     var lag: Lag[1]
-    var b259: BuchlaWavefolder[2, 1]
+    var b259: BuchlaWavefolder[2, TimesOversampling.x2]
     var m: Messenger
 
 
@@ -13,7 +13,7 @@ struct BuchlaWaveFolder_AD(Movable, Copyable):
         # for efficiency we set the interpolation and oversampling in the constructor
         self.osc = Osc[2](world)
         self.lag = Lag(world, 0.1)
-        self.b259 = BuchlaWavefolder[2, 1](world)
+        self.b259 = BuchlaWavefolder[2, TimesOversampling.x2](world)
         self.m = Messenger(world)
 
     def next(mut self) -> MFloat[2]:

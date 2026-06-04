@@ -3,15 +3,14 @@ from mmm_audio import *
 struct FM4(Movable, Copyable):
     var world: World
 
-    comptime os_index = 2
-    comptime times_oversampling = 1 << Self.os_index
+    comptime times_oversampling = TimesOversampling.x4
 
     var over: Oversampling[2, Self.times_oversampling]
 
-    var osc0: Osc[1, Interp.sinc, 0]
-    var osc1: Osc[1, Interp.sinc, 0]
-    var osc2: Osc[1, Interp.sinc, 0]
-    var osc3: Osc[1, Interp.sinc, 0]
+    var osc0: Osc[1, Interp.sinc]
+    var osc1: Osc[1, Interp.sinc]
+    var osc2: Osc[1, Interp.sinc]
+    var osc3: Osc[1, Interp.sinc]
 
     var osc0_freq: MFloat[1]
     var osc1_freq: MFloat[1]
@@ -33,16 +32,16 @@ struct FM4(Movable, Copyable):
 
         self.over = Oversampling[2, Self.times_oversampling](world)
 
-        self.osc0 = Osc[1, Interp.sinc, 0](world)
-        self.osc1 = Osc[1, Interp.sinc, 0](world)
-        self.osc2 = Osc[1, Interp.sinc, 0](world)
-        self.osc3 = Osc[1, Interp.sinc, 0](world)
+        self.osc0 = Osc[1, Interp.sinc](world)
+        self.osc1 = Osc[1, Interp.sinc](world)
+        self.osc2 = Osc[1, Interp.sinc](world)
+        self.osc3 = Osc[1, Interp.sinc](world)
 
         # adjust the phase multipliers for oversampling
-        self.osc0.phasor.freq_mul /= Self.times_oversampling
-        self.osc1.phasor.freq_mul /= Self.times_oversampling
-        self.osc2.phasor.freq_mul /= Self.times_oversampling
-        self.osc3.phasor.freq_mul /= Self.times_oversampling
+        self.osc0.set_oversampling(Self.times_oversampling)
+        self.osc1.set_oversampling(Self.times_oversampling)
+        self.osc2.set_oversampling(Self.times_oversampling)
+        self.osc3.set_oversampling(Self.times_oversampling)
         
         # set the initial frequencies
         self.osc0_freq = 220.0
@@ -88,7 +87,7 @@ struct FM4(Movable, Copyable):
         self.m.update("osc_frac3", self.osc_frac[3])
 
         # the oversampling loop
-        for _ in range(Self.times_oversampling):
+        for _ in range(Self.times_oversampling.times):
 
             fm_0 = self.fb[1] * self.osc0_mul[0] + self.fb[2] * self.osc0_mul[1]
             osc0 = self.osc0.next_basic_waveforms[OscType.sine, OscType.triangle, OscType.saw, OscType.square](self.osc0_freq + fm_0, osc_frac=self.osc_frac[0])
