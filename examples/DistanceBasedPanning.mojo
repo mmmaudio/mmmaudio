@@ -2,7 +2,7 @@ from mmm_audio import *
 
 # THE SYNTH
 
-struct DistanceBasedPanning(Movable, Copyable):
+
 struct DistanceBasedPanning(Movable, Copyable):
     var world: World  
     var dust: Dust[1] 
@@ -68,4 +68,4 @@ struct DistanceBasedPanning(Movable, Copyable):
         # out = dbap2D[7, max_simd, speakers, weights](sig, self.pos, 0.5)
         
 
-        return out2 * 0.5
+        return out * 0.5
