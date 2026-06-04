@@ -16,26 +16,25 @@ struct DbapSynth(Movable, Copyable):
         self.messenger = Messenger(self.world)
         self.pos = MFloat[2](0.0, 0.0)
 
-    def next(mut self) -> MFloat[8]:
+    def next(mut self) -> MFloat[4]:
         
         self.pos[0] = linlin(self.world[].mouse_x, 0.0, 1.0, -1.0, 1.0)
         self.pos[1] = linlin(self.world[].mouse_y, 0.0, 1.0, -1.0, 1.0)
-        comptime speakers : InlineArray[MFloat[2], 5] = [
+        comptime speakers : InlineArray[MFloat[2], 4] = [
             MFloat[2](-1, 1),
             MFloat[2](1, 1),
             MFloat[2](-1, -1),
-            MFloat[2](1, -1),
-            MFloat[2](0,0)
+            MFloat[2](1, -1)
         ]
 
-        comptime weights : InlineArray[Float64, 5] = [
-            1,1,1,1,1
+        comptime weights : InlineArray[Float64, 4] = [
+            1,1,1,1
         ]
 
         sig = self.dust.next(10, 40) * 0.5
 
         sig = self.filt.bpf(sig, 1200, 10.0, 1.0)
-        out = dbap2D[5, 8, speakers, weights](sig, self.pos)
+        out = dbap2D[4, 4, speakers, weights](sig, self.pos)
         
         
 
@@ -57,7 +56,7 @@ struct DistanceBasedPanning(Movable, Copyable):
         self.freq = MFloat[1](200.0)
         self.lag = Lag(world, 0.1)
 
-    def next(mut self) -> MFloat[8]:
+    def next(mut self) -> MFloat[4]:
 
         
 

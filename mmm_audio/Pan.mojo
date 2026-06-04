@@ -372,7 +372,7 @@ def dbap2D[
     
     # comptime speaker_variance = variance_of_dists[num_speakers, speaker_pos]()
     
-    # comptime assert (simd_out_size < num_speakers or simd_out_size % 2 != 0), "simd_out_size must be a power of 2 and greater than num_speakers"
+    # comptime assert (simd_out_size > num_speakers and simd_out_size % 2 == 0), "simd_out_size must be a power of 2 and greater than num_speakers"
     comptime vec_weights = array_to_mfloat[simd_out_size, weights]()
     # var blur_sq = pow(max(0.00001, blur) * speaker_variance, 2)
     var blur_sq = pow(max(0.00001, blur), 2)
