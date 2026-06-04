@@ -177,7 +177,15 @@ def find_chunk(data: List[UInt8], start_offset: Int, chunk_id: String) raises ->
 # ============================================================================
 
 def read_8bit_sample(data: List[UInt8], offset: Int) -> Float64:
-    """Read 8-bit unsigned PCM sample and normalize to [-1.0, 1.0]."""
+    """Read an 8-bit unsigned PCM sample and normalize it.
+
+    Args:
+        data: Raw WAV file bytes.
+        offset: Byte offset of the sample to read.
+
+    Returns:
+        The normalized sample value.
+    """
     var bytes = SIMD[DType.uint8, 1](
         data[offset]
     )
@@ -186,30 +194,70 @@ def read_8bit_sample(data: List[UInt8], offset: Int) -> Float64:
 
 
 def read_16bit_sample(data: List[UInt8], offset: Int) -> Float64:
-    """Read 16-bit signed PCM sample and normalize to [-1.0, 1.0]."""
+    """Read a 16-bit signed PCM sample and normalize it to [-1.0, 1.0].
+
+    Args:
+        data: Raw WAV file bytes.
+        offset: Byte offset of the sample to read.
+
+    Returns:
+        The normalized sample value.
+    """
     var sample = bytes_to_int16_le(data, offset)
     return Float64(sample) / 32768.0
 
 
 def read_24bit_sample(data: List[UInt8], offset: Int) -> Float64:
-    """Read 24-bit signed PCM sample and normalize to [-1.0, 1.0]."""
+    """Read a 24-bit signed PCM sample and normalize it to [-1.0, 1.0].
+
+    Args:
+        data: Raw WAV file bytes.
+        offset: Byte offset of the sample to read.
+
+    Returns:
+        The normalized sample value.
+    """
     var sample = bytes_to_int24_le(data, offset)
     return Float64(sample) / 8388608.0  # 2^23
 
 
 def read_32bit_sample(data: List[UInt8], offset: Int) -> Float64:
-    """Read 32-bit signed PCM sample and normalize to [-1.0, 1.0]."""
+    """Read a 32-bit signed PCM sample and normalize it to [-1.0, 1.0].
+
+    Args:
+        data: Raw WAV file bytes.
+        offset: Byte offset of the sample to read.
+
+    Returns:
+        The normalized sample value.
+    """
     var sample = bytes_to_int32_le(data, offset)
     return Float64(sample) / 2147483648.0  # 2^31
 
 
 def read_float32_sample(data: List[UInt8], offset: Int) -> Float64:
-    """Read 32-bit float sample (already normalized)."""
+    """Read a 32-bit floating-point sample.
+
+    Args:
+        data: Raw WAV file bytes.
+        offset: Byte offset of the sample to read.
+
+    Returns:
+        The decoded sample value.
+    """
     return Float64(bytes_to_float32_le(data, offset))
 
 
 def read_float64_sample(data: List[UInt8], offset: Int) -> Float64:
-    """Read 64-bit float sample (already normalized)."""
+    """Read a 64-bit floating-point sample.
+
+    Args:
+        data: Raw WAV file bytes.
+        offset: Byte offset of the sample to read.
+
+    Returns:
+        The decoded sample value.
+    """
     return bytes_to_float64_le(data, offset)
 
 
@@ -223,8 +271,12 @@ def read_wav_header(file_name: String) raises -> WavHeader:
     
     Args:
         file_name: Path to the WAV file.
+
     Returns:
         WavHeader struct containing header information.
+
+    Raises:
+        Error: If the file is missing required WAV header data.
     """
     with open(file_name, "r") as f:
         file_data = f.read_bytes(-1)
@@ -283,8 +335,12 @@ def read_wav_samples(file_name: String, header: WavHeader, num_wavetables: Int =
         file_name: Path to the WAV file.
         header: Parsed WAV header.
         num_wavetables: Number of wavetables per channel. If > 1, splits samples into multiple wavetables of equal size (for large files).
+
     Returns:
         List of channels, each containing normalized Float64 samples [-1.0, 1.0].
+
+    Raises:
+        Error: If the file uses an unsupported sample format.
     """
     var file_num_channels = Int(header.num_channels)
     var bits_per_sample = Int(header.bits_per_sample)
@@ -356,13 +412,20 @@ def get_sample(file_data: List[UInt8], offset: Int, bits_per_sample: Int, is_pcm
 def read_wav_SIMDs[num_channels: Int](file_name: String, header: WavHeader, num_wavetables: Int = 1) raises -> List[MFloat[num_channels]]:
     """
     Read all audio samples from s WAV file and return them as a List of SIMD vectors.
+
+    Parameters:
+        num_channels: Number of channels in each SIMD output sample.
     
     Args:
         file_name: Path to the WAV file.
         header: Parsed WAV header.
         num_wavetables: If > 1, split samples into multiple wavetables of equal size (for large files).
+
     Returns:
-        List of channels, each containing normalized Float64 samples [-1.0, 1.0].
+        A list of SIMD samples containing audio amplitudes [-1.0 to 1.0]. Each element in the list is one xample in time and each SIMD vector contains `num_channels` channels of audio data for that sample. If the original file has fewer channels than `num_channels`, the remaining channels in the SIMD vector will be filled with 0.0.
+
+    Raises:
+        Error: If the file uses an unsupported sample format.
     """
     var filenum_channels = Int(header.num_channels)
     var bits_per_sample = Int(header.bits_per_sample)
@@ -420,7 +483,11 @@ def read_wav_SIMDs[num_channels: Int](file_name: String, header: WavHeader, num_
 # ============================================================================
 
 def print_wav_info(header: WavHeader):
-    """Pretty print WAV header information."""
+    """Pretty print WAV header information.
+
+    Args:
+        header: WAV header values to display.
+    """
     print("Format:         ", header._get_format_name())
     print("Channels:       ", header.num_channels)
     print("Sample Rate:    ", header.sample_rate, "Hz")
@@ -435,7 +502,11 @@ def print_wav_info(header: WavHeader):
 
 
 def print_sample_stats(samples: List[List[Float64]]):
-    """Print statistics about the audio samples."""
+    """Print statistics about the audio samples.
+
+    Args:
+        samples: Per-channel sample lists to summarize.
+    """
     var num_channels = len(samples)
     
     for ch in range(num_channels):
@@ -474,7 +545,12 @@ def print_sample_stats(samples: List[List[Float64]]):
 #####################################
 
 def write_f32(mut data: List[UInt8], value: Float32):
-    """Write a Float32 as 4 little-endian bytes."""
+    """Write a Float32 as 4 little-endian bytes.
+
+    Args:
+        data: Output byte buffer to append to.
+        value: Float32 value to encode.
+    """
     var bits = bitcast[DType.uint32](value)
     data.append(UInt8(bits & 0xFF))
     data.append(UInt8((bits >> 8) & 0xFF))
@@ -482,7 +558,16 @@ def write_f32(mut data: List[UInt8], value: Float32):
     data.append(UInt8((bits >> 24) & 0xFF))
 
 def write_wav_file(file_name: String, samples: Span[mut=False, List[Float64], ...], sample_rate: Int = 44100) raises:
-    """Write audio samples to a WAV file."""
+    """Write audio samples to a WAV file.
+
+    Args:
+        file_name: Output WAV file path.
+        samples: Per-channel sample data to write.
+        sample_rate: Output sample rate in Hz.
+
+    Raises:
+        Error: If the output file cannot be written.
+    """
     var num_channels = len(samples)
     var num_samples = len(samples[0]) if num_channels > 0 else 0
     
@@ -498,7 +583,19 @@ def write_wav_file(file_name: String, samples: Span[mut=False, List[Float64], ..
         f.write_bytes(data)
 
 def write_wav_file[num_channels: Int](file_name: String, samples: Span[mut=False, MFloat[num_channels], ...], sample_rate: Int = 44100) raises:
-    """Write audio samples to a WAV file."""
+    """Write audio samples to a WAV file.
+
+    Parameters:
+        num_channels: Number of channels stored in each SIMD sample.
+
+    Args:
+        file_name: Output WAV file path.
+        samples: SIMD sample data to write.
+        sample_rate: Output sample rate in Hz.
+
+    Raises:
+        Error: If the output file cannot be written.
+    """
     var num_samples = len(samples)
     
     var data = List[UInt8]()

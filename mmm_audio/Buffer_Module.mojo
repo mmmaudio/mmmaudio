@@ -42,6 +42,9 @@ struct SIMDBuffer[num_chans: Int = 2](Movable, Copyable):
         Args:
             num_frames: Number of frames in the buffer.
             sample_rate: Sample rate of the buffer.
+
+        Returns:
+            A SIMDBuffer initialized with zero-valued samples.
         """
 
         var data = [MFloat[Self.num_chans](0.0) for _ in range(num_frames)]
@@ -62,6 +65,9 @@ struct SIMDBuffer[num_chans: Int = 2](Movable, Copyable):
             file_name: Path to the WAV file to load.
             num_wavetables: Number of wavetables per channel. This is only used if the sound file being loaded contains multiple wavetables concatenated in a single channel.
             verbose: Whether to print verbose output.
+
+        Returns:
+            A SIMDBuffer containing the loaded audio data.
         """
         if file_name != "":
             try:
@@ -127,7 +133,11 @@ struct SIMDBuffer[num_chans: Int = 2](Movable, Copyable):
             rotate_left_inplace(self.data, len(self.data) - write_head)
 
     def get_num_chans(self) -> Int:
-        """Get the number of channels in the SIMDBuffer."""
+        """Get the number of channels in the SIMDBuffer.
+
+        Returns:
+            The SIMD channel count of the buffer.
+        """
         return Self.num_chans
 
 
@@ -172,6 +182,9 @@ struct Buffer(Movable, Copyable):
             num_frames: Number of frames in the buffer.
             num_chans: Number of channels in the buffer.
             sample_rate: Sample rate of the buffer.
+
+        Returns:
+            A Buffer initialized with zero-valued samples.
         """
 
         var data = List[List[Float64]]()
@@ -198,6 +211,9 @@ struct Buffer(Movable, Copyable):
             file_name: Path to the WAV file to load.
             num_wavetables: Number of wavetables per channel. This is only used if the sound file being loaded contains multiple wavetables concatenated in a single channel.
             verbose: Whether to print verbose output.
+
+        Returns:
+            A Buffer containing the loaded audio data.
         """
 
         if file_name != "":
@@ -260,6 +276,9 @@ struct SpanInterpolator(Movable, Copyable):
             data: The `Span[MFloat[num_chans], ...]` to read from.
             f_idx: The floating-point index to read at.
             prev_f_idx: The previous floating-point index (used for [SincInterpolation](SincInterpolator.md)).
+
+        Returns:
+            The interpolated sample value.
         """
         
         comptime if interp == Interp.none:
@@ -290,7 +309,10 @@ struct SpanInterpolator(Movable, Copyable):
 
         Args:
             data: The `Span[MFloat[num_chans], ...]` to read from.
-            f_idx: The floating-point index to read at.
+            f_idx: The floating-point index to read at. It will be truncated to an integer for indexing.
+
+        Returns:
+            The sample value at the requested index.
         """
 
         idx = Int(f_idx)
@@ -322,6 +344,9 @@ struct SpanInterpolator(Movable, Copyable):
         Args:
             data: The `Span[MFloat[num_chans], ...]` to read from.
             f_idx: The floating-point index to read at.
+
+        Returns:
+            The linearly interpolated sample value.
         """
         idx0: Int = Int(f_idx)
         idx1: Int = idx0 + 1
@@ -358,6 +383,9 @@ struct SpanInterpolator(Movable, Copyable):
         Args:
             data: The `Span[MFloat[num_chans], ...]` to read from.
             f_idx: The floating-point index to read at.
+
+        Returns:
+            The quadratically interpolated sample value.
         """
 
         idx0 = Int(f_idx)
@@ -400,6 +428,9 @@ struct SpanInterpolator(Movable, Copyable):
         Args:
             data: The `Span[MFloat[num_chans], ...]` to read from.
             f_idx: The floating-point index to read at.
+
+        Returns:
+            The cubically interpolated sample value.
         """
         idx1 = Int(f_idx)
         idx0 = idx1 - 1
@@ -445,6 +476,9 @@ struct SpanInterpolator(Movable, Copyable):
         Args:
             data: The `Span[MFloat[num_chans], ...]` to read from.
             f_idx: The floating-point index to read at.
+
+        Returns:
+            The fourth-order Lagrange interpolated sample value.
         """
        
         idx0 = Int(f_idx)
@@ -499,5 +533,8 @@ struct SpanInterpolator(Movable, Copyable):
             data: The `Span[MFloat[num_chans], ...]` to read from.
             f_idx: The floating-point index to read at.
             prev_f_idx: The previous floating-point index.
+
+        Returns:
+            The sinc-interpolated sample value.
         """
         return world[].sinc_interpolator.sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)

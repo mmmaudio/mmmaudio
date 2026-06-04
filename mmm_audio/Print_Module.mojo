@@ -21,6 +21,9 @@ struct Print(Copyable, Movable):
         """
         Print the value at a given frequency.
 
+        Parameters:
+            T: Type of the printable value.
+
         Args:
             value: The value to print.
             label: An optional label to prepend to the printed value.

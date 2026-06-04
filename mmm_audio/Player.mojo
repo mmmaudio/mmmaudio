@@ -15,10 +15,10 @@ struct Play(Movable, Copyable):
     var phase_offset: Float64  # Offset for the phase calculation
 
     def __init__(out self, world: World):
-        """ 
+        """Initialize the buffer playback object.
         
         Args:
-            world: pointer to the MMMWorld instance.
+            world: Pointer to the MMMWorld instance.
         """
 
         self.world = world

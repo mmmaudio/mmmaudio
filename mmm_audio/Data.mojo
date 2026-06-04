@@ -21,6 +21,9 @@ struct StandardScaler(Copyable, Movable):
         it will attempt to load a fitted sklearn StandardScaler object from Python. 
         The StandardScaler object must have been fit in Python before saving, and should be saved
         from Python using `joblib.dump(scaler, path)`.
+
+        Args:
+            sklearn_path: Optional path to a saved sklearn StandardScaler joblib file.
         """
         self.mean = List[Float64]()
         self.scale = List[Float64]()

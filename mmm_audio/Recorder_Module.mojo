@@ -59,12 +59,12 @@ struct Recorder[num_chans: Int = 1](Movable, Copyable):
     def write_next[loop: Bool = True](mut self, value: MFloat[Self.num_chans]):
         """
         Write SIMD input to buffer at current write head and advance write head forward. This is the correct option in most use cases.
+
+        Parameters:
+            loop: Whether to wrap the write head when it reaches the end of the buffer.
         
         Args:
             value: The SIMD input to write to the buffer.
-        
-        Params:
-            loop: Whether to loop the write head back to the beginning of the buffer when it reaches the end. Default is True.
         """
         comptime if loop:
             self.write(value, self.write_head)

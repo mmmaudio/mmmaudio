@@ -1,7 +1,17 @@
 from mmm_audio import * 
 
 def wrap_to_pi[num_chans: Int](phase: MFloat[num_chans]) -> MFloat[num_chans]:
-    """Wraps the input phase to the range [-pi, pi]."""
+    """Wrap the input phase to the range [-pi, pi].
+
+    Parameters:
+        num_chans: Number of channels in the phase vector.
+
+    Args:
+        phase: Input phase values in radians.
+
+    Returns:
+        The wrapped phase values.
+    """
     return atan2(sin(phase), cos(phase))
     
 @doc_hidden
@@ -22,7 +32,7 @@ def phase_coherence[num_chans: Int](
 ) -> MFloat[num_chans]:
     """Calculates the phase coherence between successive frames in an FFT.
 
-    Paramemters:
+    Parameters:
         num_chans: Number of channels.
 
     Args:
@@ -32,6 +42,9 @@ def phase_coherence[num_chans: Int](
         previous_mags: Mags of the previous FFT frame.
         window_size: Window size.
         hop_size: Hop size.
+
+    Returns:
+        A phase coherence value for each channel.
     """
 
     var num_bins = len(current_phases)

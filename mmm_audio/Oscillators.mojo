@@ -21,7 +21,7 @@ struct Phasor[num_chans: Int = 1, os_index: Int = 0](Movable, Copyable):
     var world: World  # Pointer to the MMMWorld instance
 
     def __init__(out self, world: World):
-        """
+        """Initialize the phasor oscillator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -125,7 +125,7 @@ struct Impulse[num_chans: Int = 1, os_index: Int = 0](Movable, Copyable):
     var phasor: Phasor[Self.num_chans, Self.os_index]  # Instance of the Phasor
 
     def __init__(out self, world: World):
-        """
+        """Initialize the impulse oscillator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -191,7 +191,7 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, os_index: Int = 0
     var last_phase: MFloat[Self.num_chans]
 
     def __init__(out self, world: World):
-        """
+        """Initialize the oscillator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -286,7 +286,16 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, os_index: Int = 0
             last_phase: Float64 = 0.0, 
             trig: Bool = False
         ) -> MFloat[4]:
-        """Returns the next sample of all basic waveforms (sine, triangle, saw, square) in a SIMD vector, where each waveform is in a different lane.
+        """Get the next sample of all basic waveforms (sine, triangle, saw, square) in a SIMD vector, where each waveform is in a different lane.
+
+        Args:
+            freq: Frequency of the oscillator in Hz.
+            phase: Current oscillator phase.
+            last_phase: Previous oscillator phase.
+            trig: Trigger signal to reset the waveform phase.
+
+        Returns:
+            The next sample of the built-in basic waveforms.
         """
 
         temp = self.world[].osc_buffers.value()
@@ -321,6 +330,9 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, os_index: Int = 0
             phase_offset: Offsets the phase of the oscillator (default is 0.0).
             trig: Trigger signal to reset the phase when switching from False to True (default is 0.0).
             osc_frac: Fractional index for wavetable interpolation. Values are between 0.0 and 1.0. 0.0 corresponds to the first waveform in the osc_types list, 1.0 corresponds to the last waveform in the osc_types list, and values in between interpolate linearly between all waveforms in the list.
+
+        Returns:
+            The interpolated output sample.
         """
         
         # 2. Get the length of the parameter pack at compile time
@@ -380,6 +392,9 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, os_index: Int = 0
             phase_offset: Offsets the phase of the oscillator (default is 0.0).
             trig: Trigger signal to reset the phase when switching from False to True (default is 0.0). All waveforms will reset together.
             osc_frac: Fractional index for wavetable interpolation. Values are between 0.0 and 1.0. 0.0 corresponds to the first channel in the input buffer, 1.0 corresponds to the last channel in the input buffer, and values in between interpolate linearly between all channels in the buffer.
+
+        Returns:
+            The interpolated wavetable sample.
         """
         var trig_mask = MBool[self.num_chans](fill=trig)
 
@@ -463,6 +478,9 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, os_index: Int = 0
         """Variable Wavetable Oscillator that interpolates over a loaded SIMDBuffer.
         Generates the next oscillator sample on a variable waveform where the output is interpolated between 
         different different channels of a provided Buffer. This should only be used with low channel counts (maybe up to 4 or 8 channels depending on the CPU).
+
+        Parameters:
+            simd_chans: Number of channels stored in the source SIMDBuffer.
         
         Args:
             buffer: Reference to a Buffer containing the waveforms to interpolate between.
@@ -470,6 +488,9 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, os_index: Int = 0
             phase_offset: Offsets the phase of the oscillator (default is 0.0).
             trig: Trigger signal to reset the phase when switching from False to True (default is 0.0). All waveforms will reset together.
             osc_frac: Fractional index for wavetable interpolation. Values are between 0.0 and 1.0. 0.0 corresponds to the first channel in the input buffer, 1.0 corresponds to the last channel in the input buffer, and values in between interpolate linearly between all channels in the buffer.
+
+        Returns:
+            The interpolated wavetable sample.
         """
         var trig_mask = MBool[self.num_chans](fill=trig)
 
@@ -539,14 +560,26 @@ struct OscBank[num: Int](Movable, Copyable):
         self.freqs = [MFloat[Self.simd_width](rrand(100.0, 2000.0)) for _ in range(Self.num_simd)]
 
     def set_freq(mut self, index: Int, freq: Float64):
-        """Set the frequency of a specific oscillator in the bank."""
+        """Set the frequency of a specific oscillator in the bank.
+
+        Args:
+            index: Index of the oscillator to retune.
+            freq: Frequency in Hertz to assign.
+        """
         simd_index = index // Self.simd_width
         lane_index = index % Self.simd_width
         if simd_index < Self.num_simd:
             self.freqs[simd_index][lane_index] = freq
 
     def next[osc_type: OscType = OscType.sine](mut self) -> Float64:
-        """Process a Span (List or InlineArray) of Floats through the lags. The length of vals should be equal to num_lags."""
+        """Generate the next sample from the oscillator bank.
+
+        Parameters:
+            osc_type: Waveform type used by each oscillator in the bank.
+
+        Returns:
+            The averaged output of all oscillators in the bank.
+        """
         out = MFloat[Self.simd_width](0.0)
         for i in range(Self.num_simd):
             out += self.oscs[i].next[osc_type=osc_type](self.freqs[i])
@@ -567,7 +600,7 @@ struct LFOsc[num_chans: Int = 1] (Movable, Copyable):
     var world: World 
 
     def __init__(out self, world: World):
-        """
+        """Initialize the low-frequency oscillator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -578,12 +611,17 @@ struct LFOsc[num_chans: Int = 1] (Movable, Copyable):
     @always_inline
     def next[osc_type: OscType = OscType.saw](mut self, freq: MFloat[self.num_chans] = 100.0, phase_offset: MFloat[self.num_chans] = 0.0, trig: Bool = False) -> MFloat[self.num_chans]:
         """Generate the next sawtooth wave sample.
+
+        Parameters:
+            osc_type: Waveform type to generate.
         
         Args:
             freq: Frequency of the sawtooth wave in Hz.
             phase_offset: Offsets the phase of the oscillator (default is 0.0).
             trig: Trigger signal to reset the phase when switching from False to True (default is 0.0).
-        
+
+        Returns:
+            The next low-frequency oscillator sample.
         """
 
         var trig_mask = MBool[self.num_chans](fill=trig)
@@ -617,7 +655,7 @@ struct Dust[num_chans: Int = 1] (Movable, Copyable):
     var freq: MFloat[Self.num_chans]
 
     def __init__(out self, world: World):
-        """
+        """Initialize the dust noise oscillator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -711,6 +749,7 @@ struct TTrig(Movable, Copyable):
         Args:
             trig: Trigger signal.
             time: Amount of time in seconds for which to output True.
+
         Returns:
             True if the trigger is active, False otherwise.
         """
@@ -736,7 +775,7 @@ struct LFNoise[num_chans: Int = 1, interp: Interp = Interp.cubic](Movable, Copya
     var history_index: List[Int]
 
     def __init__(out self, world: World):
-        """
+        """Initialize the low-frequency noise generator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -821,7 +860,7 @@ struct Sweep[num_chans: Int = 1](Movable, Copyable):
     var world: World  # Pointer to the MMMWorld instance
 
     def __init__(out self, world: World):
-        """
+        """Initialize the sweep generator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -872,7 +911,7 @@ struct Line[num_chans: Int = 1, linexpcurve: Int = 0](Movable, Copyable):
     var curve: MFloat[1]
 
     def __init__(out self, world: World):
-        """
+        """Initialize the line generator.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -886,13 +925,16 @@ struct Line[num_chans: Int = 1, linexpcurve: Int = 0](Movable, Copyable):
 
     @always_inline
     def next(mut self, start: MFloat[self.num_chans], end: MFloat[self.num_chans], dur: MFloat[self.num_chans], trig: MBool[self.num_chans] = True) -> MFloat[self.num_chans]:
-        """
+        """Generate the next line sample.
 
         Args:
             start: Starting value of the line.
             end: Ending value of the line.
             dur: Duration of the line in seconds.
             trig: Trigger signal to reset the phase when switching from False to True (default is all False).
+
+        Returns:
+            The next interpolated line value.
         """
         self.phase += (self.freq * self.freq_mul)
         var resets = self.rising_bool_detector.next(trig)

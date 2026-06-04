@@ -196,6 +196,10 @@ struct Messenger(Copyable, Movable):
     def update[dtype: DType, num_chans: Int](mut self, name: String, mut param: SIMD[dtype, num_chans]):
         """Update a SIMD[DType.float64] variable with a value sent from Python.
 
+        Parameters:
+            dtype: The scalar dtype stored in the SIMD parameter.
+            num_chans: Number of SIMD lanes to update.
+
         Args:
             name: A `String` to identify the SIMD[DType.float64] sent from Python.
             param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
@@ -212,6 +216,10 @@ struct Messenger(Copyable, Movable):
 
     def notify_update[dtype: DType, num_chans: Int](mut self, name: String, mut param: SIMD[dtype, num_chans]) -> Bool:
         """Notify and update a SIMD[DType.float64] variable with a value sent from Python.
+
+        Parameters:
+            dtype: The scalar dtype stored in the SIMD parameter.
+            num_chans: Number of SIMD lanes to update.
 
         Args:
             name: A `String` to identify the SIMD[DType.float64] sent from Python.

@@ -83,6 +83,9 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
     def read[N: Int](mut self, var delay_samps: MInt[N]) -> MFloat[self.num_chans]:
       """Reads into the delay line at an exact sample delay and no interpolation.
 
+      Parameters:
+        N: Size of the delay_samps SIMD vector.
+
       Args:
         delay_samps: The amount of delay to apply (in samples).
 
@@ -103,6 +106,9 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
     @always_inline
     def read[N: Int](mut self, var delay_time: MFloat[N]) -> MFloat[self.num_chans]:
       """Reads into the delay line.
+
+      Parameters:
+        N: Size of the delay_time SIMD vector.
 
       Args:
         delay_time: The amount of delay to apply (in seconds).
@@ -146,13 +152,20 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
 
     @always_inline
     def write(mut self, input: MFloat[self.num_chans]):
-      """Writes a single sampleinto the delay line."""
+      """Writes a single sample into the delay line.
+
+      Args:
+        input: The input sample to store in the delay buffer.
+      """
 
         self.delay_line.write_previous(input)
 
     @always_inline
     def next[N: Int](mut self, input: MFloat[self.num_chans], delay_samps: MInt[N]) -> MFloat[self.num_chans]:
         """Process one sample through the delay line, first reading from the delay then writing into it. This version uses an integer lookup into the delay line and no interpolation.
+
+        Parameters:
+          N: Number of channels.
 
         Args:
           input: The input sample to process.
@@ -170,6 +183,9 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
     @always_inline
     def next[N: Int](mut self, input: MFloat[self.num_chans], var delay_time: MFloat[N]) -> MFloat[self.num_chans]:
         """Process one sample through the delay line, first reading from the delay then writing into it.
+
+        Parameters:
+          N: Number of channels.
 
         Args:
           input: The input sample to process.
@@ -212,11 +228,15 @@ def calc_feedback[num_chans: Int = 1](delaytime: MFloat[num_chans], decaytime: M
       """Calculate the feedback coefficient for a Comb filter or Allpass line based on desired delay time and decay time.
       
       Parameters:
-        num_chans: Size of the SIMD vector - defaults to 1.
+        num_chans: Number of channels.
 
       Args:
         delaytime: The delay time in seconds.
-        decaytime: The decay time in seconds (time to -60dB)."""
+        decaytime: The decay time in seconds (time to -60dB).
+
+      Returns:
+        The feedback coefficient for the requested delay and decay times.
+      """
       
       comptime log001: Float64 = log(0.001)
 
@@ -389,7 +409,16 @@ struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
         return output
 
     def next_df2(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans] = 0.0, feedback_coef: MFloat[Self.num_chans] = 0.0) -> MFloat[Self.num_chans]:
-      """Process one sample through the allpass filter using a direct-form 2 structure."""
+      """Process one sample through the allpass filter using a direct-form 2 structure.
+
+      Args:
+        input: The input sample to process.
+        delay_time: The amount of delay to apply (in seconds).
+        feedback_coef: The feedback coefficient.
+
+      Returns:
+        The delayed and phase-rotated output sample.
+      """
 
         var delayed = self.delay.read(delay_time)
         var to_delay = input + feedback_coef * delayed
@@ -406,7 +435,9 @@ struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable):
           input: The input sample to process.
           delay_time: The amount of delay to apply (in seconds).
           decay_time: The desired decay time (time to -60dB).
-        
+
+        Returns:
+          The delayed output sample with feedback derived from decay time.
         """
         feedback = calc_feedback(delay_time, decay_time)
         return self.next(input, delay_time, feedback)

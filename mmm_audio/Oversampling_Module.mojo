@@ -13,7 +13,7 @@ struct Oversampling[num_chans: Int = 1, times_oversampling: Int = 0](Movable, Co
     var lpf: OS_LPF4[Self.num_chans]
 
     def __init__(out self, world: World):
-        """
+        """Initialize the Oversampling struct.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -37,7 +37,11 @@ struct Oversampling[num_chans: Int = 1, times_oversampling: Int = 0](Movable, Co
 
     @always_inline
     def get_sample(mut self) -> MFloat[self.num_chans]:
-        """Get the next sample from a filled oversampling buffer."""
+        """Get the next sample from a filled oversampling buffer.
+
+        Returns:
+            The downsampled output sample.
+        """
         out = MFloat[self.num_chans](0.0)
         if self.counter > 1:
             for i in range(Self.times_oversampling):
@@ -57,7 +61,7 @@ struct Upsampler[num_chans: Int = 1, times_oversampling: Int = 1](Movable, Copya
     var lpf: OS_LPF4[Self.num_chans]
 
     def __init__(out self, world: World):
-        """
+        """Initialize the Upsampler.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -99,7 +103,7 @@ struct OS_LPF[num_chans: Int = 1](Movable, Copyable):
     comptime INV_SQRT2 = 0.7071067811865475
 
     def __init__(out self, world: World):
-        """
+        """Initialize the oversampling low-pass filter.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -159,6 +163,9 @@ struct OS_LPF[num_chans: Int = 1](Movable, Copyable):
         
         Args:
             x: The input signal to process.
+
+        Returns:
+            The filtered output sample.
         """
         var y = self.b0 * x + self.z1
         self.z1 = self.b1 * x - self.a1 * y + self.z2
@@ -175,7 +182,7 @@ struct OS_LPF4[num_chans: Int = 1](Movable, Copyable):
     var os_lpf2: OS_LPF[Self.num_chans]
 
     def __init__(out self, world: World):
-        """
+        """Initialize the 4th order oversampling low-pass filter.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -196,6 +203,9 @@ struct OS_LPF4[num_chans: Int = 1](Movable, Copyable):
         
         Args:
             x: The input signal to process.
+
+        Returns:
+            The filtered output sample.
         """
         
         var y = self.os_lpf1.next(x)

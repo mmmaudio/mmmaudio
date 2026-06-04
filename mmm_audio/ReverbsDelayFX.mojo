@@ -271,6 +271,9 @@ struct Phaser[num_chans: Int = 1, stages: Int = 8](Movable, Copyable):
             lfo_octaves: The number of octaves above and below the base center frequency that the LFO will modulate. For example, if center_freq is 1000 Hz and lfo_octaves is 1, then the LFO will modulate between 500 Hz and 2000 Hz.
             freq_offset: A fixed frequency offset applied to each subsequent allpass stage. For example, if freq_offset is 0.1 and center_freq is 1000 Hz, then the first stage will be centered at 1000 Hz, the second at 1100 Hz, the third at 1200 Hz, etc.
             mix: The wet/dry mix of the effect. A value of 0 means only the original signal (dry), while a value of 1 means only the processed signal (wet). Values in between blend the two signals together.
+
+        Returns:
+            The phaser output.
         """
 
         allpass_out = input
@@ -311,6 +314,9 @@ struct Flanger[num_chans: Int = 1, interp: Interp = Interp.lagrange4](Movable, C
             lfo_freq: The frequency of the LFO that modulates the delay time of the comb filter, in Hz.
             lfo_octaves: The number of octaves above and below the base center frequency that the LFO will modulate. For example, if center_freq is 1000 Hz and lfo_octaves is 1, then the LFO will modulate between 500 Hz and 2000 Hz.
             mix: The wet/dry mix of the effect. A value of 0 means only the original signal (dry), while a value of 1 means only the processed signal (wet). Values in between blend the two signals together.
+
+        Returns:
+            The processed flanger output.
         """
         lfo = self.lfo.next[OscType.triangle](lfo_freq)
         center_freq_real = abs(center_freq)

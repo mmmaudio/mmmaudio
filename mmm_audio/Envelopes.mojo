@@ -173,12 +173,21 @@ struct Env(Movable, Copyable):
         return out
 
     def get_phase(self) -> Float64:
-        """Get the current phase of the envelope (between 0 and 1)."""
+        """Get the current phase of the envelope.
+
+        Returns:
+            The current envelope phase, clamped to the range 0 to 1.
+        """
         return clip(self.sweep.phase, 0.0, 1.0)
 
     @staticmethod
     def get_env_buffer[num_chans: Int = 1, win_type: WindowType = WindowType.none, interp: Interp = Interp.linear](world: World, size: Int, *env_defs: EnvParams) -> SIMDBuffer[num_chans]:
         """Get a SIMDBuffer of envelope values.
+
+        Parameters:
+            num_chans: Number of SIMD channels in the output buffer.
+            win_type: A WindowType to apply to the envelope. See [WindowType](MMMMAudio.md#struct-windowtype) struct for available window types.
+            interp: Interpolation mode used when reading the window. See [Interp](MMMMAudio.md#struct-interp) struct for available interpolation types.
 
         Args:
             world: Pointer to the MMMWorld.
@@ -220,6 +229,11 @@ def win_read[window_type: WindowType = WindowType.sine, interp: Interp = Interp.
 
 def buf_read[num_chans: Int, interp: Interp = Interp.linear, bWrap: Bool = True](world: World, env_buffer: SIMDBuffer[num_chans], phase: MFloat[1], prev_phase: MFloat[1] = 0.0) -> MFloat[num_chans]:
     """Reads a buffer by indexing into it with the provided phase.
+
+    Parameters:
+        num_chans: Number of SIMD channels stored in the buffer.
+        interp: Interpolation mode used for buffer lookup. See [Interp](MMMMAudio.md#struct-interp) struct for available interpolation types.
+        bWrap: Whether the read should wrap around the buffer edges.
 
     Args:
         world: Pointer to the MMMWorld.
@@ -314,6 +328,9 @@ struct ASREnv(Movable, Copyable):
             release: (Float64): Release time in seconds.
             gate: (Bool): Gate signal (True or False).
             curve: (MFloat[2]): Can pass a Float64 for equivalent curve on rise and fall or MFloat[2] for different rise and fall curve. Positive values for convex "exponential" curves, negative for concave "logarithmic" curves.
+
+        Returns:
+            The current ASR envelope value.
         """
 
         if self.bool_changed.next(gate):

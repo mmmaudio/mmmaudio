@@ -10,6 +10,9 @@ def bitcrusher[num_chans: Int](in_samp: MFloat[num_chans], bits: Int) -> MFloat[
     Args:
         in_samp: The input sample to be bitcrushed.
         bits: The number of bits to reduce the signal to.
+
+    Returns:
+        The output sample.
     """
     var step = 1.0 / MFloat[num_chans](1 << bits)
     var out_samp = floor(in_samp / step + 0.5) * step
@@ -39,6 +42,9 @@ struct Latch[num_chans: Int = 1](Copyable, Movable):
         Args:
             in_samp: The input sample to be latched.
             trig: A boolean trigger signal. When switching from false to true, the latch updates its output to the current input sample.
+
+        Returns:
+            The currently latched sample.
         """
         
         rising_edge: MBool[Self.num_chans] = trig & ~self.last_trig
@@ -162,7 +168,19 @@ struct SoftClipAD[num_chans: Int = 1, os_index: Int = 0, degree: Int = 3](Copyab
             return self.oversampling.get_sample()
 
 def soft_clip[num_chans: Int](x: MFloat[num_chans], min_val: MFloat[num_chans] = -1., max_val: MFloat[num_chans] = 1.) -> MFloat[num_chans]:
-    """SuperCollider-style softclip with custom range."""
+    """Apply a SuperCollider-style soft clip across a custom range.
+
+    Parameters:
+        num_chans: The number of channels for SIMD operations.
+
+    Args:
+        x: The input sample to clip.
+        min_val: Lower clipping bound.
+        max_val: Upper clipping bound.
+
+    Returns:
+        The softly clipped output sample.
+    """
     var center = (min_val + max_val) / 2.0
     var range = (max_val - min_val) / 2.0
     var normalized = (x - center) / range

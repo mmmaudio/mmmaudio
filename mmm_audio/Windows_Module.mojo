@@ -24,7 +24,21 @@ struct Windows(Movable, Copyable):
         self.gaussian = gaussian_window(self.size)
 
     def at_phase[num_chans: Int, window_type: WindowType, interp: Interp = Interp.none](self, world: World, phase: MFloat[num_chans], prev_phase: MFloat[num_chans] = 0.0) -> MFloat[num_chans]:
-        """Get window value at given phase (0.0 to 1.0) for specified window type."""
+        """Get a window value at the given normalized phase.
+
+        Parameters:
+            num_chans: Size of the SIMD vector.
+            window_type: Window type to sample.
+            interp: Interpolation mode used when reading the window table.
+
+        Args:
+            world: The current audio world.
+            phase: Normalized phase values in the range 0.0 to 1.0.
+            prev_phase: Previous normalized phase values for interpolators that need them.
+
+        Returns:
+            Window values sampled at the requested phases.
+        """
 
         out = MFloat[num_chans](0.0)
 
@@ -112,8 +126,10 @@ def rect_window(size: Int) -> List[Float64]:
 def tri_window(size: Int) -> List[Float64]:
     """
     Generate a triangular window of length size.
+
     Args:
         size: Length of the window.
+
     Returns:
         List containing the triangular window values.
     """

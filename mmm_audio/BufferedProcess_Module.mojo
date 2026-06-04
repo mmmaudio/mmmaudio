@@ -184,18 +184,20 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
     def next_from_buffer[interp: Interp = Interp.none, bWrap: Bool = False](mut self, ref buffer: SIMDBuffer[1], phase: Float64, chan: Int = 0) -> Float64:
         """Used for non-real-time, buffer-based, processing. At the onset of the next window, reads a block of window_size samples from the provided buffer, starting at the given phase and channel. Phase values between zero and one will read samples within the provided buffer. If the provided phase tries to read samples with an index below zero or above the duration of the buffer, zeros will be returned.
 
+        Parameters:
+            interp: The interpolation method to use when reading from the buffer. Do not use sinc interpolation.
+            bWrap: Whether to wrap around the buffer at the end or to return zeros when the phase tries to read beyond the buffer duration.
+
         Args:
             buffer: The input buffer to read samples from.
             phase: The current phase to start reading from the buffer.
             chan: The channel to read from the buffer.
-
-        Params:
-            interp: The interpolation method to use when reading from the buffer. Do not use sinc interpolation.
-            bWrap: Whether to wrap around the buffer at the end or to return zeros when the phase tries to read beyond the buffer duration.
         
         Returns:
             The next output sample.
         """
+
+        comptime assert interp != Interp.sinc, "Sinc interpolation is not supported in the `next_from_buffer` method of BufferedProcess. Please use a different interpolation method."
         
         if self.world[].top_of_block:
             self.process.get_messages()
@@ -229,13 +231,13 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
     def next_from_stereo_buffer[interp: Interp = Interp.none, bWrap: Bool = False](mut self, ref buffer: SIMDBuffer[2], phase: Float64) -> SIMD[DType.float64,2]:
         """Used for non-real-time, buffer-based, processing of stereo files. At the onset of the next window, reads a window_size block of samples from the provided buffer, starting at the given phase and channel. Phase values between zero and one will read samples within the provided buffer. If the provided phase results in reading samples with an index below zero or above the duration of the buffer, zeros will be returned.
 
+        Parameters:
+            interp: The interpolation method to use when reading from the buffer. Do not use sinc interpolation.
+            bWrap: Whether to wrap around the buffer at the end or to return zeros when the phase tries to read beyond the buffer duration.
+
         Args:
             buffer: The input buffer to read samples from.
             phase: The current phase to read from the buffer.
-        
-        Params:
-            interp: The interpolation method to use when reading from the buffer. Do not use sinc interpolation.
-            bWrap: Whether to wrap around the buffer at the end or to return zeros when the phase tries to read beyond the buffer duration.
 
         Returns:
             The next output sample.

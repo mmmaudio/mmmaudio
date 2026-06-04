@@ -70,7 +70,11 @@ struct Lags[num_lags: Int](Movable, Copyable):
         self.lags = [Lag[Self.simd_width](world, lag_time) for _ in range(Self.num_simd)]
 
     def next(mut self, vals: Span[MFloat[1], ...]):
-        """Process a Span (List or InlineArray) of Floats through the lags. The length of vals should be equal to num_lags."""
+        """Process a Span (List or InlineArray) of Floats through the lags.
+
+        Args:
+            vals: Input values whose length should match num_lags.
+        """
         comptime for i in range(Self.num_simd):
             simd_val = MFloat[Self.simd_width](0.0)
             comptime for j in range(Self.simd_width):
@@ -522,7 +526,11 @@ struct OnePole[num_chans: Int = 1](Movable, Copyable):
     var world: World
     
     def __init__(out self, world: World):
-        """Initialize the one-pole filter."""
+        """Initialize the one-pole filter.
+
+        Args:
+            world: Pointer to the MMMWorld.
+        """
 
         self.last_samp = MFloat[Self.num_chans](0.0)
         self.world = world

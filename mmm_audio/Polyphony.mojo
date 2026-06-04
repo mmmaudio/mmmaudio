@@ -2,7 +2,10 @@ from mmm_audio import *
 
 trait PolyObject(Movable, Copyable):
     def check_active(mut self) -> Bool:
-        """A required, user defind function to check if the voice is active. This is usually done by checking if the envelope is active or if the Line has reached its end. This function is used internally by Poly to keep track of which voices are active and which are not.
+        """A required, user defined function to check if the voice is active. This is usually done by checking if the envelope is active or if the Line has reached its end. This function is used internally by Poly to keep track of which voices are active and which are not.
+
+        Returns:
+            True when the voice is active, otherwise False.
         """
         ...
 
@@ -50,9 +53,12 @@ struct Poly(Movable, Copyable):
     var int_dict: Dict[Int, Int]
 
     def __init__(out self, world: World, num_voices: Int, namespace: Optional[String] = None):
-        """
+        """Initialize the Poly.
+
         Args:
-            num_voices (Int): the number of voices in the Poly object. This is the maximum number of voices that can be active at once. If all voices are active and a new trigger is received, the trigger will be ignored. You can increase the number of voices with the set_num_voices function, but you cannot decrease the number of voices after initialization.
+            world: Pointer to the MMMWorld instance.
+            num_voices: The number of voices in the Poly object. This is the maximum number of voices that can be active at once. If all voices are active and a new trigger is received, the trigger will be ignored. You can increase the number of voices with the set_num_voices function, but you cannot decrease the number of voices after initialization.
+            namespace: Optional message namespace for the internal Messenger.
         """
         self.num_voices = num_voices
         self.active_list = [False for _ in range(self.num_voices)]
@@ -76,7 +82,17 @@ struct Poly(Movable, Copyable):
             self.num_voices = new_num_voices
 
     def next_trig[T: PolyObject](mut self, mut poly_objects: List[T], trig: Bool) -> Int:
-        """Looks at the value of trig. If trig is True, looks for a free voice and triggers it. Returns the index of the voice that was triggered, or -1 if no voice was triggered.
+        """Trigger the next available voice when `trig` is true.
+
+        Parameters:
+            T: The PolyObject type stored in `poly_objects`.
+
+        Args:
+            poly_objects: Polyphonic voices to manage.
+            trig: Trigger signal used to request a new voice.
+
+        Returns:
+            The index of the voice that was triggered, or -1 if none were available.
         """
         self._reset[audio_control = 0](poly_objects)
         return self.find_voice_and_trigger(poly_objects, trig)
@@ -149,11 +165,14 @@ struct Poly(Movable, Copyable):
     def next_gate[T: PolyObject](mut self, mut poly_objects: List[T], gate_sigs: List[Bool]) -> Int:
         """This function is designed to be used with polyphonic synths that have gated controls that are signals.
 
+        Parameters:
+            T: The PolyObject type stored in `poly_objects`.
+
         Args:
             poly_objects: A list of structs conforming to the PolyObject trait. This function calls the set_gate function for each PolyObject to open and close the gates as needed.
             gate_sigs: A list of boolean signals that control the gates of the voices. This number should be less than or equal to the number of voices in the Poly. Remember that even if a gate is closed that does not mean the voice is free. The voice is free when the envelope or Line of the voice is finished and the check_active function returns False again. Plan the number of gates and voices accordingly.
-        
-        Return:
+
+        Returns:
             The index of the voice whose gate was opened, or -1 if no voice was opened.
         """
         self._reset[audio_control = 0](poly_objects)
@@ -327,11 +346,29 @@ trait GrainObject(PolyObject):
     """Trait for objects that can be used as grains in the TGrains struct for triggered granular synthesis."""
 
     def __init__(out self, world: World):
-        """An __init__ with this layout must be implemented for the GrainObject trait."""
+        """Initialize a GrainObject implementation.
+
+        Args:
+            world: Pointer to the MMMWorld instance.
+        """
         ...
 
     def next_2[num_buf_chans: Int, num_playback_chans: Int = 2, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans]) -> MFloat[2]:
-        """This is the function to create if you want to output 2 channels using pan2 or pan_stereo."""
+        """This is the function to create if you want to output 2 channels using pan2 or pan_stereo.
+
+        Parameters:
+            num_buf_chans: Number of channels in the source buffer.
+            num_playback_chans: Number of source channels to play back before panning.
+            win_type: Window type applied to the grain.
+            custom_curve: Optional custom curve for user-defined envelopes.
+            bWrap: Whether reads wrap around the source buffer.
+
+        Args:
+            buffer: Source buffer for grain playback.
+
+        Returns:
+            The next stereo grain sample.
+        """
         return 0.0
 
     def next_az[num_buf_chans: Int, num_out_chans: Int, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_buf_chans], buffer_chan: Int = 0, num_speakers: Int = 2, width: Float64 = 2.0, orientation: Float64 = 0.5) -> MFloat[num_out_chans]:
@@ -355,7 +392,11 @@ trait GrainObject(PolyObject):
         return False
 
     def set_user_defined_env(mut self, env_params: EnvParams):
-        """Should probably just be: self.grain.set_user_defined_env(env_params)."""
+        """Set the user-defined envelope parameters for the grain.
+
+        Args:
+            env_params: Envelope definition to apply.
+        """
         pass
 
 
@@ -447,6 +488,12 @@ struct GrainAll(GrainObject):
             win_type: The type of window to apply to the grain. A hann window is used by default, and will give the classic granular synthesis sound. If win_type is WindowType.user_defined, then the user_defined_env (Env) will be used as the window.
             custom_curve: If win_type is WindowType.user_defined, applies a custom curve to the user defined envelope. This is the win_type parameter of the Env next function.
             bWrap: Whether to wrap around the buffer when reading. If false, the grain will read 0 when it reaches the end of the buffer. If true, the grain will wrap around to the beginning of the buffer when it reaches the end.
+
+        Args:
+            buffer: A SIMDBuffer to read from.
+
+        Returns:
+            The next grain sample for all channels.
         """
 
         phase = self.line.next(0.0, 1.0, self.dur, self.trigger)
@@ -477,7 +524,7 @@ struct Grain(GrainObject):
     var start_chan: Int
 
     def __init__(out self, world: World):
-        """
+        """Initialize the grain.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -538,6 +585,9 @@ struct Grain(GrainObject):
 
         Args:
             buffer: A SIMDBuffer to read from.
+
+        Returns:
+            The next stereo grain sample.
         """
         
         var sample = self.grain.next_all[win_type=win_type, bWrap=bWrap](buffer)
@@ -585,7 +635,7 @@ struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann,
     var grain_index: Int
 
     def __init__(out self, world: World, num_grains: Int = 1):
-        """
+        """Initialize the triggered granular synthesizer.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -653,7 +703,7 @@ struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann,
             gain: Amplitude scaling factor for the output of the grains.
 
         Returns:
-            Output samples for left and right channels as a SIMD vector.
+            Output samples for the left and right channels.
         """
 
         out = MFloat[2](0.0)
@@ -783,6 +833,9 @@ struct PitchShift[num_chans: Int = 1, win_type: WindowType = WindowType.hann](Mo
             added_delay_low: Minimum amount of delay to add to the start of each grain in seconds.
             added_delay_high: Maximum amount of delay to add to the start of each grain in seconds. (Maximum added delay should be set so that it does not exceed the internal buffer size when combined with the grain duration and time dispersion).
             gain: Amplitude scaling factor for the output.
+
+        Returns:
+            The pitch-shifted output sample.
         """
 
         self.recorder.write_next(in_sig)

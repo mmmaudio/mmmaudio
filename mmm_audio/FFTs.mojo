@@ -46,6 +46,9 @@ struct RealFFT[num_chans: Int = 1](Copyable, Movable):
         
         All internal buffers and lookup tables are set up here based on the Parameters.
 
+        Args:
+            window_size: FFT window size in samples.
+
         """
         self.log_n = log2_int(window_size//2)
         self.log_n_full = log2_int(window_size)

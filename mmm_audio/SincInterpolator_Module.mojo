@@ -109,6 +109,9 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
             data: The audio data (Buffer channel) to interpolate.
             current_index: The current fractional index for interpolation.
             prev_index: The previous index. Needed to calculate the slope.
+
+        Returns:
+            The sinc-interpolated sample value.
         """
         size_f64: Float64 = Float64(len(data))
         index_diff = current_index - prev_index

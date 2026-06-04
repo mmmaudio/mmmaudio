@@ -136,7 +136,11 @@ struct YIN(BufferedProcessable,GetFloat64Featurable):
         self.yin_values = List[Float64](length=window_size, fill=0.0)
     
     def get_features(self) -> List[Float64]:
-        """Return the current pitch and confidence as a List of Float64."""
+        """Get the pitch and confidence values.
+
+        Returns:
+            The current pitch and confidence values as a List[Float64].
+        """
         return [self.pitch, self.confidence]
 
     def next_window(mut self, mut frame: List[Float64]):
@@ -261,11 +265,16 @@ struct SpectralCentroid(FFTProcessable, GetFloat64Featurable):
     var power_mag: Bool
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral centroid value as a List of Float64."""
+        """Get the spectral centroid value as a List of Float64.
+
+        Returns:
+            The current spectral centroid feature value as a List[Float64] (with only the one element).
+        """
         return [self.centroid]
 
     def __init__(out self, sr: Float64, min_freq: Float64 = 20, max_freq: Float64 = 20000, power_mag: Bool = False):
         """Initialize the Spectral Centroid analyzer.
+
         Args:
             sr: The sample rate from the MMMWorld.
             min_freq: The minimum frequency to consider when computing the spectral centroid.
@@ -349,7 +358,11 @@ struct SpectralSpread(FFTProcessable, GetFloat64Featurable):
     var power_mag: Bool
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral spread value as a List of Float64."""
+        """Get the current spectral spread value.
+
+        Returns:
+            The current spectral spread feature value as a List[Float64] (with only the one element).
+        """
         return [self.spread]
 
     def __init__(out self, sr: Float64, min_freq: Float64 = 20, max_freq: Float64 = 20000, log_freq: Bool = False, power_mag: Bool = False):
@@ -370,7 +383,16 @@ struct SpectralSpread(FFTProcessable, GetFloat64Featurable):
         self.power_mag = power_mag
 
     def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]) -> None:
-        """Compute the spectral spread for a given FFT analysis."""
+        """Compute the spectral spread for a given FFT analysis.
+
+        This function is to be used by FFTProcess if SpectralSpread is passed as the "process".
+
+        Nothing is returned. The spread is stored internally and can be accessed with `.spread`.
+
+        Args:
+            mags: The input magnitudes as a List of Float64.
+            phases: The input phases as a List of Float64.
+        """
         self.spread = self.from_mags(mags, self.sr, self.min_freq, self.max_freq, self.log_freq, self.power_mag)
 
     @staticmethod
@@ -423,7 +445,11 @@ struct SpectralSkewness(FFTProcessable, GetFloat64Featurable):
     var power_mag: Bool
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral skewness value as a List of Float64."""
+        """Return the current spectral skewness value as a List of Float64.
+
+        Returns:
+            The current spectral skewness feature value as a List[Float64] (with only the one element).
+        """
         return [self.skewness]
 
     def __init__(out self, sr: Float64, min_freq: Float64 = 20, max_freq: Float64 = 20000, log_freq: Bool = False, power_mag: Bool = False):
@@ -444,7 +470,14 @@ struct SpectralSkewness(FFTProcessable, GetFloat64Featurable):
         self.power_mag = power_mag
 
     def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]) -> None:
-        """Compute the spectral skewness for a given FFT analysis."""
+        """Compute the spectral skewness for a given FFT analysis.
+
+        Nothing is returned. The skewness is stored internally and can be accessed with `.skewness`.
+
+        Args:
+            mags: The input magnitudes as a List of Float64.
+            phases: The input phases as a List of Float64.
+        """
         self.skewness = self.from_mags(mags, self.sr, self.min_freq, self.max_freq, self.log_freq, self.power_mag)
 
     @staticmethod
@@ -506,7 +539,11 @@ struct SpectralKurtosis(FFTProcessable, GetFloat64Featurable):
     var power_mag: Bool
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral kurtosis value as a List of Float64."""
+        """Get the current spectral kurtosis value as a List of Float64.
+
+        Returns:
+            The current spectral kurtosis feature value.
+        """
         return [self.kurtosis]
 
     def __init__(out self, sr: Float64, min_freq: Float64 = 20, max_freq: Float64 = 20000, log_freq: Bool = False, power_mag: Bool = False):
@@ -527,7 +564,16 @@ struct SpectralKurtosis(FFTProcessable, GetFloat64Featurable):
         self.power_mag = power_mag
 
     def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]) -> None:
-        """Compute the spectral kurtosis for a given FFT analysis."""
+        """Compute the spectral kurtosis for a given FFT analysis.
+
+        This function is to be used by FFTProcess if SpectralKurtosis is passed as the "process".
+
+        Nothing is returned. The kurtosis is stored internally and can be accessed with `.kurtosis`.
+
+        Args:
+            mags: The input magnitudes as a List of Float64.
+            phases: The input phases as a List of Float64.
+        """
         self.kurtosis = self.from_mags(mags, self.sr, self.min_freq, self.max_freq, self.log_freq, self.power_mag)
 
     @staticmethod
@@ -590,7 +636,11 @@ struct SpectralRolloff(FFTProcessable, GetFloat64Featurable):
     var power_mag: Bool
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral rolloff value as a List of Float64."""
+        """Get the current spectral rolloff value.
+
+        Returns:
+            The current spectral rolloff feature value as a List[Float64] (with only the one element).
+        """
         return [self.rolloff]
 
     def __init__(out self, sr: Float64, min_freq: Float64 = 20, max_freq: Float64 = 20000, rolloff_target: Float64 = 95.0, log_freq: Bool = False, power_mag: Bool = False):
@@ -613,7 +663,16 @@ struct SpectralRolloff(FFTProcessable, GetFloat64Featurable):
         self.power_mag = power_mag
 
     def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]) -> None:
-        """Compute the spectral rolloff for a given FFT analysis."""
+        """Compute the spectral rolloff for a given FFT analysis.
+
+        This function is to be used by FFTProcess if SpectralRolloff is passed as the "process".
+
+        Nothing is returned. The rolloff is stored internally and can be accessed with `.rolloff`.
+
+        Args:
+            mags: The input magnitudes as a List of Float64.
+            phases: The input phases as a List of Float64.
+        """
         self.rolloff = self.from_mags(
             mags,
             self.sr,
@@ -682,7 +741,11 @@ struct SpectralFlatness(FFTProcessable, GetFloat64Featurable):
     var power_mag: Bool
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral flatness value (dB) as a List of Float64."""
+        """Get the current spectral flatness value (dB).
+
+        Returns:
+            The current spectral flatness feature value as a List[Float64] (with only the one element).
+        """
         return [self.flatness]
 
     def __init__(out self, sr: Float64, min_freq: Float64 = 20, max_freq: Float64 = 20000, log_freq: Bool = False, power_mag: Bool = False):
@@ -703,7 +766,16 @@ struct SpectralFlatness(FFTProcessable, GetFloat64Featurable):
         self.power_mag = power_mag
 
     def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]) -> None:
-        """Compute the spectral flatness for a given FFT analysis."""
+        """Compute the spectral flatness for a given FFT analysis.
+
+        This function is to be used by FFTProcess if SpectralFlatness is passed as the "process".
+
+        Nothing is returned. The flatness is stored internally and can be accessed with `.flatness`.
+
+        Args:
+            mags: The input magnitudes as a List of Float64.
+            phases: The input phases as a List of Float64.
+        """
         self.flatness = self.from_mags(mags, self.sr, self.min_freq, self.max_freq, self.log_freq, self.power_mag)
 
     @staticmethod
@@ -749,7 +821,11 @@ struct SpectralCrest(FFTProcessable, GetFloat64Featurable):
     var power_mag: Bool
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral crest value (dB) as a List of Float64."""
+        """Get the current spectral crest value (dB).
+
+        Returns:
+            The current spectral crest feature value as a List[Float64] (with only the one element).
+        """
         return [self.crest]
 
     def __init__(out self, sr: Float64, min_freq: Float64 = 20, max_freq: Float64 = 20000, log_freq: Bool = False, power_mag: Bool = False):
@@ -770,7 +846,16 @@ struct SpectralCrest(FFTProcessable, GetFloat64Featurable):
         self.power_mag = power_mag
 
     def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]) -> None:
-        """Compute the spectral crest for a given FFT analysis."""
+        """Compute the spectral crest for a given FFT analysis.
+
+        This function is to be used by FFTProcess if SpectralCrest is passed as the "process".
+
+        Nothing is returned. The crest is stored internally and can be accessed with `.crest`.
+
+        Args:
+            mags: The input magnitudes as a List of Float64.
+            phases: The input phases as a List of Float64.
+        """
         self.crest = self.from_mags(mags, self.sr, self.min_freq, self.max_freq, self.log_freq, self.power_mag)
 
     @staticmethod
@@ -808,7 +893,11 @@ struct RMS(BufferedProcessable, GetFloat64Featurable):
     var rms: Float64
 
     def get_features(self) -> List[Float64]:
-        """Return the current RMS value as a List of Float64."""
+        """Get the current RMS value.
+
+        Returns:
+            The current RMS feature value as a List[Float64] (with only the one element).
+        """
         return [self.rms]
 
     def __init__(out self):
@@ -861,7 +950,11 @@ struct MelBands(FFTProcessable, GetFloat64Featurable):
     var power: Float64
 
     def get_features(self) -> List[Float64]:
-        """Return the current mel band values as a List of Float64."""
+        """Get the current mel band values.
+
+        Returns:
+            The current mel band feature vector.
+        """
         return self.bands.copy()
 
     def __init__(out self, sr: Float64, num_bands: Int = 40, min_freq: Float64 = 20.0, max_freq: Float64 = 20000.0, fft_size: Int = 1024, power: Float64 = 2.0):
@@ -1022,6 +1115,15 @@ struct MelBands(FFTProcessable, GetFloat64Featurable):
         """Convert mel bin numbers to frequencies.
 
         This implementation is based on Librosa's eponymous [function](https://librosa.org/doc/main/generated/librosa.mel_to_hz.html). For more information on mel frequencies space see the [MelBands](Analysis.md/#struct-melbands) documentation.
+
+        Parameters:
+            num_chans: Number of SIMD channels in the mel vector.
+
+        Args:
+            mel: Mel values to convert to Hertz.
+
+        Returns:
+            Frequencies in Hertz for the input mel values.
         """
 
         # "HTK" is a different way to compute mels. It is not implemented in MMMAudio, but
@@ -1055,7 +1157,11 @@ struct MFCC(FFTProcessable, GetFloat64Featurable):
     var coeffs: List[Float64]
 
     def get_features(self) -> List[Float64]:
-        """Return the current MFCC values as a List of Float64."""
+        """Get the current MFCC values.
+
+        Returns:
+            The current MFCC feature vector as a List[Float64].
+        """
         return self.coeffs.copy()
 
     def __init__(out self, sr: Float64, num_coeffs: Int = 13, num_bands: Int = 40, min_freq: Float64 = 20.0, max_freq: Float64 = 20000.0, fft_size: Int = 1024):
@@ -1249,7 +1355,11 @@ struct SpectralFlux(FFTProcessable, GetFloat64Featurable):
         _ = self.from_mags(mags)
 
     def get_features(self) -> List[Float64]:
-        """Return the current spectral flux value as a List of Float64."""
+        """Get the current spectral flux value.
+
+        Returns:
+            The current spectral flux feature value as a List[Float64] (with only the one element).
+        """
         return [self.flux]
 
     def from_mags(mut self, ref mags: List[Float64]) -> Float64:
@@ -1261,6 +1371,9 @@ struct SpectralFlux(FFTProcessable, GetFloat64Featurable):
 
         Args:
             mags: The input magnitudes as a List of Float64.
+
+        Returns:
+            The computed spectral flux value.
         """
         
         self.flux = 0.0
@@ -1381,7 +1494,11 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
         return state^
 
     def get_features_ptr(self) -> Pointer[mut = False, List[Tuple[Float64, Float64]], origin_of(self.freq_amp_pairs)]:
-        """Return a pointer to the current List of freq, amp pairs."""
+        """Get a pointer to the current List of freq, amp pairs.
+
+        Returns:
+            A pointer to the current frequency and amplitude pairs.
+        """
         return Pointer(to=self.freq_amp_pairs)
 
     def __init__(out self, sample_rate: Float64, window_size: Int, num_peaks: Int = 5, sort_by_freq: Bool = True, thresh: Float64 = -30.0):

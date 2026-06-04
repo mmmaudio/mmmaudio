@@ -138,6 +138,9 @@ def linlin[
         in_max: The maximum of the input range.
         out_min: The minimum of the output range.
         out_max: The maximum of the output range.
+
+    Returns:
+        The linearly mapped samples.
     """
     in_min2, in_max2, _ = check_reversed(in_min, in_max)
 
@@ -197,7 +200,18 @@ def expexp[num_chans: Int, //](
 @always_inline
 def linexp[num_chans: Int, //
 ](input: MFloat[num_chans], in_min: MFloat[num_chans], in_max: MFloat[num_chans], out_min: MFloat[num_chans], out_max: MFloat[num_chans]) -> MFloat[num_chans]:
-    """Maps samples from one linear range to another exponential range."""
+    """Maps samples from one linear range to another exponential range.
+
+    Args:
+        input: The samples to map.
+        in_min: The minimum of the input range.
+        in_max: The maximum of the input range.
+        out_min: The minimum of the output range.
+        out_max: The maximum of the output range.
+
+    Returns:
+        The exponentially mapped samples.
+    """
     
     mask = (out_min.le(0.0)) | (out_max.le(0.0))
     if any(mask):
@@ -641,8 +655,9 @@ def rrand(min: Int, max: Int) -> Int:
     Args:
         min: The minimum sample (inclusive).
         max: The maximum sample (inclusive).
+
     Returns:
-        A random float64 sample from the specified range.
+        A random Int sample from the specified range.
     """
     return Int(rrand(Float64(min), Float64(max)+0.99999999999999))
 
@@ -655,8 +670,9 @@ def rrand[num_chans: Int = 1](min: MFloat[num_chans], max: MFloat[num_chans]) ->
     Args:
         min: The minimum sample (inclusive).
         max: The maximum sample (inclusive).
+
     Returns:
-        A random float64 sample from the specified range.
+        A random Float64 sample from the specified range.
     """
     var u = MFloat[num_chans](0.0)
     comptime for i in range(num_chans):
@@ -673,8 +689,9 @@ def exprand[num_chans: Int](min: MFloat[num_chans], max: MFloat[num_chans]) -> M
     Args:
         min: The minimum sample (inclusive).
         max: The maximum sample (inclusive).
+
     Returns:
-        A random float64 sample from the specified range.
+        A random Float64 sample from the specified range.
     """
     var u = MFloat[num_chans](0.0)
     comptime for i in range(num_chans):
@@ -758,6 +775,9 @@ def subtract_outer(a: Span[Float64, ...], b: Span[Float64, ...]) -> List[List[Fl
 
 def coin[num_chans:Int](p: MFloat[num_chans]) -> MBool[num_chans]:
     """Return True with probability p, False otherwise.
+
+    Parameters:
+        num_chans: Number of channels in the SIMD vector.
     
     Args:
         p: Probability of returning True (between 0 and 1).
@@ -772,6 +792,9 @@ def coin[num_chans:Int](p: MFloat[num_chans]) -> MBool[num_chans]:
 
 def rotate_left_inplace[T: Movable & Copyable & ImplicitlyCopyable](mut data: List[T], N: Int):
     """Rotates a list to the left by N positions in-place.
+
+    Parameters:
+        T: Element type stored in the list.
 
     Args:
         data: The list to rotate.
@@ -845,6 +868,14 @@ def find_quadratic_peak(p1: Float64, p2: Float64, p3: Float64) -> Tuple[Float64,
     - At x=0: c = p1
     - At x=1: a + b + c = p2
     - At x=2: 4a + 2b + c = p3
+
+    Args:
+        p1: The first sample value.
+        p2: The middle sample value.
+        p3: The third sample value.
+
+    Returns:
+        The x-position and y-value of the quadratic peak.
     """
 
     c = p1
@@ -994,12 +1025,15 @@ def select_files(dir: String, extensions: List[String] = [".wav",".aif"]) -> Lis
 @always_inline  
 def array_to_mfloat[simd_out_size: Int, array: InlineArray[Float64, _], fill_with: Float64 = 0.0]() -> MFloat[simd_out_size]:
     """
-    Creates an MFloat 2 vector of size 2^n from a given array. If the given array is not a power of two the additional vector values will be initialized to 0.
+    Creates an MFloat vector of size `simd_out_size` from a given array. If the given array is not a power of two the additional vector values will be initialized to 0.
     
     Parameters:
         simd_out_size: The size of the MFloat vector to be returned. Must be a power of two.
         array: The source array. Its length must be less than or equal to simd_out_size.
         fill_with: The value to fill in the remaining elements if array length is less than simd_out_size (default is 0.0).
+
+    Returns:
+        An MFloat populated from the input array and padded as needed.
     """
     
     new_vec = MFloat[simd_out_size](fill_with)

@@ -44,11 +44,14 @@ struct Hilbert[window_type: WindowType = WindowType.sine](Movable, Copyable):
             ](self.world,HilbertWindow(self.world, self.window_size), self.window_size, self.hop_size)
 
     def next(mut self, input: MFloat[1], radians: Float64) -> Tuple[Float64, Float64]:
-        """Process one sample through the Hilbert transform, returning the delayed input sample and the Hilbert transform output sample.
+        """Process one sample through the Hilbert transform.
         
         Args:
             input: The input sample to process.
             radians: The angle in radians to rotate the Hilbert transform output by.
+
+        Returns:
+            The delayed dry sample and the Hilbert-transformed output sample.
         """
         self.hilbert.buffered_process.process.process.radians = radians
         o = self.hilbert.next(input)

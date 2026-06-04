@@ -48,6 +48,9 @@ def splay[num_simd: Int](*input: MFloat[num_simd], world: World) -> MFloat[2]:
 
     There are multiple versions of splay to handle different input types. It can take a List or InlineArray of SIMD vectors, a VariadicList of SIMD, or a single 1 or many channel SIMD vector. In the case of a list of SIMD vectors, each channel within the vector is treated separately and panned individually.
 
+    Parameters:
+        num_simd: Number of channels in each SIMD input.
+
     Args:
         input: VariadicList of input samples from multiple channels.
         world: Pointer to MMMWorld containing the pan_window.
@@ -85,6 +88,9 @@ def splay[num_simd: Int](input: Span[MFloat[num_simd], ...], world: World) -> MF
     Splay multiple input channels into stereo output.
 
     There are multiple versions of splay to handle different input types. It can take a List or InlineArray of SIMD vectors, a VariadicList of SIMD, or a single 1 or many channel SIMD vector. In the case of a list of SIMD vectors, each channel within the vector is treated separately and panned individually.
+
+    Parameters:
+        num_simd: Number of channels in each SIMD input.
 
     Args:
         input: VariadicList of input samples from multiple channels.
@@ -264,6 +270,9 @@ struct SplayN[num_channels: Int = 2, pan_points: Int = 128](Movable, Copyable):
     def next[num_simd: Int](mut self, input: Span[MFloat[num_simd], ...]) -> MFloat[self.num_channels]:
         """Evenly distributes multiple input channels to num_channels of output channels.
 
+        Parameters:
+            num_simd: Number of channels in each SIMD input.
+
         Args:
             input: List of input samples from multiple channels.
 
@@ -289,6 +298,9 @@ struct SplayN[num_channels: Int = 2, pan_points: Int = 128](Movable, Copyable):
     @always_inline
     def next[num_simd: Int](mut self, *input: MFloat[num_simd]) -> MFloat[self.num_channels]:
         """Evenly distributes multiple input channels to num_channels of output channels.
+
+        Parameters:
+            num_simd: Number of channels in each SIMD input.
 
         Args:
             input: Input samples from multiple channels.
