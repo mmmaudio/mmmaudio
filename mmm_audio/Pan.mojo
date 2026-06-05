@@ -388,19 +388,14 @@ def dbap2D[
 
         return variance_accum / Float64(comp_num_speakers - 1)
     
-   
-    var speaker_variance = variance_of_dists[num_speakers, speaker_pos]()
-    
-    # comptime assert (simd_out_size > num_speakers and simd_out_size % 2 == 0), "simd_out_size must be a power of 2 and greater than num_speakers"
-
-
     comptime vec_weights = array_to_mfloat[simd_out_size, weights]()
+
+    var speaker_variance = variance_of_dists[num_speakers, speaker_pos]()
 
     # Calculates the blur factor using the speaker variance to normalize
     var blur_sq = pow(max(0.00001, blur) * speaker_variance, 2)
 
-    # var blur_sq = pow(max(0.00001, blur), 2)
-
+   
     # Calculates the a coefficient given a rolloff in dB
     var a = rolloff/6.02059991328
 
