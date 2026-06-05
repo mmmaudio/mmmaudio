@@ -3,7 +3,7 @@ from mmm_audio import *
 # THE SYNTH
 
 comptime num_speakers = 2
-comptime num_simd_chans = next_power_of_two(num_speakers)
+comptime num_simd_chans = 2
 
 struct Grains(Movable, Copyable):
     var world: World
@@ -57,6 +57,6 @@ struct Grains(Movable, Copyable):
             grain_num = self.tgrains.trig(impulse)
             if grain_num >= 0:
                 self.tgrains.grains[grain_num].set_vals(1, start_frame, 0.4, random_float64(-1.0, 1.0), 1.0, 0)
-            out2 = self.tgrains.next_az[num_simd_chans](self.buffer, 1.0, num_speakers)
+            out2 = self.tgrains.next_az[num_speakers, num_simd_chans](self.buffer, 0, 1.0)
 
             return out2

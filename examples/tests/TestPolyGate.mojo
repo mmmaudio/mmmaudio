@@ -64,7 +64,7 @@ struct TestPolyGate(Movable, Copyable):
             if self.gates[i].next_bool(self.dust_vals[0], self.dust_vals[1]): self.gated_sigs[i] = not self.gated_sigs[i]
 
         # interpret the gates
-        self.poly.next_gate(self.psg_voices, self.gated_sigs)
+        _ = self.poly.next_gate(self.psg_voices, self.gated_sigs)
         # sum the voices
         out = MFloat[2](0.0, 0.0)
         for ref voice in self.psg_voices:
