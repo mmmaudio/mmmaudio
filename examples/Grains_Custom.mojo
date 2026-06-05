@@ -117,7 +117,7 @@ struct Grains_Custom(Movable, Copyable):
         self.max_trig_rate = 20.0
         self.points_temp = List[Float64]()
 
-        arr: InlineArray[Tuple[Float64, Float64], 4] = [
+        arr = [
             (0.0, 0.0), 
             (0.01, 1.0), 
             (0.9, 1.0), 

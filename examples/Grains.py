@@ -11,10 +11,10 @@ mmm_audio.start_audio()
 # for Wayland use the fake mouse
 MMMAudio.fake_mouse()
 
-# with a user defined env, the shape of the grain envelope can be customized
-mmm_audio.send_floats("times", [0.01, 0.2])
-mmm_audio.send_floats("values", [0.0, 1.0, 0.0])
-mmm_audio.send_floats("curves", [8])
+# when using a user defined env, setting the grain envelope should change the sound dramatically
+mmm_audio.send_floats("env_points", [0.0, 0.0, 0.01, 1.0, 1.0, 0.0]) 
+mmm_audio.send_floats("env_points", [0.0, 0.0, 0.5, 1.0, 1.0, 0.0])
+mmm_audio.send_floats("env_points", [0.0, 0.0, 0.1, 1.0, 0.2, 0.75, 0.8, 0.75, 1.0,0.0]) 
 
 # this will increase the trig rate, but there won't be enough grains
 # so increase the number of grains

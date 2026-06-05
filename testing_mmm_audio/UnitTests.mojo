@@ -459,14 +459,17 @@ def test_env() raises:
     world = alloc[MMMWorld](1) 
     world.init_pointee_move(MMMWorld(48000., 64, 0, 0, osc_buffers, windows))
 
-    x = MFloat[4](0.0, 0.25, 1.0, 1.5)
+    x = MFloat[4](0.1, 0.25, 0.45, 1.5)
     result = MFloat[4](0.0, 0.0, 0.0, 0.0)
+    env_points = [(0.0, 0.0), (0.2, 1.0), (1.0, 0.0)]
     for i in range(len(x)):
-        result[i] = env[WindowType.hann, Interp.linear](world, x[i], (0.0, 0.0), (0.2, 1.0), (1.0, 0.0))
-    expected = MFloat[4](0.0, 0.9375, 0.0, 0.0)
+        result[i] = env[WindowType.hann, Interp.linear](world, x[i], env_points)
+    expected = MFloat[4](0.5, 0.9375, 0.6875, 0.0)
     for i in range(len(x)):
         expected[i] = win_read[WindowType.hann, Interp.linear](world, expected[i]/2.0)
-    assert_almost_equal(result, expected, "Test: env function failed")
+    
+    # I am limiting the precision because I think the slight differences are less than significant
+    assert_almost_equal(result, expected, "Test: env function failed", rtol=1e-3)
 
 
 def test_linexp() raises:

@@ -9,12 +9,12 @@ struct Grains(Movable, Copyable):
     var world: World
     var buffer: SIMDBuffer[2]
     
-    var tgrains: TGrains[]
+    var tgrains: TGrains[win_type = WindowType.hann] # try changing to WindowType.user_defined 
     var impulse: Phasor[1]  
     var start_frame: Float64
     var m: Messenger
     var max_trig_rate: Float64
-    var env_params: EnvParams
+    var points_temp: List[Float64]
      
     def __init__(out self, world: World):
         self.world = world  
@@ -22,27 +22,24 @@ struct Grains(Movable, Copyable):
         # buffer uses numpy to load a buffer into an N channel array
         self.buffer = SIMDBuffer[2].load("resources/Shiverer.wav")
 
-        self.tgrains = TGrains(self.world, 10)  # Set the number of simultaneous grains
+        self.tgrains = TGrains[win_type = WindowType.hann](self.world, 10)  # Set the number of simultaneous grains
         self.impulse = Phasor[1](self.world)
         self.m = Messenger(world)
         self.max_trig_rate = 20.0
-        self.env_params = EnvParams()
+        self.points_temp = List[Float64]()
 
         self.start_frame = 0.0 
 
     @always_inline
     def next(mut self) -> MFloat[num_simd_chans]:
         self.m.update("max_trig_rate", self.max_trig_rate)
-        c1 = self.m.notify_update("times", self.env_params.times) 
-        c2 = self.m.notify_update("values", self.env_params.values) 
-        c3 = self.m.notify_update("curves", self.env_params.curves)
+        new_points = self.m.notify_update("env_points", self.points_temp)
+        if new_points:
+            self.tgrains.set_env_points(self.points_temp)
 
         num_grains = 0
         if self.m.notify_update("set_num_grains", num_grains):
             self.tgrains.set_num_grains(num_grains)
-
-        if c1 or c2 or c3:
-            self.tgrains.set_env_params(self.env_params)
 
         imp_freq = linlin(self.world[].mouse_y, 0.0, 1.0, 1.0, self.max_trig_rate)
         var impulse = self.impulse.next_bool(imp_freq, 0, True)

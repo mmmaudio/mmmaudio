@@ -157,7 +157,7 @@ def pan_az[simd_out_size: Int = 2](sample: Float64, pan: Float64, num_speakers: 
     Returns:
         MFloat[simd_out_size]: The panned output sample for each speaker.
     """
-
+    
     comptime assert simd_out_size & (simd_out_size - 1) == 0, "simd_out_size must be a power of two for pan_az"
 
     var rwidth = 1.0 / width
