@@ -337,7 +337,7 @@ def pan_az[num_speakers: Int = 2, simd_out_size: Int = 2, width: Float64 = 2.0, 
 def dbap2D[
     num_speakers: Int, 
     simd_out_size: Int,
-    speaker_pos: InlineArray[MFloat[2], num_speakers],
+    speaker_positions: InlineArray[MFloat[2], num_speakers],
     weights: InlineArray[Float64, num_speakers]]
     (
         sample: Float64, 
@@ -353,7 +353,7 @@ def dbap2D[
     Parameters:
         num_speakers: The number of speakers as an integer.
         simd_out_size: Must be a power of 2 and greater than num_speakers.
-        speaker_pos: The speaker positions as an InlineArray of MFloat[2] x/y pairs in meters from a center position.
+        speaker_positions: The speaker positions as an InlineArray of MFloat[2] x/y pairs in meters from a center position.
         weights: An InlineArray of Float64s (between 0.0 and 1.0) defining speaker weights for DBAP. Speaker weights allow for a source to be restricted to a subset of speakers. Speaker weights of 0.0 will disallow a source from playing through that speaker.
 
     Args:
@@ -369,49 +369,50 @@ def dbap2D[
     comptime assert simd_out_size & (simd_out_size - 1) == 0, "simd_out_size must be a power of two for dbap2D"
 
     # Calculates the covariance of speaker distances 
-    @parameter
-    def variance_of_dists[comp_num_speakers: Int, comp_speaker_pos: InlineArray[MFloat[2], num_speakers]]() -> Float64:
-        var accum : Float64 = 0.0 
-        var dists : InlineArray[Float64, comp_num_speakers] = [0.0]
-        for i in range(comp_num_speakers):
-            dist = comp_speaker_pos[i] * comp_speaker_pos[i]
-            dist_from_center = sqrt(dist.reduce_add())
+    
+    # def variance_of_dists[comp_num_speakers: Int, comp_speaker_positions: InlineArray[MFloat[2], comp_num_speakers]]() -> Float64:
+    #     var accum : Float64 = 0.0 
+    #     var dists = InlineArray[Float64, comp_num_speakers](fill=0.0)
+    #     for i in range(comp_num_speakers):
+    #         dist = comp_speaker_positions[i] * comp_speaker_positions[i]
+    #         dist_from_center = sqrt(dist.reduce_add())
 
-            dists[i] = dist_from_center
-            accum += dist_from_center
+    #         dists[i] = dist_from_center
+    #         accum += dist_from_center
+        
+    #     var mean : Float64 = accum / Float64(comp_num_speakers)
+    #     var variance_accum : Float64 = 0.0
 
-        var mean : Float64 = accum / Float64(comp_num_speakers)
-        var variance_accum : Float64 = 0.0
-        for speaker in dists:
-            variance_accum += pow(speaker - mean, 2)
+    #     for speaker in dists:
+    #         variance_accum += pow(speaker - mean, 2)
+      
 
-
-        return variance_accum / Float64(comp_num_speakers - 1)
+    #     return variance_accum / Float64(comp_num_speakers - 1)
     
     comptime vec_weights = array_to_mfloat[simd_out_size, weights]()
-
-    var speaker_variance = variance_of_dists[num_speakers, speaker_pos]()
-
+    # comptime speaker_position_variance : Float64 = variance_of_dists[num_speakers, speaker_positions]()
+    
     # Calculates the blur factor using the speaker variance to normalize
-    var blur_sq = pow(max(0.00001, blur) * speaker_variance, 2)
+    # var blur_sq = pow(max(0.00001, blur) * speaker_position_variance, 2)
 
-   
-    # Calculates the a coefficient given a rolloff in dB
-    var a = rolloff/6.02059991328
+    var blur_sq = pow(max(0.00001, blur), 2)
 
    # Set dists to 1.0 by default to avoid divide by 0 when calculating k
     var dists = MFloat[simd_out_size](1.0)
  
     # Calculates the k coefficient and gets distances for every speaker from the source
     for i in range(num_speakers):
-        speaker = speaker_pos[i] - pos
+        speaker = speaker_positions[i] - pos
         xy = speaker * speaker
         dists[i] = sqrt(xy.reduce_add() + blur_sq)  
 
     # SIMD optimization 
     comptime num_pairs = num_speakers // 2
-    two_a = 2 * a
-    denom = 0.0
+
+    # Calculates the a coefficient given a rolloff in dB
+    var a = rolloff/6.02059991328
+    var two_a = 2 * a
+    var denom = 0.0
     for i in range(num_pairs):
         var w = MFloat[2](vec_weights[i*2], vec_weights[i*2+1])
         var d = MFloat[2](dists[i*2], dists[i*2+1])
@@ -432,3 +433,11 @@ def dbap2D[
         out[num_speakers - 1] = k * vec_weights[num_speakers - 1] / pow(dists[num_speakers - 1], a) * sample
 
     return out
+
+
+def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray[MFloat[2], num_speakers]](sample: Float64, pos: MFloat[2]) -> MFloat[simd_out_size]:
+    """
+    An implementation of VBAP (Vector Base Amplitude Panning).
+    """
+
+    return MFloat[simd_out_size](sample)
