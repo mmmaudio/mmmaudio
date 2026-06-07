@@ -43,7 +43,6 @@ struct DistanceBasedPanning(Movable, Copyable):
 
         out = dbap2D[4, max_simd, speakers, weights](sig, self.pos, 0.1)
         
-        self.world[].print(self.pos)
 
         #7 speaker setup
 
