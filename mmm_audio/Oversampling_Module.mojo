@@ -229,3 +229,54 @@ struct OS_LPF4[num_chans: Int = 1](Movable, Copyable):
         """Reset the internal state of the 4th-order low-pass filter."""
         self.os_lpf1.reset()
         self.os_lpf2.reset()
+
+# Library Code:
+
+trait Oversamplable(Movable, Copyable):
+
+    def uses_external_oversampling(mut self, times_oversampling: TimesOversampling):...
+
+trait Nextable(Movable, Copyable, ImplicitlyDestructible):
+
+    def next(mut self, input: MFloat[1]) -> MFloat[1]:...
+
+struct Oversampler[T:Nextable, times_oversampling: TimesOversampling = TimesOversampling.x2](Movable,Copyable):
+    var oversampling: Oversampling[ov_samp=Self.times_oversampling]
+    var user_nextable: Self.T
+
+    def __init__(out self, world: World, var user_nextable: Self.T):
+        self.oversampling = Oversampling[ov_samp=Self.times_oversampling](world)
+        self.user_nextable = user_nextable^
+
+        types = reflect[Self.T]().field_types()
+        r = reflect[Self.T]()
+        comptime for i in range(reflect[Self.T]().field_count()):
+            comptime if conforms_to(types[i], Oversamplable):
+                ref ovs = r.field_ref[i](self.user_nextable)
+                ovs.uses_external_oversampling(Self.times_oversampling)
+
+
+    def next(mut self, input: MFloat[1]) -> MFloat[1]:
+        for _ in range(Self.times_oversampling.times):
+            self.oversampling.add_sample(self.user_nextable.next(input))
+        return self.oversampling.get_sample()
+        
+# User Code:
+
+struct GraphIWantToOversample(Nextable):
+    var osc: Osc[]
+
+    def __init__(out self, world: World):
+        self.osc = Osc(world)
+
+    def next(mut self, input: MFloat[1]) -> MFloat[1]:
+        return self.osc.next()
+
+struct MySynth(Copyable, Movable):
+    var ovsr: Oversampler[GraphIWantToOversample, TimesOversampling.x4]
+
+    def __init__(out self, world: World):
+        self.ovsr = Oversampler[GraphIWantToOversample, TimesOversampling.x4](world, GraphIWantToOversample(world))
+
+    def next(mut self, input: MFloat[1]) -> MFloat[1]:
+        return self.ovsr.next(input)
