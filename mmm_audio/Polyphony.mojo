@@ -486,6 +486,14 @@ trait GrainObject(PolyObject):
         """
         ...
 
+    def set_play_rate(mut self, ratio: Float64):
+        """Set the play ratio of the grain. Normally a grain is triggered with a set playback speed, but this function allows you to change the playback speed of the grain after it has been triggered.
+
+        Args:
+            ratio: The play ratio of the grain.
+        """
+        pass
+
     def reset(mut self):
         """Reset the grain to its initial state. This can be used to retrigger the grain with the same parameters."""
         pass
@@ -512,6 +520,8 @@ struct GrainAll(GrainObject):
     var user_defined_env: List[Tuple[Float64, Float64]]
     var env_trigger: Bool
     var curve: Float64
+    var prev_phase: Float64
+    var buf_phase: Float64
 
     def __init__(out self, world: World):
         self.world = world  
@@ -533,6 +543,8 @@ struct GrainAll(GrainObject):
         self.user_defined_env.append((1.0, 0.0))
         self.env_trigger = False
         self.curve = 1.0
+        self.buf_phase = 0.0
+        self.prev_phase = 0.0
 
     # These are the functions that need to be implemented for the PolyObject trait:
     def check_active(mut self) -> Bool:
@@ -579,6 +591,14 @@ struct GrainAll(GrainObject):
         self.pan = pan
         self.curve = curve
 
+    def set_play_rate(mut self, ratio: Float64):
+        """Set the play rate of the grain. Normally a grain is triggered with a set playback speed, but this function allows you to change the playback speed of the grain after it has been triggered.
+
+        Args:
+            ratio: The play rate of the grain.
+        """
+        self.buf_ratio = self.dur*ratio
+
     def next_all[num_chans: Int, win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none, bWrap: Bool = False](mut self, buffer: SIMDBuffer[num_chans]) -> MFloat[num_chans]:
         """
         Get the next sample of the grain. This function returns all channels of the buffer with no panning.
@@ -597,9 +617,17 @@ struct GrainAll(GrainObject):
         """
 
         phase = self.line.next(0.0, 1.0, self.dur, self.trigger)
+        if self.trigger:
+            self.buf_phase = self.start_frame / Float64(buffer.num_frames)
+
+        phase_diff = self.line.freq * self.line.freq_mul
+        self.prev_phase = phase
         
-        buf_phase = (phase * self.buf_ratio)/buffer.duration + (self.start_frame / Float64(buffer.num_frames))
-        sample = buf_read[interp=Interp.linear, bWrap=bWrap](self.world, buffer, buf_phase)
+        self.buf_phase = self.buf_phase + phase_diff * self.buf_ratio / buffer.duration
+        
+        # (phase * self.buf_ratio)/buffer.duration + (self.start_frame / Float64(buffer.num_frames))
+
+        sample = buf_read[interp=Interp.linear, bWrap=bWrap](self.world, buffer, self.buf_phase)
 
         comptime if win_type == WindowType.user_defined:
             win = env[win_type=custom_curve](self.world, phase, self.user_defined_env, self.curve)
@@ -758,6 +786,14 @@ struct Grain(GrainObject):
     def reset(mut self):
         """Reset the grain to its initial state. This can be used to retrigger the grain with the same parameters."""
         self.grain.reset()
+
+    def set_play_rate(mut self, rate: Float64):
+        """Set the play rate of the grain. Normally a grain is triggered with a set playback speed, but this function allows you to change the playback speed of the grain after it has been triggered.
+
+        Args:
+            rate: The play rate of the grain.
+        """
+        self.grain.set_play_rate(rate)
 
 struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann, custom_curve: WindowType = WindowType.none](Movable, Copyable, PolyReset):
     """
@@ -919,6 +955,16 @@ struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann,
         """
         for ref grain in self.grains:
             grain.reset()
+
+    def set_play_rate(mut self, ratio: Float64):
+        """Set the play ratio of all active grains. This allows you to change the playback speed of all currently active grains at once.
+
+        Args:
+            ratio: The play ratio to set for all active grains.
+        """
+        for i in range(len(self.grains)):
+            if self.poly.active_list[i]: 
+                self.grains[i].set_play_rate(ratio)
 
 struct PitchShift[num_chans: Int = 1, win_type: WindowType = WindowType.hann](Movable, Copyable, PolyReset):
     """

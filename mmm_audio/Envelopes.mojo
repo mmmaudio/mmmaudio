@@ -107,7 +107,7 @@ struct Env(Movable, Copyable):
     var world: World
 
     def __init__(out self, world: World):
-        """Initialize the Env2 struct - with internal params.
+        """Initialize the Env struct.
 
         Args:
             world: Pointer to the MMMWorld.

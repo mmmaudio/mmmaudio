@@ -146,6 +146,8 @@ struct YIN(BufferedProcessable,GetFloat64Featurable):
     def next_window(mut self, mut frame: List[Float64]):
         """Compute the YIN pitch estimate for the given frame of audio samples.
 
+        Nothing is returned. The pitch and confidence are stored internally and can be accessed with `.pitch` and `.confidence`.
+
         Args:
             frame: The input audio frame of size `window_size`. This List gets passed from [BufferedProcess](BufferedProcess.md).
         """
