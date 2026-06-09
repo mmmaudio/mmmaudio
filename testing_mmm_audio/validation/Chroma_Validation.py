@@ -106,6 +106,15 @@ if flucoma_aligned is not None:
 	print(f"MMMAudio vs FluCoMa Chroma: Mean Difference = {mojo_vs_flucoma_mean:.6f}, Std Dev = {mojo_vs_flucoma_std:.6f}")
 	print(f"Librosa vs FluCoMa Chroma: Mean Difference = {librosa_vs_flucoma_mean:.6f}, Std Dev = {librosa_vs_flucoma_std:.6f}")
 
+print("\n=== Copy-Pasteable Markdown Table ===\n")
+print("| Comparison          | Mean Difference | Std Dev of Differences |")
+print("| ------------------- | --------------- | ---------------------- |")
+print(f"| MMMAudio vs Librosa | {mojo_vs_librosa_mean:.6f} | {mojo_vs_librosa_std:.6f} |")
+if flucoma_aligned is not None:
+	print(f"| MMMAudio vs FluCoMa | {mojo_vs_flucoma_mean:.6f} | {mojo_vs_flucoma_std:.6f} |")
+	print(f"| Librosa vs FluCoMa  | {librosa_vs_flucoma_mean:.6f} | {librosa_vs_flucoma_std:.6f} |")
+print()
+
 nrows = 3 if flucoma_aligned is not None else 2
 fig, ax = plt.subplots(nrows=nrows, ncols=1, sharex=True)
 

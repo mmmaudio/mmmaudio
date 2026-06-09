@@ -1,6 +1,26 @@
 {
-  "created_at": "2026-03-24T16:37:50.737562+00:00",
+  "created_at": "2026-06-09T13:43:03.280150+00:00",
   "scripts": {
+    "Chroma_Validation.py": {
+      "stats": [
+        {
+          "label": "MMMAudio vs Librosa Chroma",
+          "line": "MMMAudio vs Librosa Chroma: Mean Difference = 0.040743, Std Dev = 0.073679",
+          "values": [
+            0.040743,
+            0.073679
+          ]
+        },
+        {
+          "label": "MMMAudio vs FluCoMa Chroma",
+          "line": "MMMAudio vs FluCoMa Chroma: Mean Difference = 0.250225, Std Dev = 0.252134",
+          "values": [
+            0.250225,
+            0.252134
+          ]
+        }
+      ]
+    },
     "MFCC_Validation.py": {
       "stats": [
         {
