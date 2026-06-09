@@ -1589,7 +1589,7 @@ struct Chroma(FFTProcessable, GetFloat64Featurable):
         self.chroma = List[Float64](length=self.n_chroma, fill=0.0)
         self.make_weights()
 
-    def from_mags(mut self, ref mags: List[Float64]) -> None:
+    def from_mags(mut self, mags: List[Float64]):
         for i in range(self.n_chroma):
             var acc: Float64 = 0.0
             for j in range(len(mags)):
@@ -1624,7 +1624,15 @@ struct Chroma(FFTProcessable, GetFloat64Featurable):
             for i in range(self.n_chroma):
                 self.chroma[i] /= scale
 
-    def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]) -> None:
+    def next_frame(mut self, mut mags: List[Float64], mut phases: List[Float64]):
+        """Process the next FFT frame.
+
+        Nothing is returned. The chroma values are updated internally and can be accessed via `.chroma`.
+
+        Args:
+            mags: The magnitude values of the current FFT frame.
+            phases: The phase values of the current FFT frame.
+        """
         self.from_mags(mags)
 
     @doc_hidden
