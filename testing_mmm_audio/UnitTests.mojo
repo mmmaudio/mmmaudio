@@ -252,6 +252,32 @@ def test_mel_bands_weights() raises:
     except err:
         print("Error comparing Mel filter weights with librosa: ", err)
 
+def test_chroma_weights() raises:
+    n_chroma: Int = 12
+    n_fft: Int = 512
+    sr: Int = 44100
+
+    chroma = Chroma(Float64(sr), n_fft, n_chroma=n_chroma)
+    weights_flat = List[Float64]()
+
+    for i in range(len(chroma.weights)):
+        for j in range(len(chroma.weights[i])):
+            weights_flat.append(chroma.weights[i][j])
+
+    try:
+        librosa = Python.import_module("librosa")
+        chroma_weights = librosa.filters.chroma(sr=sr, n_fft=n_fft, n_chroma=n_chroma, tuning=0.0)
+        chroma_weights = chroma_weights.tolist()
+
+        expected_flat = List[Float64]()
+        for i in range(len(chroma_weights)):
+            for j in range(len(chroma_weights[i])):
+                expected_flat.append(Float64(py=chroma_weights[i][j]))
+
+        compare_long_lists(weights_flat, expected_flat)
+    except err:
+        print("Error comparing Chroma filter weights with librosa: ", err)
+
 def compare_long_lists[chunk_size: Int = 64](a: List[Float64], b: List[Float64], verbose: Bool = False) raises:
     assert_equal(len(a), len(b), "Lists are of different lengths")
     a_simd = SIMD[DType.float64,chunk_size]()
