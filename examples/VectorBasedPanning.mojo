@@ -37,6 +37,7 @@ struct VectorBasedPanning(Movable, Copyable):
             0.75 * two_pi + offset
         ]
         
+        # self.world[].print(speakers[0] == self.az)
 
         sig = self.dust.next(10, 40) * 0.5
         sig = self.filt.bpf(sig, 1200, 10.0, 1.0)

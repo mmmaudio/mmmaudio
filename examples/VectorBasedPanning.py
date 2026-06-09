@@ -14,10 +14,13 @@ mmm_audio = MMMAudio(128, num_output_channels=4, graph_name="VectorBasedPanning"
 mmm_audio.start_audio()
 
 mmm_audio.send_float("az", 0.0 * 2 * pi)
+mmm_audio.send_float("az", 0.125 * 2 * pi)
 mmm_audio.send_float("az", 0.25 * 2 * pi)
+mmm_audio.send_float("az", 0.375 * 2 * pi)
 mmm_audio.send_float("az", 0.5 * 2 * pi)
+mmm_audio.send_float("az", 0.625 * 2 * pi)
 mmm_audio.send_float("az", 0.75 * 2 * pi)
-mmm_audio.send_float("az", 0.35 * 2 * pi)
+mmm_audio.send_float("az", 0.875 * 2 * pi)
 
 # for Wayland use the fake mouse
 MMMAudio.fake_mouse()

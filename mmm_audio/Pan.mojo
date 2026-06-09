@@ -490,57 +490,80 @@ def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray
 
         return inverse_bases
 
-    def calc_speaker_pairs[]() -> InlineArray[InlineArray[Int, 2], num_speakers]:
-        var speaker_pairs = InlineArray[InlineArray[Int, 2], num_speakers](fill=[0, 0])
-        for i in range(num_speakers - 1):
-            speaker_pairs[i] = [i, i+1] #MInt[2](i, i + 1)
+    def index_of[](array: InlineArray[Float64, _], element: Float64) -> Int:
+        var index : Int = 0
+        for i in range(len(array)):
+                if array[i] == element:
+                    index = i
+                    break
         
-        speaker_pairs[num_speakers - 1]  = [num_speakers - 1, 0]#MInt[2](num_speakers, 0)
+        return index
+
+    #Find the pairs of speakers as indices, allows for arbitrary assignment of output channels. Meaning speaker positions are given as their channel out
+    def calc_speaker_pairs[speaker_az: InlineArray[Float64, num_speakers]]() -> InlineArray[InlineArray[Int, 2], num_speakers]:
+        var speaker_pairs = InlineArray[InlineArray[Int, 2], num_speakers](fill=[0, 0])
+        var sorted_array = speaker_az.copy()
+        sort(sorted_array)
+        
+        for i in range(num_speakers):
+            speaker_pairs[i] = [index_of(speaker_az, sorted_array[i]), index_of(speaker_az, sorted_array[(i + 1) % num_speakers])] #MInt[2](i, i + 1)
+        
+        
         return speaker_pairs
     
     comptime speaker_unit_vectors = calc_speaker_unit_vectors()
-    comptime speaker_pairs = calc_speaker_pairs[]()
+    comptime speaker_pairs = calc_speaker_pairs[speaker_positions]()
     comptime speaker_inverse_bases = calc_inverse_base[speaker_pairs, speaker_unit_vectors]()
     # From Ville Pulkki's paper here's the steps at runtime
     
     # # New direction vectors p(1, ..., n) are defined.
-    var source_vector = MFloat[2](cos(az), sin(az))
-
-
+    
+    
     # # The right pairs are selected.
-    var active_speaker_pair : InlineArray[Int, 2] = [0, 1]
+    var active_speaker_pair : InlineArray[Int, 2] = [0, 0]
     var active_gain_factors = MFloat[2](0.0)
-
-    def calc_gain_factors(source_vec: MFloat[2], mut active_pair: InlineArray[Int, 2], mut active_gains: MFloat[2]):
+    
+    def calc_gain_factors(source_vec: MFloat[2], mut active_pair: InlineArray[Int, 2], mut active_gains: MFloat[2], source_az: Float64):
+        
+        for speaker_pair in speaker_pairs:
+            
+            if source_az == speaker_positions[speaker_pair[0]]:
+                active_pair = speaker_pair
+                active_gains = MFloat[2](1.0, 0.0)
+                
+                return
+            elif source_az == speaker_positions[speaker_pair[1]]:
+                active_pair = speaker_pair
+                active_gains = MFloat[2](0.0, 1.0)
+                return
+        
         
         var gain_factors = InlineArray[MFloat[2], num_speakers](fill=0.0)
         var active_index : Int = 0
         
         for i in range(num_speakers):
-            var speaker_a_vector = speaker_inverse_bases[speaker_pairs[i][0]][0]
-            var speaker_b_vector = speaker_inverse_bases[speaker_pairs[i][1]][1]
+
+            var speaker_a_vector = speaker_inverse_bases[i][0] # [c, d]
+            var speaker_b_vector = speaker_inverse_bases[i][1] # [e, f]
             
-            var speaker_a_product = source_vec * speaker_a_vector
-            var speaker_b_product = source_vec * speaker_b_vector
+            var speaker_a_product = source_vec[0] * speaker_a_vector # [ac, ad]
+            var speaker_b_product = source_vec[1] * speaker_b_vector # [be, bf]
 
-            var speaker_gains = speaker_a_product + speaker_b_product
+            var speaker_gains = MFloat[2](
+                speaker_a_product[0] + speaker_b_product[0],
+                speaker_a_product[1] + speaker_b_product[1],
+            )
 
-            # var speaker_a_gain_factor = speaker_a_product[0] + speaker_b_product[0]
-            # var speaker_b_gain_factor = speaker_a_product[1] + speaker_b_product[1]
+            
             gain_factors[i] = speaker_gains
-            # if speaker_gains[0] > 0 and speaker_gains[1] > 0:
-            #     active_pair = speaker_pairs[i]
-            #     active_gains = speaker_gains
-            #     break
-            # else:
-            #     gain_factors[i] = speaker_gains
+            
         
         var largest_small_gain = 0
         for i in range(num_speakers):
 
             var smallest_gain = min(gain_factors[i][0], gain_factors[i][1])
             
-            if gain_factors[i][0] > 0.0 and gain_factors[i][1] > 0.0:
+            if gain_factors[i][0] >= 0.0 and gain_factors[i][1] >= 0.0:
                 active_index = i 
                 active_pair = speaker_pairs[active_index]
                 active_gains = gain_factors[active_index]
@@ -553,18 +576,28 @@ def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray
         
         active_pair = speaker_pairs[active_index]
         active_gains = gain_factors[active_index]
-        
-    # # The new gain factors are calculated.
-    calc_gain_factors(source_vector, active_speaker_pair, active_gain_factors)
+    
+    # if active_speaker_pair != [0, 0]:
+    var source_vector = MFloat[2](cos(az), sin(az))
+
+    # Disallow very small values
+    if source_vector[0] < 0.0000001 and source_vector[0] > -0.0000001:
+            source_vector[0] = 0
+
+    if source_vector[1] < 0.0000001 and source_vector[1] > -0.0000001:
+        source_vector[1] = 0
+    
+    calc_gain_factors(source_vector, active_speaker_pair, active_gain_factors, az)
+    
+    
     var gain_factors = MFloat[simd_out_size](0.0)
     
     gain_factors[Int(active_speaker_pair[0])] = active_gain_factors[0]
     gain_factors[Int(active_speaker_pair[1])] = active_gain_factors[1]
-
-    print(active_speaker_pair)
+    
     # Normalize gain factors
-
-    gain_factors = (sqrt((gain_factors * gain_factors).reduce_add()) * gain_factors) / (gain_factors * gain_factors).reduce_add()
+    
+    # gain_factors = (sqrt((gain_factors * gain_factors).reduce_add()) * gain_factors) / (gain_factors * gain_factors).reduce_add()
 
     # for i in range(num_speakers):
     #     gain_factors[i] = 0
@@ -573,7 +606,6 @@ def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray
     # gain factors of g_1 and g_2 for speaker pairs. g_1^2 + g_2^2 = C where C is the constant value of the perceived loudness. C should always be the same no matter the panning position.
 
     # The speakers are represented as unit length vectors l_1 and l_2  (to l_n) and the source unit vector p = g_1 * l_1 + g_2 * l_2 (in 2D MFloat[2] is going to be helpful!)
-    # print((active_gain_factors * active_gain_factors).reduce_add())
     return gain_factors * sample
     # return MFloat[simd_out_size](sample)
 
