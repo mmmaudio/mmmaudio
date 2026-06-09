@@ -1547,6 +1547,13 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
         sort[cmp_fn](self.freq_amp_pairs)
 
 struct Chroma(FFTProcessable, GetFloat64Featurable):
+    """A struct for computing chroma features.
+    
+    Chroma features are a representation of the spectral content of an audio signal in terms of musical pitch classes.
+    It can indicate how much of each pitch class is present in the audio signal.
+
+    This implementation imitates the Librosa library's [chroma_stft](https://librosa.org/doc/main/generated/librosa.feature.chroma_stft.html).
+    """
     var sample_rate: Float64
     var window_size: Int
     var n_chroma: Int
@@ -1554,10 +1561,10 @@ struct Chroma(FFTProcessable, GetFloat64Featurable):
     var norm: Float64
     var power: Float64
     var ctroct: Float64
-    var octwidth: Float64
     var base_c: Bool
     var weights: List[List[Float64]]
     var chroma: List[Float64]
+    var octwidth: Float64
 
     def get_features(self) -> List[Float64]:
         return self.chroma.copy()
@@ -1574,6 +1581,19 @@ struct Chroma(FFTProcessable, GetFloat64Featurable):
         octwidth: Float64 = 2.0,
         base_c: Bool = True,
     ):
+        """Initialize the Chroma struct.
+
+        Args:
+            sample_rate: The sample rate of the audio signal.
+            window_size: The size of the FFT window.
+            n_chroma: The number of chroma bins (divisions per octave).
+            tuning: The tuning deviation of the reference pitch as a fraction of a division per octave (when `n_chroma` = 12, these are semitones).
+            norm: The normalization to apply to the chroma values. If `inf` the largest absolute chroma becomes 1 and everything is normalized to that. If 1, the sum of the chroma values is 1. If 0, no normalization is applied.
+            power: The power to which to raise the magnitude values before computing the chroma.
+            ctroct: Center of the octave weighting, measured in octaves above A0 = 27.5 Hz. FFT bins near this octave contribute most strongly to the chroma. For example, 4.0 centers the weighting near A4 (440 Hz) and 5.0 near A5 (880 Hz). Lower values emphasize lower-frequency octaves; higher values emphasize higher-frequency octaves.
+            octwidth: Width of the Gaussian octave weighting, in octaves. Smaller values give stronger octave focus; larger values approach flat weighting. 0 disables the octave weighting.
+            base_c: Whether to use C as the base pitch (True) or A as the base pitch (False).
+        """
         self.sample_rate = sample_rate
         self.window_size = window_size
         self.n_chroma = n_chroma
@@ -1590,6 +1610,14 @@ struct Chroma(FFTProcessable, GetFloat64Featurable):
         self.make_weights()
 
     def from_mags(mut self, mags: List[Float64]):
+        """Compute the chroma features from the magnitude values.
+
+        Nothing is returned. The chroma values are updated internally and can be accessed via `.chroma`.
+
+        Args:
+            mags: The magnitude values of the current FFT frame.
+        """
+        # TODO: only power the mags once, not for every chroma
         for i in range(self.n_chroma):
             var acc: Float64 = 0.0
             for j in range(len(mags)):

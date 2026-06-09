@@ -66,27 +66,21 @@ def test_sound_file_reader() raises:
         var result = scipy.io.wavfile.read(file)
         var sample_rate = result[0]
         var data = result[1]
-        print("Data type:", data.dtype)
         if data.dtype == np.int16 or data.dtype == np.int32 or data.dtype == np.uint8:
             data = data.astype(np.float64)/np.iinfo(result[1].dtype).max
         else:
             data = data.astype(np.float64)
-        
-        print("Sample rate:", sample_rate)
-        print("Shape:", data.shape)
 
         header = read_wav_header(file)
-        print_wav_info(header)
         wav = read_wav_SIMDs[2](file, header)
-        print(len(wav), len(data))
         try:
             for i in range(header.num_samples):
                 assert_almost_equal(wav[i][0], py_to_float64(data[i][0]), String(i))
                 assert_almost_equal(wav[i][1], py_to_float64(data[i][1]), String(i))
         except err:
-            print("What happened: ", err)
+            assert_true(False, String(err))
     except err:
-        print("Error reading WAV file: ", err)
+        assert_true(False, "Error reading WAV file: " + String(err))
 
 def test_linear_interp() raises:
     a = MFloat[4](0.0, 10.0, 20.0, 30.0)
@@ -148,7 +142,7 @@ def linspace_test(endpoint: Bool, num: Int) raises:
     
         compare_long_lists(result_mojo,expected)
     except err:
-        print("Error comparing linspace results with numpy: ", err)
+        assert_true(False, "Error comparing linspace results with numpy: " + String(err))
 
 def test_linspace() raises:
 
@@ -250,7 +244,7 @@ def test_mel_bands_weights() raises:
 
         compare_long_lists(weights_flat, expected_flat)
     except err:
-        print("Error comparing Mel filter weights with librosa: ", err)
+        assert_true(False, "Error comparing Mel filter weights with librosa")
 
 def test_chroma_weights() raises:
     n_chroma: Int = 12
@@ -276,7 +270,7 @@ def test_chroma_weights() raises:
 
         compare_long_lists(weights_flat, expected_flat)
     except err:
-        print("Error comparing Chroma filter weights with librosa: ", err)
+        assert_true(False, "Error comparing Chroma filter weights with librosa")
 
 def compare_long_lists[chunk_size: Int = 64](a: List[Float64], b: List[Float64], verbose: Bool = False) raises:
     assert_equal(len(a), len(b), "Lists are of different lengths")
