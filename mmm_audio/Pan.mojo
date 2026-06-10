@@ -591,15 +591,15 @@ def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray
     # return MFloat[simd_out_size](sample)
 
 
-def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray[MFloat[2], num_speakers]](sample: Float64, pos: MFloat[2]) -> MFloat[simd_out_size]:
-    """
-    An implementation of VBAP (Vector Base Amplitude Panning).
+# def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray[MFloat[2], num_speakers]](sample: Float64, pos: MFloat[2]) -> MFloat[simd_out_size]:
+#     """
+#     An implementation of VBAP (Vector Base Amplitude Panning).
 
-    Parameters:
-        num_speakers: The number of speakers as an integer.
-        simd_out_size: Must be a power of 2 and greater than num_speakers.
-        speaker_positions: The speaker positions as an InlineArray of MFloat[2] x/y pairs in meters from a center position.
-    """
+#     Parameters:
+#         num_speakers: The number of speakers as an integer.
+#         simd_out_size: Must be a power of 2 and greater than num_speakers.
+#         speaker_positions: The speaker positions as an InlineArray of MFloat[2] x/y pairs in meters from a center position.
+#     """
 
-    return MFloat[simd_out_size](sample)
+#     return MFloat[simd_out_size](sample)
 
