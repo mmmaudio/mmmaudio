@@ -520,7 +520,7 @@ def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray
     comptime speaker_inverse_bases = calc_inverse_base[speaker_pairs, speaker_unit_vectors]()
     
     var active_speaker_pair : InlineArray[Int, 2] = [0, 0]
-    var active_gain_factors = MFloat[2](0.0)
+    var active_gain_factors = MFloat[2](0.5)
     
     def calc_gain_factors(source_vec: MFloat[2], mut active_pair: InlineArray[Int, 2], mut active_gains: MFloat[2], source_az: Float64):
         
@@ -563,7 +563,7 @@ def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray
             if gain_factors[i][0] >= 0.0 and gain_factors[i][1] >= 0.0:
                 active_index = i 
                 active_pair = speaker_pairs[active_index]
-                scaled_gains = (sqrt(gain_factors[active_index].reduce_add()) * gain_factors[active_index]) / (sqrt(pow(gain_factors[active_index], 2).reduce_add()))
+                scaled_gains = gain_factors[active_index] / (sqrt((gain_factors[active_index] * gain_factors[active_index]).reduce_add()))
                 active_gains = scaled_gains
                 break
             elif smallest_gain > min(gain_factors[largest_small_gain][0], gain_factors[largest_small_gain][1]):
@@ -571,13 +571,14 @@ def vbap2D[num_speakers: Int, simd_out_size: Int, speaker_positions: InlineArray
                 active_index = i
 
         active_pair = speaker_pairs[active_index]
-        scaled_gains = (sqrt(gain_factors[active_index].reduce_add()) * gain_factors[active_index]) / (sqrt(pow(gain_factors[active_index], 2).reduce_add()))
+        scaled_gains = gain_factors[active_index] / (sqrt((gain_factors[active_index] * gain_factors[active_index]).reduce_add()))
         active_gains = scaled_gains
     
     var source_vector = MFloat[2](cos(az), sin(az))
 
     calc_gain_factors(source_vector, active_speaker_pair, active_gain_factors, az)
    
+    
     
     var gain_factors = MFloat[simd_out_size](0.0)
     
