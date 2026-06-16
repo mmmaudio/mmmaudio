@@ -9,13 +9,12 @@ struct BuchlaWaveFolder(Movable, Copyable):
 
     def __init__(out self, world: World):
         self.world = world
-        # for efficiency we set the interpolation and oversampling in the constructor
         self.osc = Osc[2](self.world)
         self.lag = Lag(self.world, 0.1)
         self.m = Messenger(self.world)
 
     def next(mut self) -> MFloat[2]:
-        amp = self.lag.next(self.world[].mouse_x * 39.0) + 1
+        amp = self.lag.next(self.world[].mouse_x() * 39.0) + 1
 
         sample = self.osc.next[OscType.sine](40)
         sample = buchla_wavefolder(sample, amp)

@@ -1,6 +1,6 @@
 """
 this example shows how to use the variable wavetable oscillator. 
-it shows how the oscillator can be made using linear, quadratic, or sinc interpolation and can also be set to use oversampling. with sinc interpolation, use an oversampling index of 0 (no oversampling), 1 (2x). with linear or quadratic interpolation, use an oversampling index of 0 (no oversampling), 1 (2x), 2 (4x), 3 (8x), or 4 (16x).
+it shows how the oscillator can be made using linear, quadratic, or sinc interpolation and can also be set to use oversampling. with sinc interpolation, use TimesOversampling.none or TimesOversampling.x2. with linear or quadratic interpolation, use an any oversampling up to TimesOversampling.x16.
 """
 
 import sys

@@ -41,10 +41,10 @@ struct Grains(Movable, Copyable):
         if self.m.notify_update("set_num_grains", num_grains):
             self.tgrains.set_num_grains(num_grains)
 
-        imp_freq = linlin(self.world[].mouse_y, 0.0, 1.0, 1.0, self.max_trig_rate)
+        imp_freq = linlin(self.world[].mouse_y(), 0.0, 1.0, 1.0, self.max_trig_rate)
         var impulse = self.impulse.next_bool(imp_freq, 0, True)
 
-        start_frame = Int(linlin(self.world[].mouse_x, 0.0, 1.0, 0.0, Float64(self.buffer.num_frames) - 1.0))
+        start_frame = Int(linlin(self.world[].mouse_x(), 0.0, 1.0, 0.0, Float64(self.buffer.num_frames) - 1.0))
 
         comptime if num_speakers == 2:
             grain_num = self.tgrains.trig(impulse)

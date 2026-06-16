@@ -256,7 +256,7 @@ struct Poly(Movable, Copyable):
             poly_objects: A list of structs conforming to the PolyObject trait. This function calls the set_gate function for each PolyObject to open and close the gates as needed.
         """
         self._reset[audio_control = 1](poly_objects)
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             vals = List[Int]()
             for i in range(self.num_voices):
                 trig = self.m.notify_update(String(i), vals)
@@ -280,7 +280,7 @@ struct Poly(Movable, Copyable):
     ):
         self._reset[audio_control = 1](poly_objects)
 
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             # Explicit type variable instantiation using 'var'
             var vals = List[Float64]() 
             
@@ -311,11 +311,11 @@ struct Poly(Movable, Copyable):
                 self.active_list[i] = poly_objects[i].check_active()
                 poly_objects[i].set_trigger(False)
         else:
-            if self.world[].top_of_block:
+            if self.world[].top_of_block():
                 for i in range(len(poly_objects)):
                     self.active_list[i] = poly_objects[i].check_active()
             else: 
-                if self.world[].block_state == 1:
+                if self.world[].block_state() == 1:
                     for i in range(len(poly_objects)):
                         poly_objects[i].set_trigger(False)
 

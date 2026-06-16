@@ -32,12 +32,12 @@ struct VariableOsc(Movable, Copyable):
 
         env = self.asr.next(0.05, 1, 0.05, self.is_down)
 
-        # freq = self.world[].mouse_y
+        # freq = self.world[].mouse_y()
         freq = MFloat[2](1-self.y, self.y)
         freq = self.lag.next(freq)
         freq = linexp(freq, 0.0, 1.0, 100, 10000)
 
-        # osc_frac = self.world[].mouse_x
+        # osc_frac = self.world[].mouse_x()
         osc_frac = MFloat[2](1-self.x, self.x)
         sample = self.osc.next_basic_waveforms[OscType.sine, OscType.triangle, OscType.saw, OscType.square](freq, osc_frac = osc_frac)
 

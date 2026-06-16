@@ -14,7 +14,7 @@ from .MBufAnalysisBridge import *
 from .MLP_Module import *
 from .Noise import *
 from .Oscillators import *
-from .Oversampling_Module import *
+from .Oversampling import *
 from .Pan import *
 from .Player import *
 from .Recorder_Module import *

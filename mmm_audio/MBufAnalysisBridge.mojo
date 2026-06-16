@@ -177,6 +177,7 @@ struct MBufAnalysisBridge:
         filter_size = get_at_key[Int]("spectral_flux_onsets",py_dict, "filter_size", 5)
         min_slice_len = getFloat64("spectral_flux_onsets",py_dict, "min_slice_len", 0.1)
         
+
         w = alloc[MMMWorld](1) 
         # TODO: need to find a new way to pass the missing pointers
         w.init_pointee_move(MMMWorld(analysis_params.buf.sample_rate))

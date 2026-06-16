@@ -22,7 +22,9 @@ struct PitchShiftExample(Movable, Copyable):
     var dc_trap: DCTrap[2]
      
     def __init__(out self, world: World):
+        print("Initializing PitchShiftExample")
         self.world = world
+        print("Subworld created for PitchShiftExample with sample rate:", self.world[].sample_rate)
         self.pitch_shift = PitchShift[num_chans=2](self.world, 2.0) # the duration of the buffer needs to == grain size*(max_pitch_shift-1).
         self.messenger = Messenger(self.world)
         self.shift = 1.0
@@ -52,7 +54,7 @@ struct PitchShiftExample(Movable, Copyable):
         self.messenger.update("added_delay_high", self.added_delay_high)
         self.messenger.update("fb_perc", self.fb_perc)
 
-        temp = self.world[].sound_in[self.in_chan]
+        temp = self.world[].sound_in(self.in_chan)
         input_sig = MFloat[2](temp, temp) + (self.fb * self.fb_perc)
         
         out = self.pitch_shift.next(input_sig, self.grain_dur, self.overlaps, self.shift, self.pitch_dispersion, self.time_dispersion, self.added_delay_low, self.added_delay_high)

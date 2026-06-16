@@ -44,9 +44,11 @@ def PyInit_GrainsBridge() -> PythonObject:
 struct MMMAudioBridge(Movable, Writable):
     var world: World
     var graph: Grains  # The audio graph instance
+    var world_info: Optional[UnsafePointer[mut=True, WorldInfo, MutExternalOrigin]]
     var osc_buffers: Optional[UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]] 
     var windows: Optional[UnsafePointer[mut=True, Windows, MutExternalOrigin]]
     var messenger_manager: Optional[UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]] 
+    var sinc_interpolator: Optional[UnsafePointer[mut=True, SincInterpolator[4, 14], MutExternalOrigin]]
 
     # def(args: PythonObject, kwargs: PythonObject) raises -> MMMAudioBridge
     @staticmethod
@@ -69,20 +71,25 @@ struct MMMAudioBridge(Movable, Writable):
         self.osc_buffers.value().init_pointee_move(OscBuffers())
         self.windows = alloc[Windows](1)
         self.windows.value().init_pointee_move(Windows())
+        self.sinc_interpolator = alloc[SincInterpolator[4, 14]](1)
+        self.sinc_interpolator.value().init_pointee_move(SincInterpolator[4, 14]())
 
         self.messenger_manager = alloc[MessengerManager](1)
         self.messenger_manager.value().init_pointee_move(MessengerManager())
 
+        self.world_info = alloc[WorldInfo](1)
+        self.world_info.value().init_pointee_move(WorldInfo(block_size, num_in_chans, num_out_chans))
+
         self.world = alloc[MMMWorld](1) 
-        self.world.init_pointee_move(MMMWorld(sample_rate, block_size, num_in_chans, num_out_chans, self.osc_buffers, self.windows, self.messenger_manager))
+        self.world.init_pointee_move(MMMWorld(sample_rate, self.world_info, self.osc_buffers, self.windows, self.messenger_manager, self.sinc_interpolator))
 
         self.graph = Grains(self.world)
 
     def write_to(self, mut writer: Some[Writer]):
-        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.world[].block_size)
+        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.world[].world_info.value()[].block_size)
 
     def write_repr_to(self, mut writer: Some[Writer]):
-        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.world[].block_size)
+        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.world[].world_info.value()[].block_size)
 
     @staticmethod
     def set_channel_count(py_selfA: PythonObject, args: PythonObject) raises -> PythonObject:
@@ -97,15 +104,15 @@ struct MMMAudioBridge(Movable, Writable):
     @staticmethod
     def set_screen_dims(py_selfA: PythonObject, dims: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].world[].screen_dims = [Float64(py=dims[0]), Float64(py=dims[1])]  # Set the screen size in the MMMWorld instance
+        py_self[0].world[].world_info.value()[].screen_dims = [Float64(py=dims[0]), Float64(py=dims[1])]  # Set the screen size in the MMMWorld instance
 
         return PythonObject(None) 
 
     @staticmethod
     def update_mouse_pos(py_selfA: PythonObject, pos: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].world[].mouse_x = Float64(py=pos[0])
-        py_self[0].world[].mouse_y = Float64(py=pos[1])
+        py_self[0].world[].world_info.value()[].mouse_x = Float64(py=pos[0])
+        py_self[0].world[].world_info.value()[].mouse_y = Float64(py=pos[1])
 
         return PythonObject(None)  # Return a PythonObject wrapping None
 
@@ -215,28 +222,28 @@ struct MMMAudioBridge(Movable, Writable):
 
     def get_audio_samples(mut self, loc_in_buffer: MutUnsafePointer[Float32, ...], mut loc_out_buffer: MutUnsafePointer[Float64, ...]) raises:
 
-        self.world[].top_of_block = True
+        self.world[].world_info.value()[].top_of_block = True
         temp = self.messenger_manager.value()
         temp[].transfer_msgs()
                 
-        for i in range(self.world[].block_size):
-            self.world[].block_state = i  # Update the block state
+        for i in range(self.world[].world_info.value()[].block_size):
+            self.world[].world_info.value()[].block_state = i  # Update the block state
 
             if i == 1:
-                self.world[].top_of_block = False
+                self.world[].world_info.value()[].top_of_block = False
                 temp[].empty_msg_dicts()
 
-            if self.world[].top_of_block:
-                self.world[].print_counter += 1
+            if self.world[].world_info.value()[].top_of_block:
+                self.world[].world_info.value()[].print_counter += 1
             # fill the sound_in list with the current sample from all inputs
-            for j in range(self.world[].num_in_chans):
-                self.world[].sound_in[j] = Float64(loc_in_buffer[i * self.world[].num_in_chans + j]) 
+            for j in range(self.world[].world_info.value()[].num_in_chans):
+                self.world[].world_info.value()[].sound_in[j] = Float64(loc_in_buffer[i * self.world[].world_info.value()[].num_in_chans + j]) 
 
             samples = self.graph.next()  # Get the next audio samples from the graph
 
             # Fill the wire buffer with the sample data
-            for j in range(min(self.world[].num_out_chans, samples.__len__())):
-                loc_out_buffer[i * self.world[].num_out_chans + j] = samples[Int(j)]
+            for j in range(min(self.world[].world_info.value()[].num_out_chans, samples.__len__())):
+                loc_out_buffer[i * self.world[].world_info.value()[].num_out_chans + j] = samples[Int(j)]
     @staticmethod
     def next(py_selfA: PythonObject, in_buffer: PythonObject, out_buffer: PythonObject) raises -> PythonObject:
 
@@ -247,11 +254,10 @@ struct MMMAudioBridge(Movable, Writable):
         loc_out_buffer = out_buffer.__array_interface__["data"][0].unsafe_get_as_pointer[DType.float64]()
 
         # zero the output buffer
-        for j in range(py_self[0].world[].num_out_chans):
-            for i in range(py_self[0].world[].block_size):
-                loc_out_buffer[i * py_self[0].world[].num_out_chans + j] = 0.0 
+        for j in range(py_self[0].world[].world_info.value()[].num_out_chans):
+            for i in range(py_self[0].world[].world_info.value()[].block_size):
+                loc_out_buffer[i * py_self[0].world[].world_info.value()[].num_out_chans + j] = 0.0 
 
         py_self[0].get_audio_samples(loc_in_buffer, loc_out_buffer)  
 
         return PythonObject(None)  # Return a PythonObject wrapping the float value
-

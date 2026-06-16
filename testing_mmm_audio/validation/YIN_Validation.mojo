@@ -1,4 +1,4 @@
-"""YIN Unit Test
+"""YIN Unit Test.
 
 This script is intended to be run *from* the Python script that also does the
 librosa analysis.
@@ -34,8 +34,11 @@ struct Analyzer(BufferedProcessable):
         return
 
 def main():
+    world_info = alloc[WorldInfo](1)
+    world_info.init_pointee_move(WorldInfo())
+    
     w = alloc[MMMWorld](1)
-    w.init_pointee_move(MMMWorld(44100.0))
+    w.init_pointee_move(MMMWorld(44100, world_info))
 
     buffer = Buffer.load("resources/Shiverer.wav")
     w[].sample_rate = buffer.sample_rate

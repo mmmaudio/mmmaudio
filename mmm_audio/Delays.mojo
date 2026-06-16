@@ -121,33 +121,10 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
       out = MFloat[self.num_chans](0.0)
 
       comptime if N == 1:
-        comptime if self.interp == Interp.none:
-          out = SpanInterpolator.read_none[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[0]))
-        elif self.interp == Interp.linear:
-          out = SpanInterpolator.read_linear[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[0]))
-        elif self.interp == Interp.quad:
-          out = SpanInterpolator.read_quad[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[0]))
-        elif self.interp == Interp.cubic:
-          delay_time = max(delay_time, self.two_sample_duration)
-          out = SpanInterpolator.read_cubic[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[0]))
-        elif self.interp == Interp.lagrange4:
-          out = SpanInterpolator.read_lagrange4[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[0]))
-        elif self.interp == Interp.sinc:
-          print("Sinc interpolation not recommended for Delays.")
+        out = self.delay_line.buf.at_phase[self.interp, True, 0](self.world, self.get_phase(delay_time[0]), 0)
       else:
         for chan in range(Self.num_chans):
-          comptime if self.interp == Interp.none:
-            out[chan] = SpanInterpolator.read_none[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[chan%N]))[chan]
-          elif self.interp == Interp.linear:
-            out[chan] = SpanInterpolator.read_linear[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[chan%N]))[chan]
-          elif self.interp == Interp.quad:
-            out[chan] = SpanInterpolator.read_quad[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[chan%N]))[chan]
-          elif self.interp == Interp.cubic:
-            out[chan] = SpanInterpolator.read_cubic[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[chan%N]))[chan]
-          elif self.interp == Interp.lagrange4:
-            out[chan] = SpanInterpolator.read_lagrange4[bWrap=True](self.delay_line.buf.data, self.get_f_idx(delay_time[chan%N]))[chan]
-          elif self.interp == Interp.sinc:
-            print("Sinc interpolation not recommended for Delays.")
+          out[chan] = self.delay_line.buf.at_phase[self.interp, True, 0](self.world, self.get_phase(delay_time[chan%N]), 0)[chan]
       return out
 
     @always_inline
@@ -205,7 +182,7 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
         self.delay_line.buf.zero()
 
     @always_inline
-    def get_f_idx(self, delay_time: Float64) -> Float64:
+    def get_phase(self, delay_time: Float64) -> Float64:
         """Calculate the fractional index in the delay buffer for the given delay time.
 
         Args:
@@ -220,7 +197,7 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
         # we're writing into the delay line buffer backwards, so therefore,
         # here to go backwards in time we add the delay samples to the write head.
         f_idx = (Float64(self.delay_line.write_head) + delay_samps) % Float64(self.delay_line.buf.num_frames)
-        return f_idx
+        return f_idx / Float64(self.delay_line.buf.num_frames)
 
 
 
@@ -461,13 +438,13 @@ struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, Poly
 struct FB_Delay[num_chans: Int = 1, interp: Interp = Interp.lagrange4, ADAA_dist: Bool = False, ov_samp: TimesOversampling = TimesOversampling.none](Tapable, PolyReset):
     """A feedback delay structured like a Comb filter, but with possible feedback coefficient above 1 due to an integrated tanh function.
     
-    By default, Anti-aliasing is disabled and no [oversampling](Oversampling.md) is applied, but this can be changed by setting the ADAA_dist and ov_samp template parameters.
+    By default, Anti-aliasing is disabled and no oversampling is applied, but this can be changed by setting the ADAA_dist and ov_samp template parameters.
     
     Parameters:
       num_chans: Size of the SIMD vector.
       interp: The interpolation method to use. See the struct [Interp](MMMWorld.md#struct-interp) for interpolation options.
       ADAA_dist: Whether to apply ADAA distortion to the feedback signal instead of standard tanh.
-      ov_samp: The [oversampling](MMMWorld.md#struct-timesoversampling) for ADAA distortion.
+      ov_samp: The [TimesOversampling](MMMWorld.md#struct-timesoversampling) for ADAA distortion.
     """
 
     var world: World

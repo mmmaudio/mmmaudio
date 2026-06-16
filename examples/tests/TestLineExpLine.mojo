@@ -11,8 +11,8 @@ struct TestLineExpLine[](Movable, Copyable):
     var line_vals: List[Float64]
     var m: Messenger
     var line: Line[num]
-    var expline: Line[num, 1]
-    var curveline: Line[num, 2]
+    var expline: Line[num]
+    var curveline: Line[num]
     var which: Int
 
     def __init__(out self, world: World):
@@ -24,8 +24,8 @@ struct TestLineExpLine[](Movable, Copyable):
         self.m = Messenger(self.world)
         self.line = Line[num](self.world)
         self.which = 0
-        self.expline = Line[num, 1](self.world)
-        self.curveline = Line[num, 2](self.world)
+        self.expline = Line[num](self.world)
+        self.curveline = Line[num](self.world)
 
     def next(mut self) -> MFloat[2]:
         trig = self.m.notify_update("line_vals", self.line_vals)

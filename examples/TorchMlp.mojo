@@ -51,8 +51,8 @@ struct TorchSynth(Movable, Copyable):
 
     @always_inline
     def next(mut self) -> MFloat[2]:
-        self.model.model_input[0] = self.world[].mouse_x
-        self.model.model_input[1] = self.world[].mouse_y
+        self.model.model_input[0] = self.world[].mouse_x()
+        self.model.model_input[1] = self.world[].mouse_y()
 
         self.model.next()  # Run the model inference
 

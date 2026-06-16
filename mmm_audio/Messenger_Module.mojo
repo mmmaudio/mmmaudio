@@ -61,7 +61,7 @@ struct Messenger(Copyable, Movable):
             name: A `String` to identify the Bool sent from Python.
             param: A `Bool` variable to be updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_bool(self.get_name_with_namespace(name)[])
@@ -81,7 +81,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_bool(self.get_name_with_namespace(name)[])
@@ -94,7 +94,7 @@ struct Messenger(Copyable, Movable):
 
     # update List[Bool]
     # def update(mut self, name: String, mut param: List[Bool]):
-    #     if self.world[].top_of_block:
+    #     if self.world[].top_of_block():
     #         try:
     #             var opt = self.world[].messenger_manager[].get_bools(self.get_name_with_namespace(name)[])
     #             if opt:
@@ -104,7 +104,7 @@ struct Messenger(Copyable, Movable):
 
     # # notify_update List[Bool]
     # def notify_update(mut self, name: String, mut param: List[Bool]) -> Bool:
-    #     if self.world[].top_of_block:
+    #     if self.world[].top_of_block():
     #         try:
     #             var opt = self.world[].messenger_manager[].get_bools(self.get_name_with_namespace(name)[])
     #             if opt:
@@ -123,7 +123,7 @@ struct Messenger(Copyable, Movable):
             param: A `Float64` variable to be updated.
         """
         
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_float(self.get_name_with_namespace(name)[])
@@ -143,7 +143,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_float(self.get_name_with_namespace(name)[])
@@ -162,7 +162,7 @@ struct Messenger(Copyable, Movable):
             name: A `String` to identify the List[Float64] sent from Python.
             param: A `List[Float64]` variable to be updated. The List will be resized to match the incoming data.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_floats(self.get_name_with_namespace(name)[])
@@ -182,7 +182,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_floats(self.get_name_with_namespace(name)[])
@@ -204,7 +204,7 @@ struct Messenger(Copyable, Movable):
             name: A `String` to identify the SIMD[DType.float64] sent from Python.
             param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_floats(self.get_name_with_namespace(name)[])
@@ -228,7 +228,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_floats(self.get_name_with_namespace(name)[])
@@ -248,7 +248,7 @@ struct Messenger(Copyable, Movable):
             name: A `String` to identify the Int sent from Python.
             param: A `Int` variable to be updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_int(self.get_name_with_namespace(name)[])
@@ -268,7 +268,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_int(self.get_name_with_namespace(name)[])
@@ -287,7 +287,7 @@ struct Messenger(Copyable, Movable):
             name: A `String` to identify the List[Int] sent from Python.
             param: A `List[Int]` variable to be updated. The List will be resized to match the incoming data.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_ints(self.get_name_with_namespace(name)[])
@@ -307,7 +307,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_ints(self.get_name_with_namespace(name)[])
@@ -326,7 +326,7 @@ struct Messenger(Copyable, Movable):
             name: A `String` to identify the String sent from Python.
             param: A `String` variable to be updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_string(self.get_name_with_namespace(name)[])
@@ -346,7 +346,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_string(self.get_name_with_namespace(name)[])
@@ -365,7 +365,7 @@ struct Messenger(Copyable, Movable):
             name: A `String` to identify the List[String] sent from Python.
             param: A `List[String]` variable to be updated. The List will be resized to match the incoming data.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_strings(self.get_name_with_namespace(name)[])
@@ -385,7 +385,7 @@ struct Messenger(Copyable, Movable):
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 var opt = temp[].get_strings(self.get_name_with_namespace(name)[])
@@ -406,7 +406,7 @@ struct Messenger(Copyable, Movable):
             A `Bool` indicating whether a trigger was sent from Python under the specified name.
         """
 
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             try:
                 temp = self.world[].messenger_manager.value()
                 return temp[].get_trig(self.get_name_with_namespace(name)[])

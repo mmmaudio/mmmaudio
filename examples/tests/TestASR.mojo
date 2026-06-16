@@ -21,7 +21,7 @@ struct TestASR(Movable, Copyable):
         self.messenger.update("curves", self.curves) 
         self.messenger.update("gate", self.gate) 
 
-        env = self.env.next(self.world[].mouse_x, 1, self.world[].mouse_y, self.gate, self.curves)
+        env = self.env.next(self.world[].mouse_x(), 1, self.world[].mouse_y(), self.gate, self.curves)
         sample = self.synth.next(200)
         return env * sample * 0.1
 

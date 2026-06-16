@@ -43,7 +43,7 @@ struct Record(Movable, Copyable):
 
     def next(mut self) -> MFloat[1]:
         if self.messenger.notify_update("set_input_chan", self.input_chan):
-            if self.input_chan < 0 and self.input_chan >= self.world[].num_in_chans:
+            if self.input_chan < 0 and self.input_chan >= self.world[].num_in_chans():
                 print("Input channel out of range, resetting to 0")
                 self.input_chan = 0
 
@@ -54,10 +54,10 @@ struct Record(Movable, Copyable):
             self.stop_recording()
 
         # this code does the actual recording, placing the next sample into the buffer
-        # my audio interface has audio in on channel 9, so I use self.world[].sound_in[8]
+        # my audio interface has audio in on channel 9, so I use self.world[].sound_in(8)
         if self.is_recording:
             # the sound_in List in the world holds the audio in data for the current sample, so grab it from there.
-            self.buffer.write_next[False](self.world[].sound_in[self.input_chan]) #write the current sample to the buffer, without looping 
+            self.buffer.write_next[False](self.world[].sound_in(self.input_chan)) #write the current sample to the buffer, without looping 
             if self.buffer.write_head >= Int(self.buffer.buf.num_frames-1):
                 self.stop_recording()
                 print("Recording stopped: buffer full")

@@ -24,7 +24,7 @@ struct TestTopNFreqs(Movable, Copyable):
     def next(mut self) -> MFloat[2]:
         self.m.update("freqs", self.freqs) 
         s = 0.0
-        mul = linlin(self.world[].mouse_x, 0., 1., 1., 1.2)
+        mul = linlin(self.world[].mouse_x(), 0., 1., 1., 1.2)
         for i in range(len(self.sines)):
              s += self.sines[i].next(self.freqs[i] * mul)
         _ = self.analyzer.next(s)

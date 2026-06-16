@@ -75,7 +75,7 @@ struct Play(Movable, Copyable):
             # Wrap Phase
             if self.impulse.phase >= self.reset_phase_point:
                 self.impulse.phase -= self.reset_phase_point
-            return self.get_sample[num_chans,interp](buf, prev_phase)
+            return buf.at_phase[interp=interp, bWrap=bWrap](self.world, self.impulse.phase + self.phase_offset, prev_phase)
         else:
             # Not in Loop Mode
             if trig: eor = False
@@ -85,20 +85,8 @@ struct Play(Movable, Copyable):
                 self.active = False
                 return 0.0
             else:
-                return self.get_sample[num_chans,interp, bWrap](buf, prev_phase)
-
-    @doc_hidden
-    @always_inline
-    def get_sample[num_chans: Int, interp: Interp, bWrap: Bool = False](self, buf: SIMDBuffer[num_chans], prev_phase: Float64) -> MFloat[num_chans]:
-        f_idx = ((self.impulse.phase + self.phase_offset)) * buf.num_frames_f64
-        out = SpanInterpolator.read[num_chans, interp=interp,bWrap=bWrap](
-                world=self.world,
-                data=buf.data, 
-                f_idx=f_idx,
-                prev_f_idx=prev_phase * buf.num_frames_f64
-            )
-        return out
-
+                return buf.at_phase[interp=interp, bWrap=bWrap](self.world, self.impulse.phase + self.phase_offset, prev_phase)
+                
     @always_inline
     def next[num_chans: Int = 1, interp: Interp = Interp.linear, bWrap: Bool = False](mut self, buf: Buffer, rate: Float64 = 1, loop: Bool = True, trig: Bool = True, start_frame: Int = 0, var num_frames: Int = -1, start_chan: Int = 0) -> MFloat[num_chans]: 
         """Get the next sample from an audio buf (Buffer). The internal phasor is advanced according to the specified rate. If a trigger is received, playback starts at the specified start_frame. If looping is enabled, playback will loop back to the start when reaching the end of the specified num_frames.
@@ -162,13 +150,7 @@ struct Play(Movable, Copyable):
         
         out = MFloat[num_chans](0.0)
         comptime for out_chan in range(num_chans):
-            out[out_chan] = SpanInterpolator.read[interp=interp,bWrap=bWrap](
-                world=self.world,
-                data=buf.data[(out_chan + start_chan) % len(buf.data)], # wrap around channels
-                # f_idx=((self.impulse.phase + self.phase_offset) % 1.0) * buf.num_frames_f64,
-                f_idx=((self.impulse.phase + self.phase_offset)) * buf.num_frames_f64, #no wrapping here
-                prev_f_idx=prev_phase * buf.num_frames_f64
-            )
+            out[out_chan] = buf.at_phase[interp=interp, bWrap=bWrap](self.world, start_chan + out_chan, self.impulse.phase + self.phase_offset, prev_phase)
         return out
 
     @always_inline

@@ -133,10 +133,10 @@ struct Grains_Custom(Movable, Copyable):
         if new_points:
             self.tgrains.set_env_points(self.points_temp)
 
-        imp_freq = linlin(self.world[].mouse_y, 0.0, 1.0, 1.0, self.max_trig_rate)
+        imp_freq = linlin(self.world[].mouse_y(), 0.0, 1.0, 1.0, self.max_trig_rate)
         var impulse = self.impulse.next_bool(imp_freq, 0, True)
 
-        start_frame = Int(linlin(self.world[].mouse_x, 0.0, 1.0, 0.0, Float64(self.buffer.num_frames) - 1.0))
+        start_frame = Int(linlin(self.world[].mouse_x(), 0.0, 1.0, 0.0, Float64(self.buffer.num_frames) - 1.0))
 
         # to make this work we need to: 1) trigger the grain, 2) set the grain parameters (including the custom ones), and 3) call next on tgrains to get the output sample. this way you guarantee that all values are set before the grain starts processing audio
         grain_num = self.tgrains.trig(impulse)

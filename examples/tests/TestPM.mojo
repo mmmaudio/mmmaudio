@@ -18,7 +18,7 @@ struct TestPM(Movable, Copyable):
         self.lag = Lag[1](self.world, 0.2)
 
     def next(mut self) -> MFloat[2]:
-        mod_mul = linexp(self.world[].mouse_y, 0.0, 1.0, 0.0001, 32.0)
+        mod_mul = linexp(self.world[].mouse_y(), 0.0, 1.0, 0.0001, 32.0)
         mod_signal = self.mod.next(50)
         mod_mul = self.lag.next(mod_mul)
         sample = self.carrier.next(100, mod_signal * mod_mul)

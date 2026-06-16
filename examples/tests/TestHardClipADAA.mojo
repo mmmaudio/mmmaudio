@@ -19,8 +19,8 @@ struct TestHardClipADAA[num_chans: Int = 2](Movable, Copyable):
         self.lag = Lag(world)
 
     def next(mut self) -> MFloat[Self.num_chans]:
-        sample = self.osc.next(self.world[].mouse_y * 40.0 + 20)  # Get the next white noise sample
-        gain = self.lag.next(self.world[].mouse_x * (20.0)) + 1.0
+        sample = self.osc.next(self.world[].mouse_y() * 40.0 + 20)  # Get the next white noise sample
+        gain = self.lag.next(self.world[].mouse_x() * (20.0)) + 1.0
 
         sample2 = self.clip.next(sample*gain) 
         # sample = self.overdrive.next(sample*gain)

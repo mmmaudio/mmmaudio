@@ -18,9 +18,12 @@ struct ChromaTestSuite(FFTProcessable):
 
 def main() raises:
 	buf = Buffer.load("resources/Shiverer.wav")
+	
+	world_info = alloc[WorldInfo](1)
+	world_info.init_pointee_move(WorldInfo())
 
 	w = alloc[MMMWorld](1)
-	w.init_pointee_move(MMMWorld(buf.sample_rate))
+	w.init_pointee_move(MMMWorld(buf.sample_rate, world_info))
 
 	chroma_ts = ChromaTestSuite(w)
 	fftprocess = FFTProcess[ChromaTestSuite,False,WindowType.hann](w, chroma_ts^, window_size=fftsize, hop_size=hopsize)

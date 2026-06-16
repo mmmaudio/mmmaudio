@@ -35,6 +35,33 @@ struct SIMDBuffer[num_chans: Int = 2](Movable, Copyable):
         self.num_frames_f64 = Float64(self.num_frames)
         self.duration = self.num_frames_f64 / self.sample_rate
 
+    def at_phase[interp: Interp = Interp.none, bWrap: Bool = True, mask: Int = 0](self, world: World, phase: Float64, prev_phase: Float64 = 0) -> MFloat[Self.num_chans]:
+        """Read a value from the SIMDBuffer at a given phase using sinc interpolation.
+
+        Parameters:
+            interp: Interpolation method to use (from [Interp](MMMWorld.md#struct-interp) enum).
+            bWrap: Whether to wrap indices that go out of bounds.
+            mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
+
+        Args:
+            world: Pointer to the MMMWorld instance.
+            phase: The phase to read at, where 0.0 is the beginning of the buffer and 1.0 is the end of the buffer.
+            prev_phase: The previous phase (used for calculating the sinc interpolation).
+
+        Returns:
+            The interpolated sample value at the given phase.
+        """
+        return SpanInterpolator.read[
+            interp=interp,
+            bWrap=bWrap,
+            mask=mask
+        ](
+            world = world,
+            data=self.data,
+            f_idx=phase * self.num_frames_f64,
+            prev_f_idx=prev_phase * self.num_frames_f64
+        )
+
     @staticmethod
     def zeros(num_frames: Int, sample_rate: Float64 = 48000.0) -> SIMDBuffer[Self.num_chans]:
         """Initialize a SIMDBuffer with zeros.
@@ -173,6 +200,34 @@ struct Buffer(Movable, Copyable):
         self.num_frames = len(data[0]) if self.num_chans > 0 else 0
         self.num_frames_f64 = Float64(self.num_frames)
         self.duration = self.num_frames_f64 / self.sample_rate
+
+    def at_phase[interp: Interp = Interp.none, bWrap: Bool = True, mask: Int = 0](self, world: World, chan: Int, phase: Float64, prev_phase: Float64 = 0) -> MFloat[1]:
+        """Read a value from the Buffer at a given phase using sinc interpolation.
+
+        Parameters:
+            interp: Interpolation method to use (from [Interp](MMMWorld.md#struct-interp) enum).
+            bWrap: Whether to wrap indices that go out of bounds.
+            mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
+
+        Args:
+            world: Pointer to the MMMWorld instance.
+            chan: The channel to read from.
+            phase: The phase to read at, where 0.0 is the beginning of the buffer and 1.0 is the end of the buffer.
+            prev_phase: The previous phase (used for calculating the sinc interpolation).
+
+        Returns:
+            The interpolated sample value at the given phase.
+        """
+        return SpanInterpolator.read[
+            interp=interp,
+            bWrap=bWrap,
+            mask=mask
+        ](
+            world = world,
+            data=self.data[chan],
+            f_idx=phase * self.num_frames_f64,
+            prev_f_idx=prev_phase * self.num_frames_f64
+        )
 
     @staticmethod
     def zeros(num_frames: Int, num_chans: Int = 1, sample_rate: Float64 = 48000.0) -> Buffer:
@@ -537,4 +592,4 @@ struct SpanInterpolator(Movable, Copyable):
         Returns:
             The sinc-interpolated sample value.
         """
-        return world[].sinc_interpolator.sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)
+        return world[].sinc_interpolator.value()[].sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)

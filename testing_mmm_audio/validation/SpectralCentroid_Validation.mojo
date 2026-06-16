@@ -1,4 +1,4 @@
-"""Spectral Centroid Unit Test"""
+"""Spectral Centroid Unit Test."""
 
 from mmm_audio import *
 
@@ -26,8 +26,11 @@ struct Analyzer(BufferedProcessable):
         return
 
 def main():
+    world_info = alloc[WorldInfo](1)
+    world_info.init_pointee_move(WorldInfo())
+    
     w = alloc[MMMWorld](1)
-    w.init_pointee_move(MMMWorld(44100.0))
+    w.init_pointee_move(MMMWorld(44100, world_info))
 
     buffer = Buffer.load("resources/Shiverer.wav")
     playBuf = Play(w)

@@ -3,89 +3,158 @@ import std.time
 from std.collections import Set
 from mmm_audio import *
 
+struct WorldInfo(Movable, Copyable):
+    var block_size: Int
+    var num_in_chans: Int
+    var num_out_chans: Int
+    var sound_in: List[Float64]
+    var screen_dims: List[Float64]  
+    var mouse_x: Float64
+    var mouse_y: Float64
+    var block_state: Int
+    var top_of_block: Bool
+    var last_print_time: Float64
+    var print_flag: Int
+    var last_print_flag: Int
+    var print_counter: UInt16
+
+    def __init__(out self, block_size: Int = 64, num_in_chans: Int = 2, num_out_chans: Int = 2):
+        self.block_size = block_size
+        self.num_in_chans = num_in_chans
+        self.num_out_chans = num_out_chans
+        self.sound_in = [0.0 for _ in range(num_in_chans)]
+        self.screen_dims = [800.0, 600.0]  # Default screen dimensions
+        self.mouse_x = 0.0
+        self.mouse_y = 0.0
+        self.block_state = 0
+        self.top_of_block = True
+        self.last_print_time = 0.0
+        self.print_flag = 0
+        self.last_print_flag = 0
+        self.print_counter = 0
+
+    def update_input(mut self, input_buffer: UnsafePointer[mut=True, Float64, MutExternalOrigin]):
+        """Updates the input buffer values in the WorldInfo struct.
+
+        This should be called at the beginning of each audio block to update the input buffer values from the host DAW.
+
+        Args:
+            input_buffer: A pointer to the input buffer provided by the host DAW. The buffer is interleaved and has a length of block_size * num_in_chans.
+        """
+        for chan in range(self.num_in_chans):
+            for i in range(self.block_size):
+                self.sound_in[chan] = input_buffer[i * self.num_in_chans + chan]
+
 struct MMMWorld(Movable, Copyable):
     """The MMMWorld struct holds global audio processing parameters and state.
 
     In pretty much all usage, don't edit this struct.
     """
     var sample_rate: Float64
-    var block_size: Int
+    var world_info: Optional[UnsafePointer[mut=True, WorldInfo, MutExternalOrigin]]
     var osc_buffers: Optional[UnsafePointer[mut=True, OscBuffers, MutExternalOrigin]]
     # windows
     var windows: Optional[UnsafePointer[mut=True, Windows, MutExternalOrigin]]
     var messenger_manager: Optional[UnsafePointer[mut=True, MessengerManager, MutExternalOrigin]]
-    
-    var num_in_chans: Int
-    var num_out_chans: Int
+    var sinc_interpolator: Optional[UnsafePointer[mut=True, SincInterpolator[4, 14], MutExternalOrigin]]
 
-    var sound_in: List[Float64]
-
-    var screen_dims: List[Float64]  
-
-    var mouse_x: Float64
-    var mouse_y: Float64
-
-    var block_state: Int
-    var top_of_block: Bool
-
-
-    var sinc_interpolator: SincInterpolator[4, 14]
-
-    var last_print_time: Float64
-    var print_flag: Int
-    var last_print_flag: Int
-
-    var print_counter: UInt16
-
-    def __init__(out self, sample_rate: Float64, 
-        block_size: Int = 128, 
-        num_in_chans: Int = 2, 
-        num_out_chans: Int = 2, 
+    def __init__(out self, sample_rate: Float64,
+        world_info_ptr: Optional[UnsafePointer[WorldInfo, MutExternalOrigin]] = None,
         osc_buffers_ptr: Optional[UnsafePointer[OscBuffers, MutExternalOrigin]] = None, 
         windows_ptr: Optional[UnsafePointer[Windows, MutExternalOrigin]] = None, 
-        messenger_manager_ptr: Optional[UnsafePointer[MessengerManager, MutExternalOrigin]] = None
+        messenger_manager_ptr: Optional[UnsafePointer[MessengerManager, MutExternalOrigin]] = None,
+        sinc_interpolator_ptr: Optional[UnsafePointer[SincInterpolator[4, 14], MutExternalOrigin]] = None
     ):
         """Initializes the MMMWorld struct.
 
         Args:
             sample_rate: The audio sample rate.
-            block_size: The audio block size.
-            num_in_chans: The number of input channels.
-            num_out_chans: The number of output channels.
+            world_info_ptr: A pointer to the WorldInfo struct, which holds information about the current audio block and input buffers.
             osc_buffers_ptr: A pointer to the OscBuffers struct, which holds precomputed oscillator waveforms.
             windows_ptr: A pointer to the Windows struct, which holds precomputed window functions.
             messenger_manager_ptr: A pointer to the MessengerManager struct.
+            sinc_interpolator_ptr: A pointer to the SincInterpolator struct.
         """
         
         self.sample_rate = sample_rate
-        self.block_size = block_size
-        self.top_of_block = False
-        self.num_in_chans = num_in_chans
-        self.num_out_chans = num_out_chans
-        self.sound_in = List[Float64]()
-        for _ in range(self.num_in_chans):
-            self.sound_in.append(0.0)  # Initialize input buffer with zeros
-
+        self.world_info = world_info_ptr
         self.osc_buffers = osc_buffers_ptr
         self.windows = windows_ptr
-
-        self.mouse_x = 0.0
-        self.mouse_y = 0.0
-        self.screen_dims = [1000.0, 1000.0]
-
-        self.block_state = 0
-
-        self.last_print_time = 0.0
-        self.print_flag = 0
-        self.last_print_flag = 0
-
         self.messenger_manager = messenger_manager_ptr
+        self.sinc_interpolator = sinc_interpolator_ptr
 
-        self.print_counter = 0
+        if self.world_info != None:
+            print("MMMWorld initialized with sample rate:", self.sample_rate, "and block size:", self.world_info.value()[].block_size)
 
-        self.sinc_interpolator = SincInterpolator[4,14]()
+    def mouse_x(self) -> Float64:
+        """Returns the current mouse x position as a value between 0.0 and 1.0.
+        
+        Returns:
+            The current mouse x position as a value between 0.0 and 1.0.
+        """
+        return self.world_info.value()[].mouse_x
 
-        print("MMMWorld initialized with sample rate:", self.sample_rate, "and block size:", self.block_size)
+    def mouse_y(self) -> Float64:
+        """Returns the current mouse y position as a value between 0.0 and 1.0.
+        
+        Returns:
+            The current mouse y position as a value between 0.0 and 1.0.
+        """
+        return self.world_info.value()[].mouse_y
+
+    def top_of_block(self) -> Bool:
+        """Returns true if the current sample is the first sample of the audio block.
+        
+        Returns:
+            True if the current sample is the first sample of the audio block, false otherwise.
+        """
+        return self.world_info.value()[].top_of_block
+    
+    def block_state(self) -> Int:
+        """Returns the block state.
+        
+        Returns:
+            An integer that increments by 1 at the start of each audio block. Resets to 0 after reaching 2^31 - 1.
+        """
+        return self.world_info.value()[].block_state
+
+    def num_in_chans(self) -> Int:
+        """Returns the number of input channels.
+        
+        Returns:
+            The number of input channels.
+        """
+        return self.world_info.value()[].num_in_chans
+
+    def num_out_chans(self) -> Int:
+        """Returns the number of output channels.
+        
+        Returns:
+            The number of output channels.
+        """
+        return self.world_info.value()[].num_out_chans
+
+    def sound_in(self, chan: Int) -> Float64:
+        """Returns the input sample value for a given channel.
+
+        Args:
+            chan: The input channel to read from. Must be less than num_in_chans.
+        
+        Returns:
+            The input sample value for the given channel.
+        """
+        return self.world_info.value()[].sound_in[chan]
+
+    def sound_in_ptr(self) -> Pointer[mut=True, List[Float64], MutExternalOrigin]:
+        """Returns a pointer to the input buffer values.
+
+        The buffer is interleaved and has a length of block_size * num_in_chans.
+        This is for advanced users who want to read the input buffer values directly from the pointer instead of using the sound_in(chan) method.
+
+        Returns:
+            A pointer to the input buffer values.
+        """
+        return Pointer(to=self.world_info.value()[].sound_in)
 
     def set_channel_count(mut self, num_in_chans: Int, num_out_chans: Int):
         """Sets the number of input and output channels.
@@ -94,11 +163,11 @@ struct MMMWorld(Movable, Copyable):
             num_in_chans: The number of input channels.
             num_out_chans: The number of output channels.
         """
-        self.num_in_chans = num_in_chans
-        self.num_out_chans = num_out_chans
-        self.sound_in = List[Float64]()
-        for _ in range(self.num_in_chans):
-            self.sound_in.append(0.0)  # Reinitialize input buffer with zeros
+        self.world_info.value()[].num_in_chans = num_in_chans
+        self.world_info.value()[].num_out_chans = num_out_chans
+        self.world_info.value()[].sound_in = List[Float64]()
+        for _ in range(self.world_info.value()[].num_in_chans):
+            self.world_info.value()[].sound_in.append(0.0)  # Reinitialize input buffer with zeros
 
     @always_inline
     def print[*Ts: Writable](self, *values: *Ts, n_blocks: UInt16 = 10, sep: StringSlice[StaticConstantOrigin] = " ", end: StringSlice[StaticConstantOrigin] = "\n") -> None:
@@ -114,10 +183,36 @@ struct MMMWorld(Movable, Copyable):
             end: End string to print after all values. Must be specified using the keyword argument.
         """
         
-        if self.top_of_block:
-            if self.print_counter % n_blocks == 0:
+        if self.world_info.value()[].top_of_block:
+            if self.world_info.value()[].print_counter % n_blocks == 0:
                 comptime for i in range(values.__len__()):
                     print(values[i], end=sep if i < values.__len__() - 1 else end)
+
+def create_subworld(world: World, times_ov_samp: TimesOversampling = TimesOversampling.none) -> UnsafePointer[MMMWorld, MutExternalOrigin]:
+    """Initializes the MMMWorld struct from a pointer to an existing World struct.
+
+    This is mostly used to create an oversampled subworld with a higher sample rate based on the main world.
+
+    Args:
+        world: A pointer to an existing World struct.
+        times_ov_samp: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
+
+    Returns:
+        A pointer to the MMMWorld struct.
+    """
+    new_world = alloc[MMMWorld](1) 
+    sample_rate = world[].sample_rate * Float64(times_ov_samp.times)
+    new_world.init_pointee_move(MMMWorld(
+        sample_rate, 
+        world_info_ptr = world[].world_info, 
+        osc_buffers_ptr = world[].osc_buffers, 
+        windows_ptr = world[].windows, 
+        messenger_manager_ptr = world[].messenger_manager, 
+        sinc_interpolator_ptr = world[].sinc_interpolator
+    ))
+
+    print("MMMWorld initialized with sample rate:", sample_rate, "and block size:", new_world[].world_info.value()[].block_size)
+    return new_world
 
 @fieldwise_init
 struct Interp(Equatable, ImplicitlyCopyable):

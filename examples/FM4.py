@@ -10,8 +10,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mmm_python import *
 
-
-
 from mmm_python.GUI import Handle, ControlSpec
 from mmm_python import *
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QCheckBox

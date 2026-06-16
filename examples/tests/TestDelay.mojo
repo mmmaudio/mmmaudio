@@ -20,7 +20,7 @@ struct TestDelay(Movable, Copyable):
     def next(mut self) -> MFloat[2]:
         self.messenger.update("freq", self.freq) 
         # self.messenger.update("del_time", self.del_time)
-        self.del_time = self.world[].mouse_x * 0.11
+        self.del_time = self.world[].mouse_x() * 0.11
 
         trig = self.messenger.notify_trig("trig")
         sample = self.synth.next_impulse(self.freq, 0.0, MBool[1](fill=trig))  # Get the next sample from the synth

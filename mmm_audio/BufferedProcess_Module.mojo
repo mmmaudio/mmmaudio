@@ -107,7 +107,7 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
         Returns:
             The next output sample.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             self.process.get_messages()
     
         self.input_buffer[self.input_buffer_write_head] = input
@@ -150,7 +150,7 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
         Returns:
             The next output sample.
         """
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             self.process.get_messages()
 
         self.st_input_buffer[self.input_buffer_write_head] = input
@@ -199,7 +199,7 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
 
         comptime assert interp != Interp.sinc, "Sinc interpolation is not supported in the `next_from_buffer` method of BufferedProcess. Please use a different interpolation method."
         
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             self.process.get_messages()
 
         if self.hop_counter == 0:
@@ -243,7 +243,7 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
             The next output sample.
         """
         
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             self.process.get_messages()
             
         if self.hop_counter == 0:

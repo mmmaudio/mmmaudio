@@ -16,7 +16,7 @@ struct TestUpsample(Movable, Copyable):
 
     def next(mut self) -> MFloat[2]:
 
-        sample = self.osc.next[OscType.triangle](self.world[].mouse_y * 200.0 + 20.0)
+        sample = self.osc.next[OscType.triangle](self.world[].mouse_y() * 200.0 + 20.0)
         sample2 = 0.0
         for i in range(ov_samp.times):
             sample2 = self.upsampler.next(sample, i)

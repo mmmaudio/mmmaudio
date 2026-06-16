@@ -11,25 +11,20 @@ struct PAF[
     Parameters:
         num_chans: Number of channels.
         interp: Interpolation method. See [Interp](MMMWorld.md/#struct-interp) struct for options.
-        ov_samp: An [oversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
+        ov_samp: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
         wrap_gaussian: Whether to wrap indices that go out of bounds in the gaussian window. Puckette's design only uses half of the table, but enabling wrap_gaussian uses the entire table, resulting in a wider pallette of timbres.
     """
 
-    var world: World
+    var oversampled_world: World
 
     var phasor: Phasor[Self.num_chans]
     var cos1: Osc[Self.num_chans, Self.interp]
     var cos2: Osc[Self.num_chans, Self.interp]
-    var lag: Lag[Self.num_chans]
-    var env: Env[]
-    var env_buffer: SIMDBuffer[1]
     var gauss_last_phase: MFloat[Self.num_chans]
     var sin_last_phase: MFloat[Self.num_chans]
-    var sin: Windows
-    var gaussian: Windows
     var cos1_last_phase: MFloat[Self.num_chans]
 
-    var oversampling: Oversampling[Self.num_chans, Self.ov_samp]
+    var downsampler: Optional[Downsampler[Self.num_chans, Self.ov_samp]]
 
     def __init__(out self, world: World):
         """Initialize the phase-aligned formant synthesizer.
@@ -37,27 +32,23 @@ struct PAF[
         Args:
             world: Pointer to the MMMWorld instance.
         """
-        self.world = world
+        self.oversampled_world = create_subworld(world, Self.ov_samp)
 
-        self.phasor = Phasor[Self.num_chans](self.world)
-        self.phasor.set_oversampling(Self.ov_samp)
+        self.phasor = Phasor[Self.num_chans](self.oversampled_world)
         
-        self.cos1 = Osc[Self.num_chans, Self.interp](self.world)
-        self.cos2 = Osc[Self.num_chans, Self.interp](self.world)
-        self.lag = Lag[Self.num_chans](self.world)
-        self.env = Env[](self.world)
-        self.env_buffer = Env.get_env_buffer[1, win_type=WindowType.gaussian](
-            self.world, 2048
-        )
+        self.cos1 = Osc[Self.num_chans, Self.interp](self.oversampled_world)
+        self.cos2 = Osc[Self.num_chans, Self.interp](self.oversampled_world)
         self.gauss_last_phase = 0.0
         self.sin_last_phase = 0.0
-        self.sin = Windows()
-        self.gaussian = Windows()
         self.cos1_last_phase = MFloat[self.num_chans](0.0)
 
-        self.oversampling = Oversampling[Self.num_chans, Self.ov_samp](
-            self.world
-        )
+        self.downsampler = None
+        comptime if Self.ov_samp != TimesOversampling.none:
+            self.downsampler = Optional[Downsampler[Self.num_chans, Self.ov_samp]](
+                Downsampler[Self.num_chans, Self.ov_samp](
+                    world # use main world for downsampler, not the oversampled subworld
+                )
+            )
 
     @always_inline
     def next(
@@ -76,14 +67,13 @@ struct PAF[
         Returns:
             The next sample of the synthesizer output.
         """
-        fund = self.lag.next(fundamental)
         out = MFloat[Self.num_chans](0.0)
 
-        a = center_freq / fund
+        a = center_freq / fundamental
         b = wrap(a, 0.0, 1.0)
 
         comptime for _ in range(Self.ov_samp.times):
-            phasor = self.phasor.next(fund)
+            phasor = self.phasor.next(fundamental)
 
             cos1_phase = phasor * (a - b)
             cos2_phase = cos1_phase + phasor
@@ -95,17 +85,18 @@ struct PAF[
                 freq=0, phase_offset=cos2_phase + 0.25
             )
 
-            sin = self.sin.at_phase[
+            temp = self.oversampled_world[].windows.value()
+            sin = temp[].at_phase[
                 window_type=WindowType.sine, interp=Self.interp
-            ](self.world, phasor, self.sin_last_phase)
+            ](self.oversampled_world, phasor, self.sin_last_phase)
 
             gaussian_phase = (
-                sin * ((bandwidth / fund) * 0.25)
+                sin * ((bandwidth / fundamental) * 0.25)
             ) + 0.5
 
-            gaussian = self.gaussian.at_phase[
+            gaussian = temp[].at_phase[
                 window_type=WindowType.gaussian, interp=Self.interp
-            ](self.world, gaussian_phase, self.gauss_last_phase)
+            ](self.oversampled_world, gaussian_phase, self.gauss_last_phase)
 
             mod = ((cos2 - cos1) * b) + cos1
             out = mod * gaussian
@@ -113,12 +104,12 @@ struct PAF[
             self.sin_last_phase = phasor
             self.cos1_last_phase = cos1_phase
 
-            # add sample to oversampling buffer each iteration
-            if Self.ov_samp != TimesOversampling.none:
-                self.oversampling.add_sample(out)
+            # add sample to downsampling buffer each iteration
+            comptime if Self.ov_samp != TimesOversampling.none:
+                self.downsampler.value().add_sample(out)
 
-        # retrive sample from oversampling buffer only if oversampling is enabled
-        if Self.ov_samp != TimesOversampling.none:
-            return self.oversampling.get_sample()
+        # retrieve sample from downsampling buffer only if oversampling is enabled
+        comptime if Self.ov_samp != TimesOversampling.none:
+            return self.downsampler.value().get_sample()
         else:
             return out

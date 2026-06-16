@@ -49,7 +49,7 @@ struct TestDelayInterps(Movable, Copyable):
         self.max_delay_time = self.lag.next(self.max_delay_time) 
         delay_time = linlin(self.lfo.next(self.lfo_freq),-1,1,0.001,self.max_delay_time)
 
-        delay_time = select(self.mouse_onoff,delay_time, self.mouse_lag.next(linlin(self.world[].mouse_x, 0.0, 1.0, 0.0, 0.001)))
+        delay_time = select(self.mouse_onoff,delay_time, self.mouse_lag.next(linlin(self.world[].mouse_x(), 0.0, 1.0, 0.0, 0.001)))
 
         input = self.playBuf.next(self.buffer, 1.0, True)  # Read samples from the buffer
 

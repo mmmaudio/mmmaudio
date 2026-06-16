@@ -1,11 +1,11 @@
 from mmm_audio import *
 
-struct Oversampling[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversampling.none](Movable, Copyable, PolyReset):
-    """A struct that collects ` times_oversampling` samples and then downsamples them using a low-pass filter. Add a sample for each oversampling iteration with `add_sample()`, then get the downsampled output with `get_sample()`.
+struct Downsampler[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversampling.none](Movable, Copyable, PolyReset):
+    """A struct that collects `times_oversampling` samples and then downsamples them using a low-pass filter. Add a sample for each oversampling iteration with `add_sample()`, then get the downsampled output with `get_sample()`. VERY IMPORTANT, when initializing this struct, use the main world, not the oversampled subworld. The Downsampler exists outside of the oversampled subworld!
 
     Parameters:
-        num_chans: Number of channels for the oversampling buffer.
-        ov_samp: An [oversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
+        num_chans: Number of channels for the downsampling buffer.
+        ov_samp: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
     """
 
     var buffer: InlineArray[MFloat[Self.num_chans], Self.ov_samp.times]  # Buffer for oversampled values
@@ -13,20 +13,19 @@ struct Oversampling[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversa
     var lpf: OS_LPF4[Self.num_chans]
 
     def __init__(out self, world: World):
-        """Initialize the Oversampling struct.
+        """Initialize the Downsampler struct.
 
         Args:
-            world: Pointer to the MMMWorld instance.
+            world: Pointer to the MMMWorld instance. VERY IMPORTANT to use the main world, not the oversampled subworld, for this struct.
         """
-        self.lpf = OS_LPF4[self.num_chans](world)
+        self.lpf = OS_LPF4[Self.num_chans](world[].sample_rate * MFloat[1](Self.ov_samp.times))
         self.buffer = InlineArray[MFloat[Self.num_chans], Self.ov_samp.times](fill=MFloat[Self.num_chans](0.0))
         self.counter = 0
-        self.lpf.set_sample_rate(world[].sample_rate * MFloat[1](Self.ov_samp.times))
         
-        self.lpf.set_cutoff(0.48 * world[].sample_rate)
+        self.lpf.set_cutoff(0.45 * world[].sample_rate)
 
     @always_inline
-    def add_sample(mut self, sample: MFloat[self.num_chans]):
+    def add_sample(mut self, sample: MFloat[Self.num_chans]):
         """Add a sample to the oversampling buffer.
         
         Args:
@@ -36,16 +35,16 @@ struct Oversampling[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversa
         self.counter += 1
 
     @always_inline
-    def get_sample(mut self) -> MFloat[self.num_chans]:
+    def get_sample(mut self) -> MFloat[Self.num_chans]:
         """Get the next sample from a filled oversampling buffer.
 
         Returns:
             The downsampled output sample.
         """
-        out = MFloat[self.num_chans](0.0)
-        if self.counter > 1:
+        out = MFloat[Self.num_chans](0.0)
+        comptime if Self.ov_samp.times > 1:
             for i in range(Self.ov_samp.times):
-                out = self.lpf.next(self.buffer[i]) # Lowpass filter each sample
+                out = self.lpf.next(self.buffer[i])
         else:
             out = self.buffer[0]
         self.counter = 0
@@ -54,13 +53,14 @@ struct Oversampling[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversa
     def reset(mut self):
         """Reset the internal state of the upsampler."""
         self.lpf.reset()
+        self.counter = 0
         
 struct Upsampler[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversampling.x2](Movable, Copyable, PolyReset):
     """A struct that upsamples the input signal by the specified factor using a low-pass filter.
 
     Parameters:
         num_chans: Number of channels for the upsampler.
-        ov_samp: An [oversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
+        ov_samp: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
     """
     var lpf: OS_LPF4[Self.num_chans]
 
@@ -70,12 +70,11 @@ struct Upsampler[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversampl
         Args:
             world: Pointer to the MMMWorld instance.
         """
-        self.lpf = OS_LPF4[Self.num_chans](world)
-        self.lpf.set_sample_rate(world[].sample_rate * MFloat[1](Self.ov_samp.times))
-        self.lpf.set_cutoff(0.5 * world[].sample_rate)
+        self.lpf = OS_LPF4[Self.num_chans](world[].sample_rate * MFloat[1](Self.ov_samp.times))
+        self.lpf.set_cutoff(0.45 * world[].sample_rate)
 
     @always_inline
-    def next(mut self, input: MFloat[self.num_chans], i: Int) -> MFloat[self.num_chans]:
+    def next(mut self, input: MFloat[Self.num_chans], i: Int) -> MFloat[Self.num_chans]:
         """Process one sample through the upsampler. Pass in the same sample `times_oversampling` times, once for each oversampling iteration. The algorithm will use the first sample given and fill the buffer with zeroes for the subsequent samples.
 
         Args:
@@ -110,13 +109,13 @@ struct OS_LPF[num_chans: Int = 1](Movable, Copyable):
     var z2: MFloat[Self.num_chans]
     comptime INV_SQRT2 = 0.7071067811865475
 
-    def __init__(out self, world: World):
+    def __init__(out self, sample_rate: Float64):
         """Initialize the oversampling low-pass filter.
 
         Args:
-            world: Pointer to the MMMWorld instance.
+            sample_rate: The sample rate in Hz.
         """
-        self.sample_rate = world[].sample_rate
+        self.sample_rate = sample_rate
         self.b0 = 1.0
         self.b1 = 0.0
         self.b2 = 0.0
@@ -194,14 +193,15 @@ struct OS_LPF4[num_chans: Int = 1](Movable, Copyable):
     var os_lpf1: OS_LPF[Self.num_chans]
     var os_lpf2: OS_LPF[Self.num_chans]
 
-    def __init__(out self, world: World):
+    def __init__(out self, sample_rate: Float64):
         """Initialize the 4th order oversampling low-pass filter.
 
         Args:
-            world: Pointer to the MMMWorld instance.
+            sample_rate: The sample rate in Hz.
         """
-        self.os_lpf1 = OS_LPF[Self.num_chans](world)
-        self.os_lpf2 = OS_LPF[Self.num_chans](world)
+        self.os_lpf1 = OS_LPF[Self.num_chans](sample_rate)
+        self.os_lpf2 = OS_LPF[Self.num_chans](sample_rate)
+
     def set_sample_rate(mut self, sr: Float64):
         self.os_lpf1.set_sample_rate(sr)
         self.os_lpf2.set_sample_rate(sr)

@@ -28,7 +28,7 @@ struct TestBuffer(Copyable,Movable):
     def next(mut self) -> SIMD[DType.float64,2]:
 
         self.m.update("which", self.which) 
-        rate = self.world[].mouse_x * 20000
+        rate = self.world[].mouse_x() * 20000
 
         none = self.none.next[1,Interp.none](self.buf)
         linear = self.linear.next[1,Interp.linear](self.buf)

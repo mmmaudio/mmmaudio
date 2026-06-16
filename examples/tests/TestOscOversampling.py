@@ -9,5 +9,6 @@ mmm_audio.send_float("which", 1.0) # 2x
 mmm_audio.send_float("which", 2.0) # 4x
 mmm_audio.send_float("which", 3.0) # 8x
 mmm_audio.send_float("which", 4.0) # 16x
+mmm_audio.send_float("which", 5.0) # 16x in an oversampling loop
 
 mmm_audio.stop_audio()  

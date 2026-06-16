@@ -223,7 +223,7 @@ def test_mel_bands_weights() raises:
     sr: Int = 44100
 
     w = alloc[MMMWorld](1) 
-    w.init_pointee_move(MMMWorld(MFloat[1](sr), 64, 2, 2, None, None, None))
+    w.init_pointee_move(MMMWorld(MFloat[1](sr)))
     melbands = MelBands(w[].sample_rate, num_bands=n_mels,min_freq=20.0,max_freq=20000.0,fft_size=n_fft)
 
     weights_flat = List[Float64]()
@@ -475,9 +475,11 @@ def test_env() raises:
     osc_buffers.value().init_pointee_move(OscBuffers())
     windows: Optional[UnsafePointer[mut=True, Windows, MutExternalOrigin]] = alloc[Windows](1)
     windows.value().init_pointee_move(Windows())
+    world_info: Optional[UnsafePointer[mut=True, WorldInfo, MutExternalOrigin]] = alloc[WorldInfo](1)
+    world_info.value().init_pointee_move(WorldInfo())
 
     world = alloc[MMMWorld](1) 
-    world.init_pointee_move(MMMWorld(48000., 64, 0, 0, osc_buffers, windows))
+    world.init_pointee_move(MMMWorld(48000., world_info, osc_buffers, windows))
 
     x = MFloat[4](0.1, 0.25, 0.45, 1.5)
     result = MFloat[4](0.0, 0.0, 0.0, 0.0)

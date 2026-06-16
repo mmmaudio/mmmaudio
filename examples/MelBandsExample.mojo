@@ -52,7 +52,7 @@ struct MelBandsExample(Movable, Copyable):
         _ = self.analyzer.next(flute)
 
         # get the results
-        if self.world[].top_of_block:
+        if self.world[].top_of_block():
             # print the mel band energies
             if self.print_counter % self.update_modulus == 0:
                 string = "\n\n\n\n\n"
