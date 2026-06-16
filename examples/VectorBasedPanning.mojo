@@ -35,7 +35,7 @@ struct VectorBasedPanning(Movable, Copyable):
             var y = linlin(self.world[].mouse_y, 0.0, 1.0, 1.0, -1.0)
             self.az = atan2(y, x)
         else:
-            self.az = atan2(self.pos[1], self.pos[0]) - deg_to_rad(90)
+            self.az = atan2(self.pos[1], self.pos[0])
             
         # 4 speaker setup
         comptime offset = deg_to_rad(90)

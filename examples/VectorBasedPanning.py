@@ -6,10 +6,9 @@ The position of the audio source is controlled by the mouse. The corners of the 
 
 from mmm_python import *
 from math import pi
+from wsl_fixes import MMMAudioWSL
 # instantiate and load the graph
 mmm_audio = MMMAudio(128, num_output_channels=4, graph_name="VectorBasedPanning", package_name="examples")
-
-
 
 mmm_audio.start_audio()
 
@@ -25,55 +24,16 @@ mmm_audio.send_float("az", 0.875 * 2 * pi)
 # for Wayland use the fake mouse
 MMMAudio.fake_mouse()
 
+# # WSL Fake Mouse
+# def handle_wsl_mouse(x, y):
+#     from numpy import interp
+#     mmm_audio.send_floats("pos", [interp(x, [0, 1], [-1, 1]), interp(y, [0, 1], [1, -1])]
+
+# mmm_audio.send_int("wsl", 1)
+
+# MMMAudioWSL.wsl_fake_mouse(handle_wsl_mouse)
 
 
-# For WSL
-def wsl_fake_mouse(instance, x_size: int = 300, y_size: int = 300):
-    """Create a GUI slider that sends fake mouse positions to a single instance."""
-    from mmm_python.GUI import Slider2D
-    from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
-    from math import atan2
-    instance.send_int("wsl", 1)
-    # Use existing QApplication if it exists, otherwise create a new one
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-        app_created = True
-    else:
-        app_created = False
-
-    app.quitOnLastWindowClosed = True 
-
-    # Create the main window
-    window = QWidget()
-    window.setWindowTitle("Fake Mouse Position Controller")
-    window.resize(int(x_size), int(y_size))
-
-    # Create layout
-    layout = QVBoxLayout()
-
-    slider2d = Slider2D(x_size, y_size)
-
-    def on_slider_change(x, y):
-        # Send to all MMMAudio instances
-        
-        instance.send_floats("pos", [y * 2 - 1, x * 2 - 1])
-
-    slider2d.value_changed.connect(on_slider_change)
-    layout.addWidget(slider2d)
-    window.setLayout(layout)
-    window.show()
-
-    # Only run exec() if we created the app (no existing event loop)
-    if app_created:
-        app.exec()
-    
-    return window  # Return window so it can be kept alive if needed
-
-
-wsl_fake_mouse(mmm_audio)
-
-mmm_audio.send_int("wsl", 0)
 
 mmm_audio.stop_audio()
 
