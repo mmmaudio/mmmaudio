@@ -211,7 +211,7 @@ def create_subworld(world: World, times_ov_samp: TimesOversampling = TimesOversa
         sinc_interpolator_ptr = world[].sinc_interpolator
     ))
 
-    print("MMMWorld initialized with sample rate:", sample_rate, "and block size:", new_world[].world_info.value()[].block_size)
+    print("SubWorld initialized with sample rate:", sample_rate)
     return new_world
 
 @fieldwise_init
