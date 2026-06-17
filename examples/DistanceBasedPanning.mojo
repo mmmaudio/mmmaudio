@@ -26,12 +26,9 @@ struct DistanceBasedPanning(Movable, Copyable):
         self.pos[0] = linlin(self.world[].mouse_x(), 0.0, 1.0, -1.0, 1.0)
         self.pos[1] = linlin(self.world[].mouse_y(), 0.0, 1.0, 1.0, -1.0)
         
-        # 4 speaker setup
-
-        self.pos[1] = linlin(self.world[].mouse_y(), 0.0, 1.0, 1.0, -1.0)
         
         # 4 speaker setup
-
+       
         comptime speakers : InlineArray[MFloat[2], 4] = [
             MFloat[2](-1, 1),
             MFloat[2](1, 1),
@@ -45,7 +42,7 @@ struct DistanceBasedPanning(Movable, Copyable):
         sig = self.dust.next(10, 40) * 0.5
         sig = self.filt.bpf(sig, 1200, 10.0, 1.0)
 
-        out = dbap2D[4, max_simd, speakers, weights](sig, self.pos, 0.5)
+        out = dbap2D[4, max_simd, speakers, weights](sig, self.pos, 0.1)
         
 
         #7 speaker setup
