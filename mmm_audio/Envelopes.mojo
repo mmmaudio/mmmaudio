@@ -407,7 +407,7 @@ struct Compressor[num_chans: Int, ov_samp: TimesOversampling = TimesOversampling
     
     Params:
         num_chans: Number of channels of input/output.
-        ov_samp: Downsampler factor for the compressor.
+        ov_samp: TimesOversampling factor for oversampling the input signal before compression.
     """
 
     var amp: Amplitude[Self.num_chans]
