@@ -23,62 +23,57 @@ mmm_audio.send_string("load_file", "'/Users/ted/dev/BVKER - Custom Wavetables/Gr
 mmm_audio.send_string("load_file", "'/Users/ted/dev/BVKER - Custom Wavetables/Growl/Growl 15.wav'")
 
 if True:
-    import threading
-    import mido
-    import time
-    from mmm_python.functions import linexp, linlin, midicps, cpsmidi
-    from mmm_python.Patterns import PVoiceAllocator
+    import supriya_midi as midi
 
     # find your midi devices
-    print(mido.get_input_names())
+    ports = midi.list_ports()
+    print(f"Available MIDI ports: {ports}")
+    port_num = ports.index('Oxygen Pro Mini USB MIDI')
 
     # open your midi device - you may need to change the device name
-    in_port = mido.open_input('Oxygen Pro Mini USB MIDI')
+    in_port = midi.MidiIn()
+    in_port.open_port(port_num)
 
     voice_allocator = PVoiceAllocator(8)
 
-    # Create stop event
-    global stop_event
-    stop_event = threading.Event()
-    def start_midi():
-        while not stop_event.is_set():
-            for msg in in_port.iter_pending():
-                if stop_event.is_set():  # Check if we should stop
-                    return
+def note_on(msg):
+    voice = voice_allocator.get_free_voice(msg.note_number)
+    if voice == -1:
+        print("No free voice available")
+    else:
+        voice_msg = "voice_" + str(voice)
+        print(f"Note On: {msg.note_number} Velocity: {msg.velocity} Voice: {voice}")
+        mmm_audio.send_float(voice_msg +".freq", midicps(msg.note_number))  # note freq and velocity scaled 0 to 1
+        mmm_audio.send_bool(voice_msg +".gate", True)  # note freq and velocity scaled 0 to 1
 
-                if msg.type in ["note_on", "note_off", "control_change"]:
-                    print(msg)
-                    if msg.type == "note_on":
-                        voice = voice_allocator.get_free_voice(msg.note)
-                        if voice == -1:
-                            print("No free voice available")
-                            continue
-                        else:
-                            voice_msg = "voice_" + str(voice)
-                            print(f"Note On: {msg.note} Velocity: {msg.velocity} Voice: {voice}")
-                            mmm_audio.send_float(voice_msg +".freq", midicps(msg.note))  # note freq and velocity scaled 0 to 1
-                            mmm_audio.send_bool(voice_msg +".gate", True)  # note freq and velocity scaled 0 to 1
-                    if msg.type == "note_off":
-                        found, voice = voice_allocator.release_voice(msg.note)
-                        if found:
-                            voice_msg = "voice_" + str(voice)
-                            print(f"Note Off: {msg.note} Voice: {voice}")
-                            mmm_audio.send_bool(voice_msg +".gate", False)  # note freq and velocity scaled 0 to 1
-                    if msg.type == "control_change":
-                        print(f"Control Change: {msg.control} Value: {msg.value}")
-                        # Example: map CC 1 to wubb_rate of all voices
-                        if msg.control == 1:
-                            wubb_rate = linexp(msg.value, 0, 127, 0.1, 10.0)
-                            for i in range(8):
-                                voice_msg = "voice_" + str(i)
-                                mmm_audio.send_float(voice_msg +".wubb_rate", wubb_rate)
-                        if msg.control == 33:
-                            mmm_audio.send_float("filter_cutoff", linexp(msg.value, 0, 127, 20.0, 20000.0))
-                        if msg.control == 34:
-                            mmm_audio.send_float("filter_resonance", linexp(msg.value, 0, 127, 0.1, 1.0))
+def note_off(msg):
+    found, voice = voice_allocator.release_voice(msg.note_number)
+    if found:
+        voice_msg = "voice_" + str(voice)
+        print(f"Note Off: {msg.note_number} Voice: {voice}")
+        mmm_audio.send_bool(voice_msg +".gate", False)  # note freq and velocity scaled 0 to 1
 
-            time.sleep(0.01)
-    # Start the thread
-    midi_thread = threading.Thread(target=start_midi, daemon=False)
-    midi_thread.start()
+def cc(msg):
+    print(f"Control Change: {msg.controller_number} Value: {msg.controller_value}")
+    # Example: map CC 1 to wubb_rate of all voices
+    if msg.controller_number == 1:
+        wubb_rate = linexp(msg.controller_value, 0, 127, 0.1, 10.0)
+        for i in range(8):
+            voice_msg = "voice_" + str(i)
+            mmm_audio.send_float(voice_msg +".wubb_rate", wubb_rate)
+    if msg.controller_number == 33:
+        mmm_audio.send_float("filter_cutoff", linexp(msg.controller_value, 0, 127, 20.0, 20000.0))
+    if msg.controller_number == 34:
+        mmm_audio.send_float("filter_resonance", linexp(msg.controller_value, 0, 127, 0.1, 1.0))
 
+def midi_callback(msg, timestamp, data=None):
+    msg = midi.MidiMessage.parse(msg)
+    print(f"Received {msg=}")
+    if type(msg) == midi.NoteOnMessage:
+        note_on(msg)
+    if type(msg) == midi.NoteOffMessage:
+        note_off(msg)
+    if type(msg) == midi.ControllerChangeMessage:
+        cc(msg)
+
+in_port.set_callback(midi_callback)

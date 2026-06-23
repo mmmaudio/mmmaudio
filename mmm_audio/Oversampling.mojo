@@ -253,5 +253,5 @@ def create_subworld(world: World, times_ov_samp: TimesOversampling = TimesOversa
         sinc_interpolator_ptr = world[].sinc_interpolator
     ))
 
-    print("SubWorld initialized with sample rate:", sample_rate)
+    # print("SubWorld initialized with sample rate:", sample_rate)
     return new_world

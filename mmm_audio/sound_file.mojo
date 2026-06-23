@@ -379,7 +379,7 @@ def read_wav_samples(file_name: String, header: WavHeader, num_wavetables: Int =
         var samples_per_wavetable = num_samples // num_wavetables
         for wavetable_idx in range(num_wavetables):
             for _ in range(samples_per_wavetable):
-                sample_value = get_sample(file_data, offset + wavetable_idx * bytes_per_sample, bits_per_sample, is_pcm, is_float)
+                sample_value = get_sample(file_data, offset, bits_per_sample, is_pcm, is_float)
                 offset += bytes_per_sample
                 samples[wavetable_idx].append(sample_value)
     
@@ -468,7 +468,6 @@ def read_wav_SIMDs[num_channels: Int](file_name: String, header: WavHeader, num_
                 if wavetable_idx == 0:
                     SIMD_sample = MFloat[num_channels](0.0)
                     samples.append(SIMD_sample)
-
                 sample_value = get_sample(file_data, offset, bits_per_sample, is_pcm, is_float)
                 samples[sample_idx][wavetable_idx] = sample_value
                 offset += bytes_per_sample

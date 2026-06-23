@@ -16,7 +16,7 @@ See "Documentation Generation" on how to build this locally.
 
 ## Program structure
 
-MMMAudio takes advantage of Mojo/Python interoperation compiled directly within a Python project. MMMAudio uses Mojo for all audio processing and Python as the scripting language that controls the audio engine. We take advantage of being part of the Python ecosystem, using Python libraries like numpy, scipy, pyaudio, mido, hidapi, and pythonosc to facilitate interaction with the audio engine.
+MMMAudio takes advantage of Mojo/Python interoperation compiled directly within a Python project. MMMAudio uses Mojo for all audio processing and Python as the scripting language that controls the audio engine. We take advantage of being part of the Python ecosystem, using Python libraries like numpy, scipy, pyaudio, supriya-midi, hidapi, and pythonosc to facilitate interaction with the audio engine.
 
 MMMAudio currently runs one audio graph at a time. The audio graph is composed of Synths and the Synths are composed of UGens.
 

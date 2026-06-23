@@ -13,11 +13,11 @@ from mmm_python import *
 
 def main():
     # set your audio input and output devices here:
-    # in_device = "Fireface UCX II (24219339)"
-    # out_device = "Fireface UCX II (24219339)"
+    in_device = "Fireface UCX II (24219339)"
+    out_device = "Fireface UCX II (24219339)"
 
-    in_device = "MacBook Pro Microphone"
-    out_device = "External Headphones"
+    # in_device = "MacBook Pro Microphone"
+    # out_device = "External Headphones"
 
     # instantiate and load the graph
     mmm_audio = MMMAudio(128, num_input_channels=18, num_output_channels=2, in_device=in_device, out_device=out_device, graph_name="Record", package_name="examples")
@@ -26,35 +26,32 @@ def main():
     mmm_audio.send_int("set_input_chan", 0) 
     mmm_audio.start_audio() 
 
-    import mido
-    import time
-    import threading
+    import supriya_midi as midi
 
     # find your midi devices
-    mido.get_input_names()
+    ports = midi.list_ports()
+    print(f"Available MIDI ports: {ports}")
 
     # open your midi device - you may need to change the device name
-    in_port = mido.open_input('Oxygen Pro Mini USB MIDI')
+    in_port = midi.MidiIn()
+    in_port.open_port(ports.index('Oxygen Pro Mini USB MIDI'))
 
-    # Create stop event
-    stop_event = threading.Event()
-    def start_midi():
-        while not stop_event.is_set():
-            for msg in in_port.iter_pending():
-                if stop_event.is_set():  # Check if we should stop
-                    return
-                print("Received MIDI message:", end=" ")
-                print(msg)
+    def midi_callback(msg, timestamp, data=None):
+        msg = midi.MidiMessage.parse(msg)
+        print(f"Received {msg=}")
 
-                if msg.type == "note_on" and msg.note == 48:
-                    mmm_audio.send_bool("is_recording", True)
-                elif msg.type == "note_off" and msg.note == 48:
-                    mmm_audio.send_bool("is_recording", False)
-            time.sleep(0.01)
+        if type(msg) == midi.NoteOnMessage and msg.note_number == 48:
+            mmm_audio.send_bool("is_recording", True)
+        elif type(msg) == midi.NoteOffMessage and msg.note_number == 48:
+            mmm_audio.send_bool("is_recording", False)
 
-    # Start the thread
-    midi_thread = threading.Thread(target=start_midi, daemon=False)
-    midi_thread.start()
+    in_port.set_callback(midi_callback)
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Exiting.")
 
 if __name__ == "__main__":
     main()

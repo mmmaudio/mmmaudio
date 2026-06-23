@@ -84,7 +84,7 @@ You should be good to go.
 python -m venv venv 
 source venv/bin/activate
 
-pip install numpy scipy librosa pyautogui torch mido python-osc python-rtmidi matplotlib PySide6 mojo==1.0.0b1 hidapi pyaudio
+pip install numpy scipy librosa pyautogui torch supriya-midi python-osc python-rtmidi matplotlib PySide6 mojo==1.0.0b1 hidapi pyaudio
 ```
 
 ### 2 Install Python and Mojo VSCode Extensions

@@ -2,7 +2,7 @@
 A polyphonic synthesizer controlled via a MIDI keyboard.
 
 This example demonstrates a couple differnt concepts:
-- How to connect to a MIDI keyboard using the mido library
+- How to connect to a MIDI keyboard using the supriya-midi library
 - How to use a MIDI keyboard to send note and control change messages to MMMAudio.
 - How to use Pseq from mmm_python.Patterns to cycle through voices for polyphonic note allocation.
 - How to create a thread to handle incoming MIDI messages in the background.
@@ -27,44 +27,41 @@ def main():
     mmm_audio = MMMAudio(128, graph_name="MidiSequencer", package_name="examples")
     mmm_audio.start_audio()
 
-
-
     # this next chunk of code is all about using a midi keyboard to control the synth---------------
-
-    import threading
-    import mido
-    import time
+    import supriya_midi as midi
 
     # find your midi devices
-    mido.get_input_names()
+    ports = midi.list_ports()
+    print(f"Available MIDI ports: {ports}")
+    port_num = ports.index('Oxygen Pro Mini USB MIDI')
 
     # open your midi device - you may need to change the device name
-    in_port = mido.open_input('Oxygen Pro Mini USB MIDI')
+    in_port = midi.MidiIn()
+    in_port.open_port(port_num)
 
     poly_pal = PolyPal(mmm_audio, "poly", 10)
 
-    # Create stop event
-    global stop_event
-    stop_event = threading.Event()
-    def start_midi():
-        while not stop_event.is_set():
-            for msg in in_port.iter_pending():
-                if stop_event.is_set():  # Check if we should stop
-                    return
-                if msg.type in ["note_on", "control_change", "pitchwheel"]:
-                    if msg.type == "note_on":
-                        poly_pal.send_floats([midicps(msg.note), msg.velocity / 127.0])  # note freq and velocity scaled 0 to 1
-                    elif msg.type == "control_change":
-                        if msg.control == 34:  # Mod wheel
-                            # on the desired cc, scale the value exponentially from 100 to 4000
-                            # it is best practice to scale midi cc values in the host, rather than in the audio engine
-                            mmm_audio.send_float("filt_freq", linexp(msg.value, 0, 127, 100, 4000))
-                    elif msg.type == "pitchwheel":
-                        mmm_audio.send_float("bend_mul", linlin(msg.pitch, -8192, 8191, 0.9375, 1.0625))
-            time.sleep(0.01)
+    def midi_callback(msg, timestamp, data=None):
+        msg = midi.MidiMessage.parse(msg)
+        print(f"Received {msg=}")
+        if type(msg) in [midi.NoteOnMessage, midi.NoteOffMessage, midi.ControllerChangeMessage, midi.PitchWheelMessage]:
+            if type(msg) == midi.NoteOnMessage:
+                poly_pal.send_floats([midicps(msg.note_number), msg.velocity / 127.0])  # note freq and velocity scaled 0 to 1
+            elif type(msg) == midi.ControllerChangeMessage:
+                if msg.controller_number == 34:  # Mod wheel
+                    # on the desired cc, scale the value exponentially from 100 to 4000
+                    # it is best practice to scale midi cc values in the host, rather than in the audio engine
+                    mmm_audio.send_float("filt_freq", linexp(msg.controller_value, 0, 127, 100, 4000))
+            elif type(msg) == midi.PitchWheelMessage:
+                mmm_audio.send_float("bend_mul", linlin(msg.transposition, -8192, 8191, 0.9375, 1.0625))
     # Start the thread
-    midi_thread = threading.Thread(target=start_midi, daemon=False)
-    midi_thread.start()
+    in_port.set_callback(midi_callback)
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Exiting.")
 
 if __name__ == "__main__":
     main()

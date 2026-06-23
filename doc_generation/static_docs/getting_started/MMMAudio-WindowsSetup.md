@@ -83,6 +83,6 @@ Once in VSCode, install both the Mojo and Python extensions. It is important to 
 python3 -m venv venv 
 source venv/bin/activate
 
-pip install numpy scipy librosa pyautogui torch mido python-osc python-rtmidi matplotlib PySide6 mojo==1.0.0b1 hidapi pyaudio
+pip install numpy scipy librosa pyautogui torch supriya-midi python-osc python-rtmidi matplotlib PySide6 mojo==1.0.0b1 hidapi pyaudio
 ```
 

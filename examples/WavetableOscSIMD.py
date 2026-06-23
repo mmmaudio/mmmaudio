@@ -13,7 +13,8 @@ from pathlib import Path
 # If you want to run it line by line in a REPL, skip this line!
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mmm_python import *
-import mido
+from supriya_midi import MidiIn, MidiMessage
+import supriya_midi
 
 def main():
     mmm_audio = MMMAudio(128, graph_name="WavetableOscSIMD", package_name="examples")
@@ -22,26 +23,31 @@ def main():
     # PolyPal correctly formats messages to be sent to a Synth that uses a Poly object
     poly_pal = PolyPal(mmm_audio, "poly", 16) # the 16 here should match the number of voices in the Poly in the Mojo code
 
-    def midi_callback(msg):
+    def midi_callback(msg, timestamp, data=None):
+        msg = MidiMessage.parse(msg)
         print(f"Received MIDI message: {msg}")
-        if msg.type in ["note_on", "note_off", "control_change"]:
-            if msg.type == "note_on":
-                poly_pal.send_ints([msg.note, (msg.velocity)])  
-            if msg.type == "note_off":
-                poly_pal.send_ints([msg.note, 0.0])  
-            if msg.type == "control_change":
-                print(f"Control Change: {msg.control} Value: {msg.value}")
-                # Example: map CC 1 to wubb_rate of all voices
-                if msg.control == 1:
-                    wubb_rate = linexp(msg.value, 0, 127, 0.1, 10.0)
-                    mmm_audio.send_float("wubb_rate", wubb_rate)
-                if msg.control == 33:
-                    mmm_audio.send_float("filter_cutoff", linexp(msg.value, 0, 127, 20.0, 20000.0))
-                if msg.control == 34:
-                    mmm_audio.send_float("filter_resonance", linexp(msg.value, 0, 127, 0.1, 1.0))
+        print(f"Message type: {type(msg)}")
+        
+        if type(msg) == supriya_midi.NoteOnMessage:
+            print(f"Note On: {msg.note_number} Velocity: {msg.velocity}")
+            poly_pal.send_ints([msg.note_number, (msg.velocity)])  
+        if type(msg) == supriya_midi.NoteOffMessage:
+            poly_pal.send_ints([msg.note_number, 0.0])  
+        if type(msg) == supriya_midi.ControllerChangeMessage:
+            print(f"Control Change: {msg.controller_number} Value: {msg.controller_value}")
+            # Example: map CC 1 to wubb_rate of all voices
+            if msg.controller_number == 1:
+                wubb_rate = linexp(msg.controller_value, 0, 127, 0.1, 10.0)
+                mmm_audio.send_float("wubb_rate", wubb_rate)
+            if msg.controller_number == 33:
+                mmm_audio.send_float("filter_cutoff", linexp(msg.controller_value, 0, 127, 20.0, 20000.0))
+            if msg.controller_number == 34:
+                mmm_audio.send_float("filter_resonance", linexp(msg.controller_value, 0, 127, 0.1, 1.0))
 
     # open your midi device - you may need to change the device name
-    in_port = mido.open_input('Oxygen Pro Mini USB MIDI', callback = midi_callback)
+    in_port = MidiIn()
+    in_port.set_callback(midi_callback)
+    in_port.open_port(0)
 
     try:
         while True:
