@@ -43,7 +43,7 @@ Linux users may also have an issue with pyautogui, which we use to track the mou
 
 ## 2b.1. Option 1 - Setup with pixi (For Windows, go to [MMMAudio-WindowsSetup](MMMAudio-WindowsSetup.md))
 
-This is confirmed to work on Mac. It should also work on Linux. If it does not, us the Python Virtual Environment method @2b.2.
+This is confirmed to work on Mac. Linux users should use uv @2b.2 or a standard venv @2b.3 below.
 
 ### 1 Install pixi with homebrew or curl.
 
@@ -57,7 +57,26 @@ You can change the version of python inside the pixi.toml file if you need to.
 pixi install
 ```
 
-## 2b.2. Option 2 - Setup the Python Virtual Environment (Mac and Linux)
+
+## 2b.2. Option 2 - Setup using uv
+
+
+
+```
+# Create venv with the Python version specified in pyproject.toml
+uv venv
+
+# Or specify Python version explicitly
+uv venv --python 3.14
+
+# Sync/install all dependencies from pyproject.toml
+uv sync
+
+# add mojo
+uv add mojo --prerelease allow
+```
+
+## 2b.3. Option 3 - Setup the Python Virtual Environment (Mac and Linux)
 
 `cd` into the root of the downloaded repository, set up your virtual environment, and install required libraries. this should work with python 3.12 and above.  If you find it does or doesn't work with other versions [let us know](https://github.com/spluta/MMMAudio/issues).
 
