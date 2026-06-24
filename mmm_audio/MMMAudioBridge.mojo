@@ -42,18 +42,18 @@ def PyInit_GrainsBridge() abi("C") -> PythonObject:
 @fieldwise_init
 struct MMMAudioBridge(Movable, Writable):
     var world: World
-    var graph: Grains  # The audio graph instance
+    var graph: Grains
     var environment_ptr: UnsafePointer[mut=True, Environment, MutUntrackedOrigin]
 
-    # def(args: PythonObject, kwargs: PythonObject) raises -> MMMAudioBridge
     @staticmethod
     def py_init(out self: MMMAudioBridge, args: PythonObject, kwargs: PythonObject) raises:
 
-        var sample_rate = Float64(py=args[0])
-        var block_size: Int = Int(py=args[1])
+        args_dict = args[0]
 
-        var num_out_chans: Int = 2
-        var num_in_chans: Int = 2
+        sample_rate = Float64(py=args_dict["sample_rate"])
+        block_size = Int(py=args_dict["block_size"])
+        num_in_chans = Int(py=args_dict["num_in_chans"])
+        num_out_chans = Int(py=args_dict["num_out_chans"])
 
         self = Self(sample_rate, block_size, num_in_chans, num_out_chans)
 
