@@ -210,8 +210,8 @@ struct MMMWorld(Movable, Copyable):
             if self.environment_ptr.value()[].top_of_block and self.environment_ptr.value()[].print_counter % n_blocks == 0:
                 comptime for i in range(values.__len__()):
                     print(values[i], end=sep if i < values.__len__() - 1 else end)
-
-        print("Warning: Environment pointer is None. Cannot print values.")
+        else:
+            print("Warning: Environment pointer is None. Cannot print values.")
 
     def create_subworld(self, times_ov_samp: TimesOversampling = TimesOversampling.none) -> UnsafePointer[MMMWorld, MutUntrackedOrigin]:
         """Create another MMMWorld instance using a different TimesOversampling.

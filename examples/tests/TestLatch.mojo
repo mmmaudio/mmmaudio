@@ -5,22 +5,23 @@ from mmm_audio import *
 # a graph can have as many synths as you want
 struct TestLatch(Movable, Copyable):
     var world: World
-    var osc: Osc[]
-    var lfo: Osc[]
-    var latch: Latch[] 
-    var dusty: Dust[]
+    var osc: Osc[2]
+    var lfo: Osc[2]
+    var latch: Latch[2] 
+    var dusty: Dust[2]
     var messenger: Messenger
 
     def __init__(out self, world: World):
         self.world = world
-        self.osc = Osc(self.world)
-        self.lfo = Osc(self.world)
-        self.latch = Latch()
-        self.dusty = Dust(self.world)
+        self.osc = Osc[2](self.world)
+        self.lfo = Osc[2](self.world)
+        self.latch = Latch[2]()
+        self.dusty = Dust[2](self.world)
         self.messenger = Messenger(self.world)
 
     def next(mut self) -> MFloat[2]:
         freq = self.lfo.next(0.1) * 200 + 300
-        freq = self.latch.next(freq,self.dusty.next(0.5) > 0.0)
+        edge = self.dusty.next_bool(0.5, 1.0)
+        freq = self.latch.next(freq,edge)
         sample = self.osc.next(freq)  # Get the next sample from the synth
         return sample * 0.2  # Get the next sample from the synth

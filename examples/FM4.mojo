@@ -28,10 +28,10 @@ struct FM4(Movable, Copyable):
     var osc_frac: List[MFloat[1]]
 
     def __init__(out self, world: World) :
-        # create a subworld for the downsampling to live in
+        # create a subworld for the oversampling UGens to live in
         self.oversampled_world = world[].create_subworld(Self.times_oversampling)
 
-        # the oversampler exists in the main world! don't give it the oversampled world!
+        # the downsampler exists in the main world! don't give it the oversampled world!
         self.over = Downsampler[2, Self.times_oversampling](world)
 
         # the oscillators live in the oversampled world since they need to run at the oversampled rate

@@ -27,13 +27,13 @@ struct Latch[num_chans: Int = 1](Copyable, Movable):
     Parameters:
         num_chans: The number of channels for SIMD operations.
     """
+    var rbd: RisingBoolDetector[Self.num_chans]
     var samp: MFloat[Self.num_chans]
-    var last_trig: MBool[Self.num_chans]
 
     def __init__(out self):
         """Initialize the Latch."""
         self.samp = MFloat[Self.num_chans](0)
-        self.last_trig = MBool[Self.num_chans](False)
+        self.rbd = RisingBoolDetector[Self.num_chans]()
 
     def next(mut self, in_samp: MFloat[Self.num_chans], trig: MBool[Self.num_chans]) -> MFloat[Self.num_chans]:
         """
@@ -47,9 +47,8 @@ struct Latch[num_chans: Int = 1](Copyable, Movable):
             The currently latched sample.
         """
         
-        rising_edge: MBool[Self.num_chans] = trig & ~self.last_trig
+        rising_edge = self.rbd.next(trig)
         self.samp = rising_edge.select(in_samp, self.samp)
-        self.last_trig = trig
         return self.samp
 
 # Anti-Derivative Anti-aliasing functions are based on Jatin Chowdhury's python notebook: https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html and chowshapers: https://github.com/Chowdhury-DSP/chowdsp_utils/tree/master/modules/dsp/chowdsp_waveshapers/Waveshapers
@@ -568,29 +567,3 @@ struct BuchlaWavefolder[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOv
                 y = self._next1(x2, amp)
                 self.downsampler.add_sample(y)
             return self.downsampler.get_sample()
-
-struct SampleAndHold[num_chans: Int = 1](Movable, Copyable):
-    """A trigger that outputs True for a specified number of samples or amount of time after receiving a trigger signal."""
-
-    var hold: MFloat[Self.num_chans]
-    var rbd: RisingBoolDetector[Self.num_chans]
-
-    def __init__(out self):
-        self.hold = MFloat[Self.num_chans](0.0)
-        self.rbd = RisingBoolDetector[Self.num_chans]()
-
-    def next(mut self, input: MFloat[Self.num_chans], toggle: MBool[Self.num_chans]) -> MFloat[Self.num_chans]:
-        """Process the input signal and trigger, returning the held output signal.
-
-        Args:
-            input: The input sample to be held.
-            toggle: A boolean signal. When switching from false to true, the latch updates its output to the current input sample and holds it for the specified number of samples.`
-
-        Returns:
-            The currently held sample.
-        """
-        mask = self.rbd.next(toggle)
-        self.hold = mask.select(input, self.hold)
-        out = toggle.select(self.hold, input)
-        return out
-    
