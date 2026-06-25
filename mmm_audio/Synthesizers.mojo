@@ -32,7 +32,7 @@ struct PAF[
         Args:
             world: Pointer to the MMMWorld instance.
         """
-        self.oversampled_world = create_subworld(world, Self.ov_samp)
+        self.oversampled_world = world[].create_subworld(Self.ov_samp)
 
         self.phasor = Phasor[Self.num_chans](self.oversampled_world)
         
@@ -85,8 +85,8 @@ struct PAF[
                 freq=0, phase_offset=cos2_phase + 0.25
             )
 
-            temp = self.oversampled_world[].windows.value()
-            sin = temp[].at_phase[
+            ref temp = self.oversampled_world[].windows()
+            sin = temp.at_phase[
                 window_type=WindowType.sine, interp=Self.interp
             ](self.oversampled_world, phasor, self.sin_last_phase)
 
@@ -94,7 +94,7 @@ struct PAF[
                 sin * ((bandwidth / fundamental) * 0.25)
             ) + 0.5
 
-            gaussian = temp[].at_phase[
+            gaussian = temp.at_phase[
                 window_type=WindowType.gaussian, interp=Self.interp
             ](self.oversampled_world, gaussian_phase, self.gauss_last_phase)
 

@@ -29,7 +29,7 @@ struct FM4(Movable, Copyable):
 
     def __init__(out self, world: World) :
         # create a subworld for the downsampling to live in
-        self.oversampled_world = create_subworld(world, Self.times_oversampling)
+        self.oversampled_world = world[].create_subworld(Self.times_oversampling)
 
         # the oversampler exists in the main world! don't give it the oversampled world!
         self.over = Downsampler[2, Self.times_oversampling](world)

@@ -32,7 +32,6 @@ def PyInit_GrainsBridge() abi("C") -> PythonObject:
             .def_method[MMMAudioBridge.update_trigs_msg]("update_trigs_msg")
             .def_method[MMMAudioBridge.update_string_msg]("update_string_msg")
             .def_method[MMMAudioBridge.update_strings_msg]("update_strings_msg")
-            .def_method[MMMAudioBridge.set_channel_count]("set_channel_count")  
 
         return m.finalize()
     except e:
@@ -43,78 +42,52 @@ def PyInit_GrainsBridge() abi("C") -> PythonObject:
 @fieldwise_init
 struct MMMAudioBridge(Movable, Writable):
     var world: World
-    var graph: Grains  # The audio graph instance
-    var world_info: Optional[UnsafePointer[mut=True, WorldInfo, MutUntrackedOrigin]]
-    var osc_buffers: Optional[UnsafePointer[mut=True, OscBuffers, MutUntrackedOrigin]] 
-    var windows: Optional[UnsafePointer[mut=True, Windows, MutUntrackedOrigin]]
-    var messenger_manager: Optional[UnsafePointer[mut=True, MessengerManager, MutUntrackedOrigin]] 
-    var sinc_interpolator: Optional[UnsafePointer[mut=True, SincInterpolator[4, 14], MutUntrackedOrigin]]
+    var graph: Grains
+    var environment_ptr: UnsafePointer[mut=True, Environment, MutUntrackedOrigin]
 
-    # def(args: PythonObject, kwargs: PythonObject) raises -> MMMAudioBridge
     @staticmethod
     def py_init(out self: MMMAudioBridge, args: PythonObject, kwargs: PythonObject) raises:
 
-        var sample_rate = Float64(py=args[0])
-        var block_size: Int = Int(py=args[1])
+        args_dict = args[0]
 
-        var num_out_chans: Int = 2
-        var num_in_chans: Int = 2
+        sample_rate = Float64(py=args_dict["sample_rate"])
+        block_size = Int(py=args_dict["block_size"])
+        num_in_chans = Int(py=args_dict["num_in_chans"])
+        num_out_chans = Int(py=args_dict["num_out_chans"])
 
-        # right now if you try to read args[3], shit gets really weird
-
-        self = Self(sample_rate, block_size, num_in_chans, num_out_chans)  # Initialize with sample rate, block size, and number of channels
+        self = Self(sample_rate, block_size, num_in_chans, num_out_chans)
 
     def __init__(out self, sample_rate: Float64 = 44100.0, block_size: Int = 512, num_in_chans: Int = 12, num_out_chans: Int = 12):
         """Initialize the audio engine with sample rate, block size, and number of channels."""
 
-        self.osc_buffers = alloc[OscBuffers](1)
-        self.osc_buffers.value().init_pointee_move(OscBuffers())
-        self.windows = alloc[Windows](1)
-        self.windows.value().init_pointee_move(Windows())
-        self.sinc_interpolator = alloc[SincInterpolator[4, 14]](1)
-        self.sinc_interpolator.value().init_pointee_move(SincInterpolator[4, 14]())
-
-        self.messenger_manager = alloc[MessengerManager](1)
-        self.messenger_manager.value().init_pointee_move(MessengerManager())
-
-        self.world_info = alloc[WorldInfo](1)
-        self.world_info.value().init_pointee_move(WorldInfo(block_size, num_in_chans, num_out_chans))
+        self.environment_ptr = alloc[Environment](1)
+        self.environment_ptr.init_pointee_move(Environment(block_size, num_in_chans, num_out_chans))
 
         self.world = alloc[MMMWorld](1) 
-        self.world.init_pointee_move(MMMWorld(sample_rate, self.world_info, self.osc_buffers, self.windows, self.messenger_manager, self.sinc_interpolator))
+        self.world.init_pointee_move(MMMWorld(sample_rate, self.environment_ptr))
 
         self.graph = Grains(self.world)
 
     def write_to(self, mut writer: Some[Writer]):
-        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.world[].world_info.value()[].block_size)
+        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.environment_ptr[].block_size)
 
     def write_repr_to(self, mut writer: Some[Writer]):
-        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.world[].world_info.value()[].block_size)
-
-    @staticmethod
-    def set_channel_count(py_selfA: PythonObject, args: PythonObject) raises -> PythonObject:
-        var num_in_chans = Int(py=args[0])
-        var num_out_chans = Int(py=args[1])
-        print("set_channel_count:", num_in_chans, num_out_chans)
-        var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].world[].set_channel_count(num_in_chans, num_out_chans)
-    
-        return None # PythonObject(None)
+        writer.write("MMMAudioBridge with sample_rate=", self.world[].sample_rate, ", block_size=", self.environment_ptr[].block_size)
 
     @staticmethod
     def set_screen_dims(py_selfA: PythonObject, dims: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].world[].world_info.value()[].screen_dims = [Float64(py=dims[0]), Float64(py=dims[1])]  # Set the screen size in the MMMWorld instance
+        py_self[].environment_ptr[].screen_dims = [Float64(py=dims[0]), Float64(py=dims[1])]  # Set the screen size in the MMMWorld instance
 
         return PythonObject(None) 
 
     @staticmethod
     def update_mouse_pos(py_selfA: PythonObject, pos: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        py_self[0].world[].world_info.value()[].mouse_x = Float64(py=pos[0])
-        py_self[0].world[].world_info.value()[].mouse_y = Float64(py=pos[1])
+        py_self[].environment_ptr[].mouse_x = Float64(py=pos[0])
+        py_self[].environment_ptr[].mouse_y = Float64(py=pos[1])
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def to_float64(py_float: PythonObject) raises -> Float64:
@@ -123,10 +96,9 @@ struct MMMAudioBridge(Movable, Writable):
     @staticmethod
     def update_bool_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_bool_msg(String(key_vals[0]), Bool(key_vals[1]))
+        py_self[].environment_ptr[].messenger_manager.update_bool_msg(String(key_vals[0]), Bool(key_vals[1]))
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def update_bools_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
@@ -134,17 +106,15 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Bool(b) for b in key_vals[1:]]
 
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_bools_msg(key, values^)
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        py_self[].environment_ptr[].messenger_manager.update_bools_msg(key, values^)
+        return PythonObject(None)
 
     @staticmethod
     def update_float_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_float_msg(String(key_vals[0]), Float64(py=key_vals[1]))
+        py_self[].environment_ptr[].messenger_manager.update_float_msg(String(key_vals[0]), Float64(py=key_vals[1]))
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def update_floats_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
@@ -152,18 +122,17 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Float64(py=f) for f in key_vals[1:]]
 
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_floats_msg(key, values^)
+        py_self[].environment_ptr[].messenger_manager.update_floats_msg(key, values^)
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def update_int_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_int_msg(String(key_vals[0]), Int(py=key_vals[1]))
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        py_self[].environment_ptr[].messenger_manager.update_int_msg(String(key_vals[0]), Int(py=key_vals[1]))
+
+        return PythonObject(None)
 
     @staticmethod
     def update_ints_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
@@ -171,18 +140,16 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Int(py=v) for v in key_vals[1:]]
 
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_ints_msg(key, values^)
+        py_self[].environment_ptr[].messenger_manager.update_ints_msg(key, values^)
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def update_trig_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
         var py_self = py_selfA.downcast_value_ptr[Self]()
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_trig_msg(String(key_vals[0]))
+        py_self[].environment_ptr[].messenger_manager.update_trig_msg(String(key_vals[0]))
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def update_trigs_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
@@ -192,20 +159,18 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         values = [Bool(b) for b in key_vals[1:]]
 
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_trigs_msg(key, values^)
+        py_self[].environment_ptr[].messenger_manager.update_trigs_msg(key, values^)
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def update_string_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
 
         var py_self = py_selfA.downcast_value_ptr[Self]()
 
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_string_msg(String(key_vals[0]), String(key_vals[1]))
+        py_self[].environment_ptr[].messenger_manager.update_string_msg(String(key_vals[0]), String(key_vals[1]))
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     @staticmethod
     def update_strings_msg(py_selfA: PythonObject, key_vals: PythonObject) raises -> PythonObject:
@@ -215,35 +180,34 @@ struct MMMAudioBridge(Movable, Writable):
         key = String(key_vals[0])
         texts = [String(s) for s in key_vals[1:]]
 
-        temp = py_self[0].messenger_manager.value()
-        temp[].update_strings_msg(key, texts^)
+        py_self[].environment_ptr[].messenger_manager.update_strings_msg(key, texts^)
 
-        return PythonObject(None)  # Return a PythonObject wrapping None
+        return PythonObject(None)
 
     def get_audio_samples(mut self, loc_in_buffer: MutUnsafePointer[Float32, ...], mut loc_out_buffer: MutUnsafePointer[Float64, ...]) raises:
 
-        self.world[].world_info.value()[].top_of_block = True
-        temp = self.messenger_manager.value()
-        temp[].transfer_msgs()
+        self.environment_ptr[].top_of_block = True
+        self.environment_ptr[].messenger_manager.transfer_msgs()
                 
-        for i in range(self.world[].world_info.value()[].block_size):
-            self.world[].world_info.value()[].block_state = i  # Update the block state
+        for i in range(self.environment_ptr[].block_size):
+            self.environment_ptr[].block_state = i  # Update the block state
 
             if i == 1:
-                self.world[].world_info.value()[].top_of_block = False
-                temp[].empty_msg_dicts()
+                self.environment_ptr[].top_of_block = False
+                self.environment_ptr[].messenger_manager.empty_msg_dicts()
 
-            if self.world[].world_info.value()[].top_of_block:
-                self.world[].world_info.value()[].print_counter += 1
+            if self.environment_ptr[].top_of_block:
+                self.environment_ptr[].print_counter += 1
             # fill the sound_in list with the current sample from all inputs
-            for j in range(self.world[].world_info.value()[].num_in_chans):
-                self.world[].world_info.value()[].sound_in[j] = Float64(loc_in_buffer[i * self.world[].world_info.value()[].num_in_chans + j]) 
+            for j in range(self.environment_ptr[].num_in_chans):
+                self.environment_ptr[].sound_in[j] = Float64(loc_in_buffer[i * self.environment_ptr[].num_in_chans + j]) 
 
             samples = self.graph.next()  # Get the next audio samples from the graph
 
             # Fill the wire buffer with the sample data
-            for j in range(min(self.world[].world_info.value()[].num_out_chans, samples.__len__())):
-                loc_out_buffer[i * self.world[].world_info.value()[].num_out_chans + j] = samples[Int(j)]
+            for j in range(min(self.environment_ptr[].num_out_chans, samples.__len__())):
+                loc_out_buffer[i * self.environment_ptr[].num_out_chans + j] = samples[Int(j)]
+
     @staticmethod
     def next(py_selfA: PythonObject, in_buffer: PythonObject, out_buffer: PythonObject) raises -> PythonObject:
 
@@ -254,10 +218,12 @@ struct MMMAudioBridge(Movable, Writable):
         loc_out_buffer = out_buffer.__array_interface__["data"][0].unsafe_get_as_pointer[DType.float64]()
 
         # zero the output buffer
-        for j in range(py_self[0].world[].world_info.value()[].num_out_chans):
-            for i in range(py_self[0].world[].world_info.value()[].block_size):
-                loc_out_buffer[i * py_self[0].world[].world_info.value()[].num_out_chans + j] = 0.0 
+        # TODO: is this necessary? aren't they going to be overwritten anyway?
+        # if they're not overwritten wouldn't that be a bug?
+        for j in range(py_self[].environment_ptr[].num_out_chans):
+            for i in range(py_self[].environment_ptr[].block_size):
+                loc_out_buffer[i * py_self[].environment_ptr[].num_out_chans + j] = 0.0 
 
-        py_self[0].get_audio_samples(loc_in_buffer, loc_out_buffer)  
+        py_self[0].get_audio_samples(loc_in_buffer, loc_out_buffer)
 
-        return PythonObject(None)  # Return a PythonObject wrapping the float value
+        return PythonObject(None)

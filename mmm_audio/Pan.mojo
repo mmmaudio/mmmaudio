@@ -70,8 +70,8 @@ def splay[num_simd: Int](*input: MFloat[num_simd], world: World) -> MFloat[2]:
 
             index0 = i // num_simd
             index1 = i % num_simd
-            temp = world[].windows.value()
-            pan_mul = temp[].at_pan[interp=Interp.none](world, pan)
+            ref temp = world[].windows()
+            pan_mul = temp.at_pan[interp=Interp.none](world, pan)
             out += input[index0][index1] * pan_mul
     return out
 
@@ -103,8 +103,8 @@ def splay[num_simd: Int](input: Span[MFloat[num_simd], ...], world: World) -> MF
 
             index0 = i // num_simd
             index1 = i % num_simd
-            temp = world[].windows.value()
-            pan_mul = temp[].at_pan[interp=Interp.none](world, pan)
+            ref temp = world[].windows()
+            pan_mul = temp.at_pan[interp=Interp.none](world, pan)
             out += input[index0][index1] * pan_mul
     return out
 
@@ -132,8 +132,8 @@ def splay[num_input_channels: Int](input: MFloat[num_input_channels], world: Wor
             out = input[0] * MFloat[2](0.7071, 0.7071)
         else:
             pan = Float64(i) / Float64(num_input_channels - 1)
-            temp = world[].windows.value()
-            pan_mul = temp[].at_pan[interp=Interp.none](world, pan)
+            ref temp = world[].windows()
+            pan_mul = temp.at_pan[interp=Interp.none](world, pan)
             out += input[i] * pan_mul
     return out
 

@@ -187,7 +187,7 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
             self.phasor = Phasor[self.num_chans](world)
             self.downsampler = None
         else:
-            oversampled_world = create_subworld(world, Self.ov_samp)
+            oversampled_world = world[].create_subworld(Self.ov_samp)
             self.phasor = Phasor[self.num_chans](oversampled_world)
             self.downsampler = Downsampler[self.num_chans, Self.ov_samp](world)
 
@@ -221,9 +221,9 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
 
         comptime if Self.ov_samp == TimesOversampling.none:
             phase = self.phasor.next(freq, phase_offset, trig_mask)
-            temp = self.world[].osc_buffers.value()
+            ref temp = self.world[].osc_buffers()
             comptime for chan in range(self.num_chans):
-                out[chan] = temp[].at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
+                out[chan] = temp.at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
             self.last_phase = phase
             return out
         else:
@@ -231,9 +231,9 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
                 phase = self.phasor.next(freq, phase_offset, trig_mask)
 
                 sample = MFloat[self.num_chans](0.0)
-                temp = self.world[].osc_buffers.value()
+                ref temp = self.world[].osc_buffers()
                 comptime for chan in range(self.num_chans):
-                    sample[chan] = temp[].at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
+                    sample[chan] = temp.at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
                 self.downsampler.value().add_sample(sample)  # Get the next sample from the Oscillator buffer using sinc interpolation
                 self.last_phase = phase
 
@@ -259,8 +259,8 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
             The next sample of the built-in basic waveforms.
         """
 
-        temp = self.world[].osc_buffers.value()
-        return temp[].at_phase_basic_waveform[self.interp](self.world, phase, last_phase)
+        ref temp = self.world[].osc_buffers()
+        return temp.at_phase_basic_waveform[self.interp](self.world, phase, last_phase)
 
     @always_inline 
     def next_basic_waveforms[

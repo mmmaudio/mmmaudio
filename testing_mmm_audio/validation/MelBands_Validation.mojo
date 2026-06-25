@@ -17,11 +17,11 @@ struct MelBandsTestSuite(FFTProcessable):
         self.data.append(self.melbands.bands.copy())
 
 def main() raises:
-    world_info = alloc[WorldInfo](1)
-    world_info.init_pointee_move(WorldInfo())
+    environment = alloc[Environment](1)
+    environment.init_pointee_move(Environment())
     
     w = alloc[MMMWorld](1)
-    w.init_pointee_move(MMMWorld(48000, world_info))
+    w.init_pointee_move(MMMWorld(48000, environment))
     
     mbts = MelBandsTestSuite(w)
     fftprocess = FFTProcess[MelBandsTestSuite,False,WindowType.hann](w,mbts^, window_size=fftsize, hop_size=hopsize)

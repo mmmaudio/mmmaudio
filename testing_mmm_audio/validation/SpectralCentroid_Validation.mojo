@@ -26,11 +26,11 @@ struct Analyzer(BufferedProcessable):
         return
 
 def main():
-    world_info = alloc[WorldInfo](1)
-    world_info.init_pointee_move(WorldInfo())
+    environment = alloc[Environment](1)
+    environment.init_pointee_move(Environment())
     
     w = alloc[MMMWorld](1)
-    w.init_pointee_move(MMMWorld(44100, world_info))
+    w.init_pointee_move(MMMWorld(44100, environment))
 
     buffer = Buffer.load("resources/Shiverer.wav")
     playBuf = Play(w)

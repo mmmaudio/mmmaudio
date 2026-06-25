@@ -229,29 +229,3 @@ struct OS_LPF4[num_chans: Int = 1](Movable, Copyable):
         """Reset the internal state of the 4th-order low-pass filter."""
         self.os_lpf1.reset()
         self.os_lpf2.reset()
-
-def create_subworld(world: World, times_ov_samp: TimesOversampling = TimesOversampling.none) -> UnsafePointer[MMMWorld, MutUntrackedOrigin]:
-    """Initializes the MMMWorld struct from a pointer to an existing World struct.
-
-    This is mostly used to create an oversampled subworld with a higher sample rate based on the main world.
-
-    Args:
-        world: A pointer to an existing World struct.
-        times_ov_samp: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
-
-    Returns:
-        A pointer to the MMMWorld struct.
-    """
-    new_world = alloc[MMMWorld](1) 
-    sample_rate = world[].sample_rate * Float64(times_ov_samp.times)
-    new_world.init_pointee_move(MMMWorld(
-        sample_rate, 
-        world_info_ptr = world[].world_info, 
-        osc_buffers_ptr = world[].osc_buffers, 
-        windows_ptr = world[].windows, 
-        messenger_manager_ptr = world[].messenger_manager, 
-        sinc_interpolator_ptr = world[].sinc_interpolator
-    ))
-
-    # print("SubWorld initialized with sample rate:", sample_rate)
-    return new_world

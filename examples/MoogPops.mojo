@@ -18,7 +18,7 @@ struct MoogPops(Movable, Copyable):
 
     def __init__(out self, world: World):
         self.world = world
-        oversampled_world = create_subworld(world, times_oversampling)
+        oversampled_world = self.world[].create_subworld(times_oversampling)
         self.dusts = Dust[how_many](oversampled_world)
         self.filts = VAMoogLadder[how_many](oversampled_world)
 

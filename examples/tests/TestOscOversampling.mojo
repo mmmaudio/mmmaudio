@@ -29,7 +29,7 @@ struct TestOscOversampling(Movable, Copyable):
         self.lag = Lag(world, 0.1)
 
         self.downsampler = Downsampler[1,TimesOversampling.x16](world)
-        oversampled_world = create_subworld(world, TimesOversampling.x16)
+        oversampled_world = world[].create_subworld(TimesOversampling.x16)
         self.osc5 = Osc[1,Interp.linear](oversampled_world)
 
     def next(mut self) -> Float64:

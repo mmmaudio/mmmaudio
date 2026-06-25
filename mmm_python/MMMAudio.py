@@ -606,8 +606,13 @@ class MMMAudio:
             # Initialize Mojo audio bridge
             # =========================================================================
             
-            mmm_audio_bridge = MMMAudioBridge.MMMAudioBridge(sample_rate, blocksize)
-            mmm_audio_bridge.set_channel_count((actual_input_channels, actual_output_channels))
+            d = {
+                "sample_rate": sample_rate, 
+                "block_size": blocksize,
+                "num_in_chans": actual_input_channels, 
+                "num_out_chans": actual_output_channels
+                }
+            mmm_audio_bridge = MMMAudioBridge.MMMAudioBridge(d)
             # =========================================================================
             # Shared state for callback
             # =========================================================================

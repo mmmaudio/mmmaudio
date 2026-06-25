@@ -20,11 +20,11 @@ struct MFCCTestSuite(FFTProcessable):
         self.data.append(self.mfcc.coeffs.copy())
 
 def main() raises:
-    world_info = alloc[WorldInfo](1)
-    world_info.init_pointee_move(WorldInfo())
+    environment = alloc[Environment](1)
+    environment.init_pointee_move(Environment())
     
     w = alloc[MMMWorld](1)
-    w.init_pointee_move(MMMWorld(44100, world_info))
+    w.init_pointee_move(MMMWorld(44100, environment))
     mfcc_ts = MFCCTestSuite(w)
     fftprocess = FFTProcess[MFCCTestSuite,False,WindowType.hann](w, mfcc_ts^, window_size=fftsize, hop_size=hopsize)
     buf = Buffer.load("resources/Shiverer.wav")

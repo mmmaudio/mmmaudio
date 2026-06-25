@@ -202,7 +202,7 @@ struct Buffer(Movable, Copyable):
         self.duration = self.num_frames_f64 / self.sample_rate
 
     def at_phase[interp: Interp = Interp.none, bWrap: Bool = True, mask: Int = 0](self, world: World, chan: Int, phase: Float64, prev_phase: Float64 = 0) -> MFloat[1]:
-        """Read a value from the Buffer at a given phase using sinc interpolation.
+        """Read a value from the Buffer at a given phase using interpolation.
 
         Parameters:
             interp: Interpolation method to use (from [Interp](MMMWorld.md#struct-interp) enum).
@@ -213,7 +213,7 @@ struct Buffer(Movable, Copyable):
             world: Pointer to the MMMWorld instance.
             chan: The channel to read from.
             phase: The phase to read at, where 0.0 is the beginning of the buffer and 1.0 is the end of the buffer.
-            prev_phase: The previous phase (used for calculating the sinc interpolation).
+            prev_phase: The previous phase (used if calculating sinc interpolation).
 
         Returns:
             The interpolated sample value at the given phase.
@@ -592,4 +592,4 @@ struct SpanInterpolator(Movable, Copyable):
         Returns:
             The sinc-interpolated sample value.
         """
-        return world[].sinc_interpolator.value()[].sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)
+        return world[].sinc_interpolator().sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)
