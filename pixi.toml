@@ -33,6 +33,7 @@ depends-on = ["unit_tests_mojo", "unit_tests_python", "test_building","validate_
 cmd = "mkdocs serve"
 
 [dependencies]
+setuptools = "<82"
 mojo = "1.0.0b2.*"
 numpy = ">=2.3.5,<3"
 scipy = ">=1.17.0,<2"
