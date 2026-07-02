@@ -27,14 +27,14 @@ class ControlSpec:
         self.exp = exp
     
     def normalize(self, val: float) -> float:
-        """Normalize a value to the range [0.0, 1.0] based on the control spec."""
+        """Take in an unnormalized value and return a value between 0.0 and 1.0"""
         norm_val = linlin(val, self.min, self.max, 0.0, 1.0)
-        return clip(norm_val ** self.exp, 0.0, 1.0)
+        return clip(norm_val ** (1.0 / self.exp), 0.0, 1.0)
 
     def unnormalize(self, norm_val: float) -> float:
-        """Convert a normalized value [0.0, 1.0] back to the control spec range."""
-        norm_val = clip(norm_val, 0.0, 1.0) ** (1.0 / self.exp)
-        return linlin(norm_val, 0.0, 1.0, self.min, self.max)
+        """Take in a normalized value between 0.0 and 1.0 and return an unnormalized value"""
+        curved_norm = clip(norm_val, 0.0, 1.0) ** self.exp
+        return linlin(curved_norm, 0.0, 1.0, self.min, self.max)
 
 class Handle(QWidget):
     """A convenience widget that combines a label, a slider, and a value display."""
