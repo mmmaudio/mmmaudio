@@ -527,7 +527,7 @@ struct LFOsc[num_chans: Int = 1] (Movable, Copyable):
         elif osc_type == OscType.triangle:
             return (abs((self.phasor.next(freq, phase_offset, trig_mask) * 4.0) - 2.0) - 1.0)
         elif osc_type == OscType.square:
-            return -1.0 if self.phasor.next(freq, phase_offset, trig_mask) < 0.5 else 1.0
+            return 1.0 if self.phasor.next(freq, phase_offset, trig_mask) < 0.5 else -1.0
         else:
             phase = self.phasor.next(freq, phase_offset, trig_mask)
             return sin(phase * two_pi)
