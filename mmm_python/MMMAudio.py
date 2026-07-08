@@ -473,7 +473,7 @@ class MMMAudio:
             for instance in cls.instances:
                 instance.update_mouse_pos(x, y)
 
-        slider2d.value_changed.connect(on_slider_change)
+        slider2d.valueChanged.connect(on_slider_change)
         layout.addWidget(slider2d)
         window.setLayout(layout)
         window.show()
@@ -598,6 +598,8 @@ class MMMAudio:
             else:
                 actual_output_channels = 0
             
+            print(f"[PID {pid}] Using input device: {in_device_info['name'] if in_device_exists else 'None'}")
+            print(f"[PID {pid}] Using output device: {out_device_info['name'] if out_device_exists else 'None'}")
             print(f"[PID {pid}] Sample rate: {sample_rate}, Block size: {blocksize}")
             print(f"[PID {pid}] Input channels: {actual_input_channels}, Output channels: {actual_output_channels}")
             sys.stdout.flush()
