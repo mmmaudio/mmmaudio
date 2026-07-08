@@ -282,11 +282,9 @@ struct Poly(Movable, Copyable):
         self._reset[audio_control = 1](poly_objects)
 
         if self.world[].top_of_block():
-            # Explicit type variable instantiation using 'var'
             var vals = List[Float64]() 
             
             for i in range(self.num_voices):
-                # Mojo 1.0 requires explicit var definitions for block scope bindings
                 var trig = self.m.notify_update(String(i), vals) 
                 
                 if trig:
@@ -712,7 +710,7 @@ struct Grain(GrainObject):
 
     def next_2[
         num_buf_chans: Int, 
-        num_playback_chans: Int = 2, 
+        num_playback_chans: Int = 1, 
         win_type: WindowType = WindowType.hann, 
         custom_curve: WindowType = WindowType.none, 
         bWrap: Bool = False
@@ -733,7 +731,7 @@ struct Grain(GrainObject):
             A stereo sample of the grain with panning applied.
         """
         
-        var sample = self.grain.next_all[win_type=win_type, bWrap=bWrap](buffer)
+        var sample = self.grain.next_all[win_type=win_type, custom_curve=custom_curve, bWrap=bWrap](buffer)
 
         comptime if num_playback_chans == 1:
             panned = pan2(sample[self.start_chan], self.grain.pan)
@@ -760,7 +758,7 @@ struct Grain(GrainObject):
         Returns:
             A multi-channel sample of the grain with azimuth panning applied.
         """
-        var sample = self.grain.next_all[win_type=win_type, bWrap=bWrap](buffer)
+        var sample = self.grain.next_all[win_type=win_type, custom_curve=custom_curve, bWrap=bWrap](buffer)
 
         panned = pan_az[num_speakers, num_simd_chans, 2, 0.5](sample[buffer_chan], self.grain.pan) 
 
@@ -781,7 +779,7 @@ struct Grain(GrainObject):
         Returns:
             A sample of the grain with num_chans channels.
         """
-        var sample = self.grain.next_all[win_type=win_type, bWrap=bWrap](buffer)
+        var sample = self.grain.next_all[win_type=win_type, custom_curve=custom_curve, bWrap=bWrap](buffer)
         return sample
     
     def reset(mut self):
@@ -901,7 +899,7 @@ struct TGrains[T: GrainObject = Grain[], win_type: WindowType = WindowType.hann,
         out = MFloat[2](0.0)
         for i in range(len(self.grains)):
             if self.poly.active_list[i]: 
-                out += self.grains[i].next_2[win_type=Self.win_type, custom_curve=Self.custom_curve, bWrap=bWrap](buffer)
+                out += self.grains[i].next_2[num_playback_chans=num_playback_chans, win_type=Self.win_type, custom_curve=Self.custom_curve, bWrap=bWrap](buffer)
         return out * gain
 
     @always_inline
