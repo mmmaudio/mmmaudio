@@ -76,7 +76,8 @@ struct MLP[input_size: Int = 2, output_size: Int = 16](Copyable, Movable):
                 self.model(self.torch.randn(1, Self.input_size))  # I'm about to
             print("Torch model reloaded successfully")
         except Exception:
-            print("Error reloading MLP model")
+            print("Error reloading MLP model. Turning off inference.")
+            self.inference_gate = False
 
     @always_inline
     def next(mut self: MLP):
