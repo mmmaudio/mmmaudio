@@ -941,6 +941,9 @@ def find_quadratic_peak(p1: Float64, p2: Float64, p3: Float64) -> Tuple[Float64,
     
     return (vertex_x, vertex_y)
 
+def all_lanes_equal[dtype: DType, width: Int](v: SIMD[dtype, width]) -> Bool:
+    return (v.eq(v[0])).reduce_and()
+
 @doc_hidden
 def horner[num_chans: Int, coeffs: Span[Float64, ...]](z: MFloat[num_chans]) -> MFloat[num_chans]:
     """Evaluate polynomial using Horner's method."""
