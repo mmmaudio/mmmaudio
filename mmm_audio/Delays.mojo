@@ -72,63 +72,78 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
         self.two_sample_duration = 2.0 / self.world[].sample_rate
         self.sample_duration = 1.0 / self.world[].sample_rate
 
-    # kind of gross
-    def tap[N: Int](mut self, var delay_samps: MInt[N]) -> MFloat[self.num_chans]:
-      return self.read(delay_samps)
-
-    def tap[N: Int](mut self, var delay_time: MFloat[N]) -> MFloat[self.num_chans]:
-      return self.read(delay_time)
-
-    @always_inline
-    def read[N: Int](mut self, var delay_samps: MInt[N]) -> MFloat[self.num_chans]:
-      """Reads into the delay line at an exact sample delay and no interpolation.
-
-      Parameters:
-        N: Size of the delay_samps SIMD vector.
+    def tap(mut self, var delay_samps: Int) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at an exact sample delay and no interpolation. Tap is different from read in that it always returns the full SIMD vector of one point in the delay line.
 
       Args:
         delay_samps: The amount of delay to apply (in samples).
 
       Returns:
-        A single sample read from the delay buffer with no interpolation. Use a float lookup for fractional delay with interpolation.
+        A single `Self.num_chans` sized sample read from the delay buffer with no interpolation.
       """
+      idx = (self.delay_line.write_head + delay_samps) % self.delay_line.buf.num_frames
+      return self.delay_line.buf.data[idx]
 
-      idx = (MInt[1](self.delay_line.write_head) + delay_samps) % MInt[1](self.delay_line.buf.num_frames)
-      comptime if N == 1:
-        out = SpanInterpolator.read_none[bWrap=True](self.delay_line.buf.data, Float64(idx[0]))
-        return out
-      else:
-        out = MFloat[Self.num_chans](0.0)
-        for chan in range(Self.num_chans):
-          out[chan] = SpanInterpolator.read_none[bWrap=True](self.delay_line.buf.data, Float64(idx[chan%N]))[chan]
-        return out
-
-    @always_inline
-    def read[N: Int](mut self, var delay_time: MFloat[N]) -> MFloat[self.num_chans]:
-      """Reads into the delay line.
-
-      Parameters:
-        N: Size of the delay_time SIMD vector.
+    def tap(mut self, var delay_time: Float64) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at a fractional delay time with `Self.interp` interpolation. Tap is different from read in that it always returns the full SIMD vector of one point in the delay line.
 
       Args:
         delay_time: The amount of delay to apply (in seconds).
 
       Returns:
-        A single sample read from the delay buffer.
+        A single `Self.num_chans` sized sample read from the delay buffer with specified interpolation.
       """
-      delay_time = min(delay_time, self.max_delay_time)
-        
-      out = MFloat[self.num_chans](0.0)
 
-      comptime if N == 1:
-        out = self.delay_line.buf.at_phase[self.interp, True, 0](self.world, self.get_phase(delay_time[0]), 0)
-      else:
-        for chan in range(Self.num_chans):
-          out[chan] = self.delay_line.buf.at_phase[self.interp, True, 0](self.world, self.get_phase(delay_time[chan%N]), 0)[chan]
-      return out
+      return self.delay_line.buf.at_phase[Self.interp, True, 0](self.world, self.get_phase(delay_time), 0)
 
     @always_inline
-    def write(mut self, input: MFloat[self.num_chans]):
+    def read(mut self, var delay_samps: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
+      """Reads into the delay line at an exact sample delay and no interpolation.
+
+      Args:
+        delay_samps: The amount of delay to apply (in samples).
+
+      Returns:
+        A single sample read from the delay buffer with no interpolation.
+      """
+      comptime if Self.num_chans == 1:
+        return self.tap(Int(delay_samps[0]))
+      else:
+        idx = (MInt[1](self.delay_line.write_head) + delay_samps) % MInt[1](self.delay_line.buf.num_frames)
+        a_l_e = all_lanes_equal(delay_samps)
+        if a_l_e:
+          return self.tap(Int(delay_samps[0]))
+        else:
+          out = MFloat[Self.num_chans](0.0)
+          for chan in range(Self.num_chans):
+            out[chan] = self.delay_line.buf.data[idx[chan]][chan]
+          return out
+
+    @always_inline
+    def read(mut self, var delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+      """Reads into the delay line at a fractional delay time with `Self.interp` interpolation.
+
+      Args:
+        delay_time: The amount of delay to apply (in seconds).
+
+      Returns:
+        A single sample read from the delay buffer with specified interpolation.
+      """
+      delay_time = min(delay_time, self.max_delay_time)
+      comptime if Self.num_chans == 1:
+        return self.tap(delay_time[0])
+      else:
+        a_l_e = all_lanes_equal(delay_time)
+        if a_l_e:
+          return self.tap(delay_time[0])
+        else:
+          out = MFloat[Self.num_chans](0.0)
+          for chan in range(Self.num_chans):
+            out[chan] = self.tap(delay_time[chan])[chan]
+        return out
+
+    @always_inline
+    def write(mut self, input: MFloat[Self.num_chans]):
       """Writes a single sample into the delay line.
 
       Args:
@@ -138,11 +153,8 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
         self.delay_line.write_previous(input)
 
     @always_inline
-    def next[N: Int](mut self, input: MFloat[self.num_chans], delay_samps: MInt[N]) -> MFloat[self.num_chans]:
+    def next(mut self, input: MFloat[Self.num_chans], delay_samps: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Process one sample through the delay line, first reading from the delay then writing into it. This version uses an integer lookup into the delay line and no interpolation.
-
-        Parameters:
-          N: Number of channels.
 
         Args:
           input: The input sample to process.
@@ -158,11 +170,8 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
         return out
 
     @always_inline
-    def next[N: Int](mut self, input: MFloat[self.num_chans], var delay_time: MFloat[N]) -> MFloat[self.num_chans]:
+    def next(mut self, input: MFloat[Self.num_chans], var delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Process one sample through the delay line, first reading from the delay then writing into it.
-
-        Parameters:
-          N: Number of channels.
 
         Args:
           input: The input sample to process.
@@ -249,10 +258,26 @@ struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable, PolyReset
         self.delay = Delay[Self.num_chans, Self.interp](self.world, max_delay_time)
         self.fb = MFloat[Self.num_chans](0.0)
 
-    def tap(mut self, delay_samps: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_samps: Int) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at an exact sample delay and no interpolation.
+
+      Args:
+        delay_samps: The amount of delay to apply (in samples).
+
+      Returns:
+        A single `Self.num_chans` sized sample read from the delay buffer with no interpolation.
+      """
         return self.delay.tap(delay_samps)
         
-    def tap(mut self, delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_time: Float64) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at a fractional delay time with `Self.interp` interpolation.
+
+      Args:
+        delay_time: The amount of delay to apply (in seconds).
+
+      Returns:
+        A single `Self.num_chans` sized sample read from the delay buffer with specified interpolation.
+      """
         return self.delay.tap(delay_time)
 
     def reset(mut self):
@@ -260,7 +285,7 @@ struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable, PolyReset
         self.delay.reset()
         self.fb = MFloat[Self.num_chans](0.0)
 
-    def next(mut self, input: MFloat[self.num_chans], delay_time: MFloat[self.num_chans] = 0.0, feedback: MFloat[self.num_chans] = 0.0) -> MFloat[self.num_chans]:
+    def next(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans] = 0.0, feedback: MFloat[Self.num_chans] = 0.0) -> MFloat[Self.num_chans]:
         """Process one sample through the comb filter.
         
         Args:
@@ -271,12 +296,12 @@ struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable, PolyReset
         Returns:
           The delayed output sample.
         """
-        var delayed = self.delay.tap(delay_time)  # read first
+        var delayed = self.delay.read(delay_time)  # read first
         var fb_in = input + delayed * clip(feedback, -1.0, 1.0)
         self.delay.write(fb_in)  # write separately
         return delayed
 
-    def next_decaytime(mut self, input: MFloat[self.num_chans], delay_time: MFloat[self.num_chans], decay_time: MFloat[self.num_chans]) -> MFloat[self.num_chans]:
+    def next_decaytime(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans], decay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Process one sample through the comb filter with decay time calculation.
         
         Args:
@@ -316,10 +341,26 @@ struct LP_Comb[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, Poly
         self.one_pole = OnePole[Self.num_chans](self.world)
         self.fb = MFloat[Self.num_chans](0.0)
 
-    def tap(mut self, delay_samps: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_samps: Int) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at an exact sample delay and no interpolation.
+
+      Args:
+        delay_samps: The amount of delay to apply (in samples).
+
+      Returns:
+        A single sample read from the delay buffer with no interpolation.
+      """
         return self.delay.tap(delay_samps)
         
-    def tap(mut self, delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_time: Float64) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at a fractional delay time with `Self.interp` interpolation.
+
+      Args:
+        delay_time: The amount of delay to apply (in seconds).
+
+      Returns:
+        A single `Self.num_chans` sized sample read from the delay buffer with specified interpolation.
+      """
         return self.delay.tap(delay_time)
 
     @always_inline
@@ -370,10 +411,26 @@ struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, Poly
         self.world = world
         self.delay = Delay[Self.num_chans, Self.interp](self.world, max_delay_time)
 
-    def tap(mut self, delay_samps: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_samps: Int) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at an exact sample delay and no interpolation.
+
+      Args:
+        delay_samps: The amount of delay to apply (in samples).
+
+      Returns:
+        A single `Self.num_chans` sized sample read from the delay buffer with no interpolation.
+      """
         return self.delay.tap(delay_samps)
         
-    def tap(mut self, delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_time: Float64) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at a fractional delay time with `Self.interp` interpolation.
+
+      Args:
+        delay_time: The amount of delay to apply (in seconds).
+
+      Returns:
+        A single `Self.num_chans` sized sample read from the delay buffer with specified interpolation.
+      """
         return self.delay.tap(delay_time)
 
     def next(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans] = 0.0, feedback_coef: MFloat[Self.num_chans] = 0.0) -> MFloat[Self.num_chans]:
@@ -390,8 +447,7 @@ struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, Poly
 
         var delayed = self.delay.read(delay_time)
         var to_delay = input + feedback_coef * delayed
-        var output = delayed - feedback_coef * to_delay
-        
+        var output = delayed - feedback_coef * to_delay  
         self.delay.write(to_delay)
         
         return output
@@ -411,12 +467,11 @@ struct Allpass[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, Poly
         var delayed = self.delay.read(delay_time)
         var to_delay = input + feedback_coef * delayed
         var output = (-feedback_coef * input) + delayed
-        
         self.delay.write(to_delay)
         
         return output
 
-    def next_decaytime(mut self, input: MFloat[self.num_chans], delay_time: MFloat[self.num_chans], decay_time: MFloat[self.num_chans]) -> MFloat[self.num_chans]:
+    def next_decaytime(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans], decay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Process one sample through the allpass filter with decay time calculation.
         
         Args:
@@ -467,10 +522,26 @@ struct FB_Delay[num_chans: Int = 1, interp: Interp = Interp.lagrange4, ADAA_dist
         self.fb = MFloat[Self.num_chans](0.0)
         self.tanh_ad = TanhAD[Self.num_chans, Self.ov_samp](self.world)
 
-    def tap(mut self, delay_samps: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_samps: Int) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at an exact sample delay and no interpolation.
+
+      Args:
+        delay_samps: The amount of delay to apply (in samples).
+
+      Returns:
+        A single `Self.num_chans` sized sample read from the delay buffer with no interpolation.
+      """
         return self.delay.tap(delay_samps)
         
-    def tap(mut self, delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def tap(mut self, delay_time: Float64) -> MFloat[Self.num_chans]:
+      """Taps into the delay line at a fractional delay time with `Self.interp` interpolation.
+
+      Args:
+        delay_time: The amount of delay to apply (in seconds).
+
+      Returns:
+        A single `Self.num_chans` sized sample read from the delay buffer with specified interpolation.
+      """
         return self.delay.tap(delay_time)
 
     def reset(mut self):

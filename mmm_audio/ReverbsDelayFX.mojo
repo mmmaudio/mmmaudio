@@ -127,7 +127,7 @@ struct DattorroReverb[interp: Interp = Interp.none](Movable, Copyable):
 
     var trap: DCTrap[2]
 
-    var final_taps: List[MInt[]]
+    var final_taps: List[Int]
 
     def __init__(out self, world: World, pre_delay_time: Float64 = 0.02, decay: Float64 = 0.3, input_diffusion1: Float64 = 0.75, input_diffusion2: Float64 = 0.625, decay_diffusion1: Float64 = 0.7, decay_diffusion2: Float64 = 0.5, bandwidth: Float64 = 0.9995, damping: Float64 = 0.0005):
       """
@@ -174,8 +174,8 @@ struct DattorroReverb[interp: Interp = Interp.none](Movable, Copyable):
         self.del2 = Delay[2, interp = Self.interp](world, 0.17)
         self.trap = DCTrap[2](world)
 
-        self.final_taps = [MInt[1](266/dattoro_sr*world[].sample_rate), MInt[1](2974/dattoro_sr*world[].sample_rate), MInt[1](1913/dattoro_sr*world[].sample_rate), MInt[1](1996/dattoro_sr*world[].sample_rate), MInt[1](1990/dattoro_sr*world[].sample_rate), MInt[1](187/dattoro_sr*world[].sample_rate), MInt[1](1066/dattoro_sr*world[].sample_rate), \
-        MInt[1](353/dattoro_sr*world[].sample_rate), MInt[1](3627/dattoro_sr*world[].sample_rate), MInt[1](1228/dattoro_sr*world[].sample_rate), MInt[1](2673/dattoro_sr*world[].sample_rate), MInt[1](2111/dattoro_sr*world[].sample_rate), MInt[1](335/dattoro_sr*world[].sample_rate), MInt[1](121/dattoro_sr*world[].sample_rate)]
+        self.final_taps = [Int(266/dattoro_sr*world[].sample_rate), Int(2974/dattoro_sr*world[].sample_rate), Int(1913/dattoro_sr*world[].sample_rate), Int(1996/dattoro_sr*world[].sample_rate), Int(1990/dattoro_sr*world[].sample_rate), Int(187/dattoro_sr*world[].sample_rate), Int(1066/dattoro_sr*world[].sample_rate), \
+        Int(353/dattoro_sr*world[].sample_rate), Int(3627/dattoro_sr*world[].sample_rate), Int(1228/dattoro_sr*world[].sample_rate), Int(2673/dattoro_sr*world[].sample_rate), Int(2111/dattoro_sr*world[].sample_rate), Int(335/dattoro_sr*world[].sample_rate), Int(121/dattoro_sr*world[].sample_rate)]
 
     def set_all(mut self, pre_delay_time: Float64, decay: Float64, input_diffusion1: Float64, input_diffusion2: Float64, decay_diffusion1: Float64, decay_diffusion2: Float64, bandwidth: Float64, damping: Float64):
         """Set all the main parameters of the reverb at once.
