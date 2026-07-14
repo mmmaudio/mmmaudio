@@ -775,6 +775,7 @@ struct Line[num_chans: Int = 1, linexpcurve: Int = 0](Movable, Copyable):
     var world: World  # Pointer to the MMMWorld instance
     var freq: MFloat[Self.num_chans]
     var curve: MFloat[1]
+    var val: MFloat[Self.num_chans]
 
     def __init__(out self, world: World):
         """Initialize the line generator.
@@ -788,6 +789,7 @@ struct Line[num_chans: Int = 1, linexpcurve: Int = 0](Movable, Copyable):
         self.rising_bool_detector = RisingBoolDetector[Self.num_chans]()
         self.freq = MFloat[Self.num_chans](0.0)
         self.curve = 2.0
+        self.val = MFloat[Self.num_chans](0.0)
 
     @always_inline
     def next(mut self, start: MFloat[self.num_chans], end: MFloat[self.num_chans], dur: MFloat[self.num_chans], trig: MBool[self.num_chans] = True) -> MFloat[self.num_chans]:
@@ -809,17 +811,18 @@ struct Line[num_chans: Int = 1, linexpcurve: Int = 0](Movable, Copyable):
         self.phase = clip(self.phase, 0.0, 1.0)
 
         comptime if Self.linexpcurve == 0:
-            return linlin(self.phase, 0.0, 1.0, start, end)
+            self.val = linlin(self.phase, 0.0, 1.0, start, end)
         elif Self.linexpcurve == 1:
             start_mask = start.gt(0.000001)
             end_mask = end.gt(0.000001)
             start2 = start_mask.select(start, 0.000001)
             end2 = end_mask.select(end, 0.000001)
-            return linexp(self.phase, 0.0, 1.0, start2, end2)
+            self.val = linexp(self.phase, 0.0, 1.0, start2, end2)
         elif Self.linexpcurve == 2:
-            return lincurve(self.phase, 0.0, 1.0, start, end, self.curve)
+            self.val = lincurve(self.phase, 0.0, 1.0, start, end, self.curve)
         else:
-            return linlin(self.phase, 0.0, 1.0, start, end)
+            self.val = linlin(self.phase, 0.0, 1.0, start, end)
+        return self.val
 
 comptime OscBuffersSize: Int = 16384  # 2^14
 comptime OscBuffersMask: Int = 16383  # 2^14 - 1
