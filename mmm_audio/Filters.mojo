@@ -706,8 +706,7 @@ struct OnePole[num_chans: Int = 1](Movable, Copyable, PolyReset):
         Returns:
             The next sample of the filtered output.
         """
-        var coef = self.coeff(cutoff_hz)
-        return self.next(input, -coef)
+        return input - self.lpf(input, cutoff_hz)
 
     @doc_hidden
     def coeff(self, cutoff_hz: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
