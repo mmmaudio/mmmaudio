@@ -9,10 +9,33 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     
-    steps:     
+    # 1. REQUIRED: Gives the default token permission to create releases
+    permissions:
+      contents: write
+
+    steps:
       - name: Create Tagged Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+# name: Build and Release
+
+# on:
+#   push:
+#     tags:
+#       - 'v*'
+
+# jobs:
+#   build-and-release:
+#     runs-on: ubuntu-latest
+    
+#     steps:     
+#       - name: Create Tagged Release
+#         uses: softprops/action-gh-release@v2
+#         with:
+#           generate_release_notes: true
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
