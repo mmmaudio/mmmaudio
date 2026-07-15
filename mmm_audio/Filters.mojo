@@ -118,6 +118,13 @@ struct Lags[num_lags: Int](Movable, Copyable):
                     simd_val[j] = vals[idx]
             _ = self.lags[i].next(simd_val)
 
+
+    def next(mut self):
+        """Process the lags using the value already stored in the input.
+        """
+        comptime for i in range(Self.num_simd):
+            _ = self.lags[i].next()
+
     def set_lag_time(mut self, lag: Float64):
         """Set a new lag time in seconds for all lags.
 
@@ -666,7 +673,7 @@ def _time_to_coef[num_chans: Int](time_s: MFloat[num_chans], sample_rate: MFloat
     mask = val.lt(1.0)
     return mask0.select(1.0, mask.select(val, 1.0))
 
-struct Amplitude[num_chans: Int](Movable, Copyable):
+struct Amplitude[num_chans: Int = 1](Movable, Copyable):
     """An amplitude tracker that smooths the absolute value of an input signal over time based on specified attack and release times.
     
     Parameters:
@@ -714,6 +721,80 @@ struct Amplitude[num_chans: Int](Movable, Copyable):
         self.last_val = self.one_pole.next(a_val, coef)
 
         return self.last_val
+
+struct Onsets[num_chans: Int = 1](Movable, Copyable):
+    """Amplitude-based onset detector.
+    
+    Parameters:
+        num_chans: Number of channels to process in parallel.
+    """
+    var amplitude: Amplitude[Self.num_chans]
+    var prev_amplitude: MFloat[Self.num_chans]
+    var prev_diff: MFloat[Self.num_chans]
+    var threshold: MFloat[Self.num_chans]
+    var cooldown_samples: Int
+    var samples_since_onset: MInt[Self.num_chans]
+    var world: World
+
+    def __init__(
+        out self,
+        world: World,
+        attack_time: MFloat[Self.num_chans] = 0.005,
+        release_time: MFloat[Self.num_chans] = 0.05,
+        threshold: MFloat[Self.num_chans] = 0.1,
+        cooldown_time: Float64 = 0.1,
+    ):
+        """Initialize the onset detector.
+
+        Args:
+            world: Pointer to the MMMWorld.
+            attack_time: Attack time for amplitude follower (fast for onset detection).
+            release_time: Release time for amplitude follower.
+            threshold: Amplitude rise threshold to trigger onset.
+            cooldown_time: Minimum time between onsets in seconds.
+        """
+        self.world = world
+        self.amplitude = Amplitude[Self.num_chans](world, attack_time, release_time)
+        self.prev_amplitude = MFloat[Self.num_chans](0.0)
+        self.prev_diff = MFloat[Self.num_chans](0.0)
+        self.threshold = threshold
+        self.cooldown_samples = Int(world[].sample_rate * cooldown_time)
+        self.samples_since_onset = MInt[Self.num_chans](self.cooldown_samples)
+
+    def next(mut self, sample: MFloat[Self.num_chans]) -> MBool[Self.num_chans]:
+        """Process one sample and detect onsets.
+
+        Args:
+            sample: The input signal to process.
+
+        Returns:
+            1.0 if onset detected, 0.0 otherwise (per channel).
+        """
+        var amp = self.amplitude.next(sample)
+        
+        self.samples_since_onset += 1
+        
+        var above_threshold = amp.gt(self.threshold)
+        var was_below = self.prev_amplitude.le(self.threshold)
+        var crossed = above_threshold & was_below
+        
+        cooldown_passed = self.samples_since_onset.ge(MInt[Self.num_chans](self.cooldown_samples))
+
+        onset = crossed & cooldown_passed
+
+        self.samples_since_onset = onset.select(MInt[Self.num_chans](0), self.samples_since_onset)
+        if onset[0]:
+            print(amp, "Onset detected! ", self.samples_since_onset)
+        
+        self.prev_amplitude = amp
+        
+        return onset
+
+    def reset(mut self):
+        """Reset the onset detector state."""
+        self.prev_amplitude = MFloat[Self.num_chans](0.0)
+        self.prev_diff = MFloat[Self.num_chans](0.0)
+        self.samples_since_onset = MInt[Self.num_chans](self.cooldown_samples)
 
 struct DCTrap[num_chans: Int=1](Movable, Copyable, PolyReset):
     """DC Trap filter.
