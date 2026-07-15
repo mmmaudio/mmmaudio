@@ -840,6 +840,33 @@ def coin[num_chans:Int](p: MFloat[num_chans]) -> MBool[num_chans]:
     coins = rands.lt(q)
     return coins
 
+def choose[num_chans:Int](*vals: MFloat[num_chans]) -> MFloat[num_chans]:
+    """Choose a random index.
+
+    Parameters:
+        num_chans: Number of channels in the SIMD vector.
+    
+    Args:
+        vals: A variable number of items to choose from.
+    
+    Returns:
+        An item chosen randomly from the provided values.
+    """
+    num_vals = len(vals)
+    if num_vals == 0:
+        return MFloat[num_chans](0.0)
+    idx = rrand(0, num_vals - 1)
+    return vals[idx]
+
+@doc_hidden
+def _reverse_range[T: Movable & Copyable & ImplicitlyCopyable & ImplicitlyDeletable](mut data: List[T], start: Int, end: Int):
+    s = start
+    e = end
+    while s < e:
+        data[s], data[e] = data[e], data[s]
+        s += 1
+        e -= 1
+
 def rotate_left_inplace[T: Movable & Copyable & ImplicitlyCopyable & ImplicitlyDeletable](mut data: List[T], N: Int):
     """Rotates a list to the left by N positions in-place.
 
@@ -852,17 +879,28 @@ def rotate_left_inplace[T: Movable & Copyable & ImplicitlyCopyable & ImplicitlyD
     """
     n = N % len(data)
     
-    def reverse(mut arr: List[T], start: Int, end: Int):
-        s = start
-        e = end
-        while s < e:
-            arr[s], arr[e] = arr[e], arr[s]
-            s += 1
-            e -= 1
+    _reverse_range(data, 0, n - 1)      # Reverse first part
+    _reverse_range(data, n, len(data) - 1)  # Reverse second part
+    _reverse_range(data, 0, len(data) - 1)  # Reverse entire array
+
+def rotate_right_inplace[T: Movable & Copyable & ImplicitlyCopyable & ImplicitlyDeletable](mut data: List[T], N: Int):
+    """Rotates a list to the right by N positions in-place.
+
+    Parameters:
+        T: Element type stored in the list.
+
+    Args:
+        data: The list to rotate.
+        N: The number of positions to rotate the list by.
+    """
+    if len(data) == 0:
+        return
+
+    n = len(data) - (N % len(data))
     
-    reverse(data, 0, n - 1)      # Reverse first part
-    reverse(data, n, len(data) - 1)  # Reverse second part
-    reverse(data, 0, len(data) - 1)  # Reverse entire array
+    _reverse_range(data, 0, n - 1)      # Reverse first part
+    _reverse_range(data, n, len(data) - 1)  # Reverse second part
+    _reverse_range(data, 0, len(data) - 1)  # Reverse entire array
 
 struct TopNPeaks(Movable,Copyable):
     var ordinal: List[Int]
@@ -940,6 +978,9 @@ def find_quadratic_peak(p1: Float64, p2: Float64, p3: Float64) -> Tuple[Float64,
     vertex_y = a * vertex_x * vertex_x + b * vertex_x + c
     
     return (vertex_x, vertex_y)
+
+def all_lanes_equal[dtype: DType, width: Int](v: SIMD[dtype, width]) -> Bool:
+    return (v.eq(v[0])).reduce_and()
 
 @doc_hidden
 def horner[num_chans: Int, coeffs: Span[Float64, ...]](z: MFloat[num_chans]) -> MFloat[num_chans]:

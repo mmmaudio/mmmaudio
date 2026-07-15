@@ -8,7 +8,7 @@ ma = MMMAudio(128, graph_name="SpectralFluxOnsetExample", package_name="examples
 ma.start_audio()
 
 # Adjust threshold for onset sensitivity (lower = more sensitive)
-ma.send_float("thresh", 67)
+ma.send_float("thresh", 10)
 # Adjust minimum slice length between onsets (higher = less sensitive)
 ma.send_float("minSliceLength", 0.3)  
 

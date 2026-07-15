@@ -15,7 +15,7 @@ class ControlSpec:
     Args:
         min: Minimum value of the control parameter.
         max: Maximum value of the control parameter.
-        exp: Exponent for the response curve. 1.0 = linear, >1.0 = logarithmic, <1.0 = exponential.
+        exp: Exponent for the response curve. 1.0 = linear, <1.0 = logarithmic, >1.0 = exponential.
     """
     def __init__(self, min: float = 0.0, max: float = 1.0, exp: float = 1.0):
         if min >= max:
@@ -27,14 +27,14 @@ class ControlSpec:
         self.exp = exp
     
     def normalize(self, val: float) -> float:
-        """Normalize a value to the range [0.0, 1.0] based on the control spec."""
+        """Take in an unnormalized value and return a value between 0.0 and 1.0"""
         norm_val = linlin(val, self.min, self.max, 0.0, 1.0)
-        return clip(norm_val ** self.exp, 0.0, 1.0)
+        return clip(norm_val ** (1.0 / self.exp), 0.0, 1.0)
 
     def unnormalize(self, norm_val: float) -> float:
-        """Convert a normalized value [0.0, 1.0] back to the control spec range."""
-        norm_val = clip(norm_val, 0.0, 1.0) ** (1.0 / self.exp)
-        return linlin(norm_val, 0.0, 1.0, self.min, self.max)
+        """Take in a normalized value between 0.0 and 1.0 and return an unnormalized value"""
+        curved_norm = clip(norm_val, 0.0, 1.0) ** self.exp
+        return linlin(curved_norm, 0.0, 1.0, self.min, self.max)
 
 class Handle(QWidget):
     """A convenience widget that combines a label, a slider, and a value display."""
@@ -76,8 +76,8 @@ class Slider2D(QWidget):
     """A custom 2D slider widget"""
     
     # Signal emitted when the slider value changes
-    value_changed = Signal(float, float)
-    mouse_updown = Signal(bool)
+    valueChanged = Signal(float, float)
+    pressed = Signal(bool)
     
     def __init__(self, width=300, height=300, parent=None):
         super().__init__(parent)
@@ -99,7 +99,7 @@ class Slider2D(QWidget):
         self._x = max(0.0, min(1.0, x))
         self._y = max(0.0, min(1.0, y))
         self.update()
-        self.value_changed.emit(self._x, self._y)
+        self.valueChanged.emit(self._x, self._y)
     
     def _pos_to_values(self, pos):
         """Convert widget position to slider values"""
@@ -169,20 +169,20 @@ class Slider2D(QWidget):
     def mousePressEvent(self, event):
         """Handle mouse press"""
         if event.button() == Qt.LeftButton:
-            self.mouse_updown.emit(True)
+            self.pressed.emit(True)
             x, y = self._pos_to_values(event.position())
             self.set_values(x, y)
     
     def mouseMoveEvent(self, event):
         """Handle mouse move"""
-        if self.mouse_updown:
+        if self.pressed:
             x, y = self._pos_to_values(event.position())
             self.set_values(x, y)
     
     def mouseReleaseEvent(self, event):
         """Handle mouse release"""
         if event.button() == Qt.LeftButton:
-            self.mouse_updown.emit(False)
+            self.pressed.emit(False)
         
 
 class MPlot(QWidget):

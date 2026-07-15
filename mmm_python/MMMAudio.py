@@ -70,17 +70,17 @@ class AudioCommand(IntEnum):
     START_AUDIO = 1
     STOP_AUDIO = 2
     SEND_BOOL = 3
-    SEND_FLOAT = 4
-    SEND_FLOATS = 5
-    SEND_INT = 6
-    SEND_INTS = 7
-    SEND_TRIG = 8
-    SEND_STRING = 9
-    SEND_STRINGS = 10
-    GET_SAMPLES = 11
-    UPDATE_MOUSE = 12  # New command for mouse updates
-    SET_SCREEN_DIMS = 13  # New command for screen dimensions
-
+    SEND_BOOLS = 4
+    SEND_FLOAT = 5
+    SEND_FLOATS = 6
+    SEND_INT = 7
+    SEND_INTS = 8
+    SEND_TRIG = 9
+    SEND_STRING = 10
+    SEND_STRINGS = 11
+    GET_SAMPLES = 12
+    UPDATE_MOUSE = 13  # New command for mouse updates
+    SET_SCREEN_DIMS = 14  # New command for screen dimensions
 
 class MMMAudio:
     """
@@ -353,6 +353,10 @@ class MMMAudio:
         """Send a bool message to the Mojo audio engine."""
         self.command_queue.put((AudioCommand.SEND_BOOL, (key, value)))
     
+    def send_bools(self, key: str, values: List[bool]):
+        """Send a list of bool messages to the Mojo audio engine."""
+        self.command_queue.put((AudioCommand.SEND_BOOLS, (key, values)))
+    
     def send_float(self, key: str, value: float):
         """Send a float to the Mojo audio engine."""
         self.command_queue.put((AudioCommand.SEND_FLOAT, (key, value)))
@@ -473,7 +477,7 @@ class MMMAudio:
             for instance in cls.instances:
                 instance.update_mouse_pos(x, y)
 
-        slider2d.value_changed.connect(on_slider_change)
+        slider2d.valueChanged.connect(on_slider_change)
         layout.addWidget(slider2d)
         window.setLayout(layout)
         window.show()
@@ -598,6 +602,8 @@ class MMMAudio:
             else:
                 actual_output_channels = 0
             
+            print(f"[PID {pid}] Using input device: {in_device_info['name'] if in_device_exists else 'None'}")
+            print(f"[PID {pid}] Using output device: {out_device_info['name'] if out_device_exists else 'None'}")
             print(f"[PID {pid}] Sample rate: {sample_rate}, Block size: {blocksize}")
             print(f"[PID {pid}] Input channels: {actual_input_channels}, Output channels: {actual_output_channels}")
             sys.stdout.flush()
@@ -755,6 +761,14 @@ class MMMAudio:
                 with bridge_lock:
                     mmm_audio_bridge.update_bool_msg([key, value])
                 return True
+            
+            def handle_send_bools(args):
+                key, values = args
+                key_vals = [key]
+                key_vals.extend(values)
+                with bridge_lock:
+                    mmm_audio_bridge.update_bools_msg(key_vals)
+                return True
 
             def handle_send_float(args):
                 key, value = args
@@ -848,16 +862,17 @@ class MMMAudio:
                 handle_start_audio,       # 1
                 handle_stop_audio,        # 2
                 handle_send_bool,         # 3
-                handle_send_float,        # 4
-                handle_send_floats,       # 5
-                handle_send_int,          # 6
-                handle_send_ints,         # 7
-                handle_send_trig,         # 8
-                handle_send_string,       # 9
-                handle_send_strings,      # 10
-                handle_get_samples,       # 11
-                handle_update_mouse,      # 12
-                handle_set_screen_dims,   # 13
+                handle_send_bools,        # 4
+                handle_send_float,        # 5
+                handle_send_floats,       # 6
+                handle_send_int,          # 7
+                handle_send_ints,         # 8
+                handle_send_trig,         # 9
+                handle_send_string,       # 10
+                handle_send_strings,      # 11
+                handle_get_samples,       # 12
+                handle_update_mouse,      # 13
+                handle_set_screen_dims,   # 14
             ]
 
             # =========================================================================

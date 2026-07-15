@@ -40,11 +40,11 @@ def main():
     def on_slider_change(x, y):
         mmm_audio.send_float("x", x)  # map x from 0-1 to 20-2020 Hz
         mmm_audio.send_float("y", y)  # map y from 0-1 to 0-1 amplitude
-    def slider_mouse_updown(is_down):
+    def slider_pressed(is_down):
         mmm_audio.send_bool("mouse_down", is_down)  # set amplitude to 0 when mouse is released
 
-    slider2d.value_changed.connect(on_slider_change)
-    slider2d.mouse_updown.connect(slider_mouse_updown)
+    slider2d.valueChanged.connect(on_slider_change)
+    slider2d.pressed.connect(slider_pressed)
     layout.addWidget(slider2d)
     window.setLayout(layout)
     window.show()

@@ -43,9 +43,8 @@ struct FreeverbSynth(Copyable, Movable):
         self.m.update("added_space", self.added_space)
         self.m.update("mix", self.mix) 
 
-        added_space_simd = MFloat[num_chans](self.added_space, self.added_space * 0.99)
         out = self.play_buf.next[num_chans=num_chans](self.buffer, 1.0, True)
-        out = self.freeverb.next(out, self.room_size, self.lpf_comb, added_space_simd) * 0.1 * self.mix + out * (1.0 - self.mix)
+        out = self.freeverb.next(out, self.room_size, self.lpf_comb, self.added_space) * 0.1 * self.mix + out * (1.0 - self.mix)
         return out
 
 
