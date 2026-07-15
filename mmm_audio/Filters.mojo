@@ -98,10 +98,10 @@ struct Lags[num_lags: Int](Movable, Copyable):
     comptime num_simd = Self.num_lags // Self.simd_width + (1 if Self.num_lags % Self.simd_width != 0 else 0)
     var lags : List[Lag[Self.simd_width]]
 
-    def __init__(out self, world: World, lag_time: Float64):
+    def __init__(out self, world: World, lag_time: Float64 = 0.1):
         self.lags = [Lag[Self.simd_width](world, lag_time) for _ in range(Self.num_simd)]
 
-    def __init__(out self, sr: Float64, lag_time: Float64):
+    def __init__(out self, sr: Float64, lag_time: Float64 = 0.1):
         self.lags = [Lag[Self.simd_width](sr, lag_time) for _ in range(Self.num_simd)]
 
     def next(mut self, vals: Span[MFloat[1], ...]):
@@ -117,7 +117,6 @@ struct Lags[num_lags: Int](Movable, Copyable):
                 comptime if idx < Self.num_lags:
                     simd_val[j] = vals[idx]
             _ = self.lags[i].next(simd_val)
-
 
     def next(mut self):
         """Process the lags using the value already stored in the input.
@@ -142,7 +141,7 @@ struct Lags[num_lags: Int](Movable, Copyable):
     def __setitem__(mut self, idx: Int, value: Float64):
         simd_index = idx // Self.simd_width
         lane_index = idx % Self.simd_width
-        self.lags[simd_index].lagged[lane_index] = value
+        self.lags[simd_index].input[lane_index] = value
 
 
 struct LagUD[num_chans: Int = 1](Movable, Copyable):
@@ -163,8 +162,8 @@ struct LagUD[num_chans: Int = 1](Movable, Copyable):
     def __init__(
         out self,
         world: World,
-        lag_up: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.02),
-        lag_down: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.02),
+        lag_up: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.1),
+        lag_down: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.1),
     ):
         """Initialize the lag processor with separate up/down lag times in seconds.
 
@@ -180,7 +179,7 @@ struct LagUD[num_chans: Int = 1](Movable, Copyable):
         self.lag_up = 0
         self.lag_down = 0
         self.input = MFloat[Self.num_chans](0.0)
-        self.set_lag_times(lag_up, lag_down)
+        self.set_lag_times(max(lag_up, 0.001), max(lag_down, 0.001))
 
     @always_inline
     def next(mut self, input: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
@@ -233,6 +232,59 @@ struct LagUD[num_chans: Int = 1](Movable, Copyable):
         self.lag_down = lag_down
         self.b1_up = exp(-6.907755278982137 / (lag_up * self.sample_rate))
         self.b1_down = exp(-6.907755278982137 / (lag_down * self.sample_rate))
+
+struct LagsUD[num_lags: Int](Movable, Copyable):
+    """A convenience struct for processing a list of LagsUD (which are processed in parallel using SIMD). The number of LagsUD is determined at compile time by the num_lags parameter. The outputs of the lags can be accessed using the [] operator, just like accessing values in a List: `lags[0]`.
+
+    Parameters:
+        num_lags: The total number of lags.
+    """
+    comptime simd_width = simd_width_of[DType.float64]() * 2
+    comptime num_simd = Self.num_lags // Self.simd_width + (1 if Self.num_lags % Self.simd_width != 0 else 0)
+    var lags : List[LagUD[Self.simd_width]]
+
+    def __init__(out self, world: World, lag_up: Float64 = 0.1, lag_down: Float64 = 0.1):
+        self.lags = [LagUD[Self.simd_width](world, lag_up, lag_down) for _ in range(Self.num_simd)]
+
+    def next(mut self, vals: Span[MFloat[1], ...]):
+        """Process a Span (List or InlineArray) of Floats through the lags.
+
+        Args:
+            vals: Input values whose length should match num_lags.
+        """
+        comptime for i in range(Self.num_simd):
+            simd_val = MFloat[Self.simd_width](0.0)
+            comptime for j in range(Self.simd_width):
+                comptime idx = i * Self.simd_width + j
+                comptime if idx < Self.num_lags:
+                    simd_val[j] = vals[idx]
+            _ = self.lags[i].next(simd_val)
+
+    def next(mut self):
+        """Process the lags using the value already stored in the input.
+        """
+        comptime for i in range(Self.num_simd):
+            _ = self.lags[i].next()
+
+    def set_lag_times(mut self, lag_up: Float64, lag_down: Float64):
+        """Set new lag times in seconds for all lags.
+
+        Args:
+            lag_up: New lag time in seconds for rising values.
+            lag_down: New lag time in seconds for falling values.
+        """
+        for i in range(Self.num_simd):
+            self.lags[i].set_lag_times(lag_up, lag_down)
+
+    def __getitem__(self, idx: Int) -> Float64:
+        simd_index = idx // Self.simd_width
+        lane_index = idx % Self.simd_width
+        return self.lags[simd_index].lagged[lane_index]
+
+    def __setitem__(mut self, idx: Int, value: Float64):
+        simd_index = idx // Self.simd_width
+        lane_index = idx % Self.simd_width
+        self.lags[simd_index].input[lane_index] = value
 
 @fieldwise_init
 struct FilterType(Equatable, ImplicitlyCopyable):
@@ -654,8 +706,7 @@ struct OnePole[num_chans: Int = 1](Movable, Copyable, PolyReset):
         Returns:
             The next sample of the filtered output.
         """
-        var coef = self.coeff(cutoff_hz)
-        return self.next(input, -coef)
+        return input - self.lpf(input, cutoff_hz)
 
     @doc_hidden
     def coeff(self, cutoff_hz: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
@@ -673,7 +724,7 @@ def _time_to_coef[num_chans: Int](time_s: MFloat[num_chans], sample_rate: MFloat
     mask = val.lt(1.0)
     return mask0.select(1.0, mask.select(val, 1.0))
 
-struct Amplitude[num_chans: Int = 1](Movable, Copyable):
+struct Amplitude[num_chans: Int](Movable, Copyable):
     """An amplitude tracker that smooths the absolute value of an input signal over time based on specified attack and release times.
     
     Parameters:
@@ -768,7 +819,7 @@ struct Onsets[num_chans: Int = 1](Movable, Copyable):
             sample: The input signal to process.
 
         Returns:
-            1.0 if onset detected, 0.0 otherwise (per channel).
+            True if onset detected, False otherwise (per channel).
         """
         var amp = self.amplitude.next(sample)
         
@@ -783,8 +834,6 @@ struct Onsets[num_chans: Int = 1](Movable, Copyable):
         onset = crossed & cooldown_passed
 
         self.samples_since_onset = onset.select(MInt[Self.num_chans](0), self.samples_since_onset)
-        if onset[0]:
-            print(amp, "Onset detected! ", self.samples_since_onset)
         
         self.prev_amplitude = amp
         
