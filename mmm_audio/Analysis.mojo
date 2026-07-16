@@ -1531,10 +1531,11 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
             index = self.output_peak_indices[i]
             if i < n_valid_peaks:
                 a_db = ampdb(MFloat[4](mags[index-1], mags[index], mags[index+1], 0.0))
-                val, mag = find_quadratic_peak(a_db[0], a_db[1], a_db[2])
+                val, mag_db = find_quadratic_peak(a_db[0], a_db[1], a_db[2])
                 offset = val - 1.0
                 freq = (MFloat[1](index) + offset) * self.bin_freq
-                self.freq_amp_pairs[i] = Tuple(freq, mag * (4.0/MFloat[1](self.window_size)))
+                mag_linear = dbamp(mag_db)
+                self.freq_amp_pairs[i] = Tuple(freq, mag_linear * (4.0/MFloat[1](self.window_size)))
             else:
                 self.freq_amp_pairs[i] = Tuple(0.0, 0.0)
         if self.sort_by_freq:
