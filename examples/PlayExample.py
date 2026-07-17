@@ -30,14 +30,18 @@ def main():
     # this is a bug, but this thread has to start after audio or audio won't start
 
     # Usage:
-    def osc_msg_handler(key, *args):
-        print(f"Received OSC message: {key} with arguments: {args}")
-        if key == "/fader1":
-            val = lincurve(args[0], 0.0, 1.0, -4.0, 4.0, -1)
+    def osc_msg_handler(source, *args):
+        print(f"Received OSC message from {source}: with arguments: {args}")
+        if args[0] == "/fader1":
+            val = args[1]
+            if val > 0.5:
+                val = lincurve(val, 0.5, 1.0, 0.0, 4.0, 2.0)
+            else:
+                val = lincurve(val, 0.0, 0.5, -4.0, 0.0, 2.0)
             print(f"Mapped play_rate value: {val}")
             mmm_audio.send_float("play_rate", val)
-        elif key == "/fader2":
-            val = linexp(args[0], 0.0, 1.0, 100.0, 20000.0)
+        elif args[0] == "/fader2":
+            val = linexp(args[1], 0.0, 1.0, 100.0, 20000.0)
             mmm_audio.send_float("lpf_freq", val)
 
     # Start server

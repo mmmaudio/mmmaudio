@@ -428,14 +428,16 @@ class MMMAudio:
         if num_channels == 1:
             axes = [axes]
         
+        
         for ch in range(num_channels):
             ax = axes[ch]
             if num_channels > 1:
                 ax.plot(returned_samples[:, ch])
             else:
                 ax.plot(returned_samples)
-            
-            ax.set_ylim(-1, 1)
+            min_val = np.min(returned_samples[:, ch])
+            max_val = np.max(returned_samples[:, ch])
+            ax.set_ylim(min_val, max_val)
             ax.set_title(f'Channel {ch}')
             ax.set_xlabel("Samples")
             ax.set_ylabel("Amplitude")

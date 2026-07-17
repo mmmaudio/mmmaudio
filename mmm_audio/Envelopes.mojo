@@ -28,7 +28,7 @@ def env[win_type: WindowType = WindowType.none, interp: Interp = Interp.none](wo
         world: The World object, required if win_type is not none for window processing.
         x: The input value to be mapped.
         points: A variable number of (input, output) pairs that define the envelope. The first value is the input breakpoint, and the second value is the corresponding output value. The input breakpoints must be in ascending order.
-        curve: A Float64 value that applies a curve to the interpolation between points. A value of 1.0 means no curve (linear), values greater than 1.0 will create a more exponential curve, and values between 0 and 1 will create a logarithmic curve.
+        curve: A Float64 value that applies a curve to the interpolation between points. Uses lincurve internally, so 1 is linear, >1 is exponential, >0 and <1 is logarithmic (normalized_line**curve). When using a curve other than 1, the optional win_type will not be taken into account, as the curve will override the windowing effect.
 
     Returns:
         The mapped output value corresponding to the input `x`.
@@ -48,16 +48,15 @@ def env[win_type: WindowType = WindowType.none, interp: Interp = Interp.none](wo
         x0, y0 = points[i]
         x1, y1 = points[i + 1]
         if x0 <= x <= x1:
-            # Perform linear interpolation
-            x_scaled1 = ((x - x0) / (x1 - x0))
-            if curve != 1.0:
-                if y1 > y0:
-                    x_scaled1 = pow(x_scaled1, curve)
-                else:
-                    x_scaled1 = pow(x_scaled1, 1/curve)
-            comptime if win_type != WindowType.none:
-                x_scaled1 = win_read[win_type, interp](world, x_scaled1/2)
-            return y0 + (y1 - y0) * x_scaled1
+            # normalize x to the range [0, 1] for the segment
+            if curve == 1.0:
+                x_scaled1 = ((x - x0) / (x1 - x0))
+                comptime if win_type != WindowType.none:
+                    x_scaled1 = win_read[win_type, interp](world, x_scaled1/2)
+                return y0 + (y1 - y0) * x_scaled1
+            else:
+                return lincurve(x, x0, x1, y0, y1, curve)
+            
             
     return points[length - 1][1]
 
@@ -372,7 +371,7 @@ struct ASREnv(Movable, Copyable):
             sustain: Sustain level (0 to 1).
             release: Release time in seconds.
             gate: Gate signal (True or False).
-            curve: Can pass a Float64 for equivalent curve on rise and fall or MFloat[2] for different rise and fall curve. Positive values for convex "exponential" curves, negative for concave "logarithmic" curves.
+            curve: Can pass a Float64 for equivalent curve on rise and fall or MFloat[2] for different rise and fall curve. Curve values greater than 1.0 will create an exponential curve, while values between 0 and 1.0 will create a logarithmic curve. 1.0 is linear.
 
         Returns:
             The current ASR envelope value.

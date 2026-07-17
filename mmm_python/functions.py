@@ -187,10 +187,10 @@ def lincurve(
         in_max: Maximum of input range (linear)
         out_min: Minimum of output range
         out_max: Maximum of output range
-        curve: Curve parameter (-10 to 10 typical range)
-               curve = 0: linear
-               curve > 0: exponential-like (slow start, steep end)
-               curve < 0: logarithmic-like (steep start, slow end)
+        curve: Curve parameter (pow(normalized, curve))
+               curve = 1: linear
+               curve > 1: exponential-like (slow start, steep end)
+               curve > 0 and < 1: logarithmic-like (steep start, slow end)
     
     Returns:
         Curved output value
@@ -198,85 +198,22 @@ def lincurve(
     Raises:
         ValueError: If in_min equals in_max
     """
-    # Validate input range
-    if in_min == in_max:
-        raise ValueError("in_min and in_max cannot be equal")
-    
-    if in_min > in_max:
-        in_min, in_max = in_max, in_min
-    
-    normalized = (value - in_min) / (in_max - in_min)
 
-    if out_min > out_max:
+    normalized = clip((value - in_min) / (in_max - in_min), 0.0, 1.0)
+
+    if in_min >= in_max:
         normalized = 1 - normalized
-        curve = -curve
+    
+    curve = clip(curve, 1e-4, 100)
 
-    # Apply curve transformation using unified formula
-    if abs(curve) < 1e-6:
-        curved = normalized
+    if out_max >= out_min:
+        curved = np.pow(normalized, curve)
     else:
-        grow = np.exp(curve)
-        curved = (grow ** normalized - 1) / (grow - 1)
-    
-    if out_min > out_max:
-        out_min, out_max = out_max, out_min
-    
-    return clip(float(out_min + curved * (out_max - out_min)), out_min, out_max)
-
-def curvelin(
-    value: float,
-    in_min: float,
-    in_max: float,
-    out_min: float,
-    out_max: float,
-    curve: float = 0
-) -> float:
-    """
-    Curve-to-linear transform (inverse of lincurve).
-    
-    Args:
-        value: Input value to transform (from curved space)
-        in_min: Minimum of input range (curved)
-        in_max: Maximum of input range (curved)
-        out_min: Minimum of output range (linear)
-        out_max: Maximum of output range (linear)
-        curve: Curve parameter (-10 to 10 typical range)
-               curve = 0: linear
-               curve > 0: undoes exponential curve
-               curve < 0: undoes logarithmic curve
-    
-    Returns:
-        Linearized output value
-    
-    Raises:
-        ValueError: If in_min equals in_max
-    """
-    # Validate input range
-    if in_min == in_max:
-        return out_min  
-    
-    if out_min > out_max:
-        curve = -curve
-
-    if in_min > in_max:
-        in_min, in_max = in_max, in_min
-    
-    value = clip(value, in_min, in_max)
-    normalized = (value - in_min) / (in_max - in_min)
-
-    if out_min > out_max:
-        normalized = 1 - normalized
-
-    if abs(curve) < 1e-6:
-        linearized = normalized
-    else:
-        grow = np.exp(curve)
-        linearized = np.log(normalized * (grow - 1) + 1) / curve
-    
-    if out_min > out_max:
+        curved = np.pow(normalized, 1/curve)
+        curved = 1-curved
         out_min, out_max = out_max, out_min
 
-    return clip(float(out_min + linearized * (out_max - out_min)), out_min, out_max)
+    return clip(float(out_min + curved * (out_max - out_min)), out_min, out_max)    
 
 def midicps(midi_note: float) -> float:
     """Convert MIDI note number to frequency in Hz

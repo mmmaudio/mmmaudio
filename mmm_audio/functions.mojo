@@ -279,83 +279,26 @@ def lincurve[num_chans: Int, //
         in_max: Maximum of input range (linear).
         out_min: Minimum of output range (curved).
         out_max: Maximum of output range (curved).
-        curve: Curve parameter (-10 to 10 typical range)
-               curve = 0: linear
-               curve > 0: exponential curve
-               curve < 0: logarithmic curve.
+        curve: Curve parameter (pow(normalized, curve))
+               curve = 1: linear
+               curve > 1: exponential (slow start, steep end)
+               curve > 0 and < 1: logarithmic (steep start, slow end).
     
     Returns:
         Curved output value.
     """
 
-    
-    # Handle near-zero curve (linear case)
-    curve_near_zero: MBool[num_chans] = abs(curve).lt(0.001)
-    
-    in_min2, in_max2, _ = check_reversed(in_min, in_max)
-    input2 = clip(input, in_min2, in_max2)
-    normalized = (input2 - in_min2) / (in_max2 - in_min2)
-    
-    out_min2, out_max2, outs_reversed = check_reversed(out_min, out_max)
-    normalized = outs_reversed.select(1.0 - normalized, normalized)
+    normalized = clip((input - in_min) / (in_max - in_min), 0.0, 1.0)
 
-    curve2 = outs_reversed.select(-curve, curve)
-
-    denom = 1.0 - exp(curve2)
-    numer = 1.0 - exp(normalized * curve2)
+    _, _, ins_reversed = check_reversed(in_min, in_max)
+    normalized = ins_reversed.select(1-normalized, normalized)
     
-    curved = numer / denom
-    
-    linear_result = normalized
-    curved_result = curved
-    
-    final_normalized = curve_near_zero.select(linear_result, curved_result)
-    
-    return clip(out_min2 + final_normalized * (out_max2 - out_min2), out_min2, out_max2)
-
-def curvelin[num_chans: Int, //](
-    input: MFloat[num_chans],
-    in_min: MFloat[num_chans],
-    in_max: MFloat[num_chans],
-    out_min: MFloat[num_chans],
-    out_max: MFloat[num_chans],
-    curve: MFloat[num_chans] = 0
-) -> MFloat[num_chans]:
-    """
-    Curve-to-linear transform (inverse of lincurve).
-    
-    Args:
-        input: Input value to transform (from curved space).
-        in_min: Minimum of input range (curved).
-        in_max: Maximum of input range (curved).
-        out_min: Minimum of output range (linear).
-        out_max: Maximum of output range (linear).
-        curve: Curve parameter (-10 to 10 typical range)
-               curve = 0: linear
-               curve > 0: undoes exponential curve
-               curve < 0: undoes logarithmic curve.
-    
-    Returns:
-        Linearized output value.
-    
-    """
-    
-    curve_zero: MBool[num_chans] = curve.eq(0.0)
-    temp_curve: MFloat[num_chans] = curve_zero.select(0.0001, curve)
-
-    in_min2, in_max2, _ = check_reversed(in_min, in_max)
-    input2 = clip(input, in_min2, in_max2)
-
-    normalized = (input2 - in_min2) / (in_max2 - in_min2)
+    curve2 = clip(curve, 1e-5, 8192.0)
 
     out_min2, out_max2, outs_reversed = check_reversed(out_min, out_max)
 
-    grow = pow(MFloat[num_chans](2.71828182845904523536), temp_curve)
-    linearized = log(normalized * (grow - 1) + 1) / temp_curve
-    linearized = outs_reversed.select(1 - linearized, linearized) 
-
-    answer = out_min2 + linearized * (out_max2 - out_min2)
-    return clip(answer, out_min2, out_max2)
+    curved = outs_reversed.select(1.0-pow(normalized, 1.0/curve2), pow(normalized, curve2))
+    return clip(out_min2 + curved * (out_max2 - out_min2), out_min2, out_max2)
 
 def linmap[num_chans: Int](x: MFloat[num_chans], *points: Tuple[MFloat[num_chans], MFloat[num_chans]]) -> MFloat[num_chans]:
     """Linearly maps an input value `x` based on a series of input-output points.

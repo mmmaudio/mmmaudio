@@ -530,12 +530,12 @@ def test_linexp2() raises:
 
 def test_lincurve() raises:
     x = MFloat[4](0.234, 0.5, 1.0, 1.5)
-    curve = [2.0, -2.0, 3.5, 0.5]
+    curve = [2.0, 0.5, 3.5, 0.25]
     expected = [
-        MFloat[4](1.8406839040093, 3.42047279233, 10, 10),
-        MFloat[4](4.89019954425, 7.57952720767, 10, 10),
-        MFloat[4](1.3554075548362, 2.3324247822852, 10, 10), 
-        MFloat[4](2.7219642975622, 4.9404114920278, 10, 10)
+        MFloat[4](1.492804, 3.25, 10, 10),
+        MFloat[4](5.353619184, 7.363961031, 10, 10),
+        MFloat[4](1.0557825046580311, 1.7954951288341925, 10, 10), 
+        MFloat[4](7.259598442129002, 8.56806773728343, 10, 10)
     ]
     for i in range(len(curve)):
         result = lincurve(x, 0.0, 1.0, 1.0, 10.0, curve[i])
@@ -550,14 +550,25 @@ def test_lincurve() raises:
             py_answer[i2]=(py_to_float64(mmm_python.lincurve(x[i2], 0.0, 1.0, 1.0, 10.0, curve[i])))
         assert_almost_equal(result, py_answer, "Test: lincurve mismatch at index " + String(i))
 
+    for test in [[0.0, 8.0, -1.0, 5.0], [-1.0, 1.0, 11.0, 5.678]]:
+        for i in range(len(curve)):
+            result = lincurve(x, test[0], test[1], test[2], test[3], curve[i])
+            var cwd = Path()
+            Python.add_to_path(cwd.path)
+            mmm_python = Python.import_module("mmm_python.functions")
+            py_answer = SIMD[DType.float64, 4]()
+            for i2 in range(len(x)):
+                py_answer[i2]=(py_to_float64(mmm_python.lincurve(x[i2], test[0], test[1], test[2], test[3], curve[i])))
+            assert_almost_equal(result, py_answer, "Test: lincurve mismatch at index " + String(i))
+
 def test_lincurve2() raises:
     x = MFloat[4](0.234, 0.5, 1.0, 1.5)
-    curve = [2.0, -2.0, 3.5, 0.5]
+    curve = [2.0, 0.5, 3.5, 0.25]
     expected = [
-        MFloat[4](9.1593160959907, 7.57952720767, 1.0, 1.0),
-        MFloat[4](6.10980045575, 3.42047279233, 1.0, 1.0),
-        MFloat[4](9.6445924451638, 8.6675752177148, 1.0, 1.0), 
-        MFloat[4](8.2780357024378, 6.0595885079722, 1.0, 1.0)
+        MFloat[4](5.646380815918783, 3.636038969321072, 1.0, 1.0),
+        MFloat[4](9.507196, 7.75, 1.0, 1.0),
+        MFloat[4](4.0568256812618735, 2.6169817959312582, 1.0, 1.0), 
+        MFloat[4](9.973016024176, 9.4375, 1.0, 1.0)
     ]
     for i in range(len(curve)):
         result = lincurve(x, 0.0, 1.0, 10.0, 1.0, curve[i])
@@ -573,51 +584,6 @@ def test_lincurve2() raises:
         for i2 in range(len(x)):
             py_answer[i2]=(py_to_float64(mmm_python.lincurve(x[i2], 0.0, 1.0, 10.0, 1.0, curve[i])))
         assert_almost_equal(result, py_answer, "Test: lincurve mismatch at index " + String(i))
-
-
-
-def test_curvelin() raises:
-    x = MFloat[4](0.234, 0.5, 1.0, 1.5)
-    curve = [2.0, -2.0, 3.5, 0.5]
-    expected = [
-        MFloat[4](5.1143698508719, 7.4520137371736, 10, 10),
-        MFloat[4](2.0172800628429, 3.5479862628264, 10, 10),
-        MFloat[4](6.5075658522624, 8.2941226112612, 10, 10),
-        MFloat[4](3.5438789977301, 6.0567364651629, 10, 10)
-    ]
-    for i in range(len(curve)):
-        result = curvelin(x, 0.0, 1.0, 1.0, 10.0, curve[i])
-        assert_almost_equal(result, expected[i], "Test: curvelin function failed")
-
-        var cwd = Path()
-        Python.add_to_path(cwd.path)
-        mmm_python = Python.import_module("mmm_python.functions")
-        py_answer = SIMD[DType.float64, 4]()
-        for i2 in range(len(x)):
-            py_answer[i2]=(py_to_float64(mmm_python.curvelin(x[i2], 0.0, 1.0, 1.0, 10.0, curve[i])))
-        assert_almost_equal(result, py_answer, "Test: curvelin mismatch at index " + String(i)) 
-
-def test_curvelin2() raises:
-    x = MFloat[4](0.234, 0.5, 1.0, 1.5)
-    curve = [2.0, -2.0, 3.5, 0.5]
-    expected = [
-        MFloat[4](5.8856301491281, 3.5479862628264, 1.0, 1.0),
-        MFloat[4](8.9827199371571, 7.4520137371736, 1.0, 1.0),
-        MFloat[4](4.4924341477376, 2.7058773887388, 1.0, 1.0),
-        MFloat[4](7.4561210022699, 4.9432635348371, 1.0, 1.0)
-    ]
-
-    for i in range(len(curve)):
-        result = curvelin(x, 0.0, 1.0, 10.0, 1.0, curve[i])
-        assert_almost_equal(result, expected[i], "Test: curvelin function failed")
-
-        var cwd = Path()
-        Python.add_to_path(cwd.path)
-        mmm_python = Python.import_module("mmm_python.functions")
-        py_answer = SIMD[DType.float64, 4]()
-        for i2 in range(len(x)):
-            py_answer[i2]=(py_to_float64(mmm_python.curvelin(x[i2], 0.0, 1.0, 10.0, 1.0, curve[i])))
-            assert_almost_equal(expected[i][i2], py_answer[i2], "Test: curvelin mismatch at index " + String(i)) 
 
 def test_explin() raises:
     x = MFloat[4](1.0, 3.1622776601683795, 10.0, 15.0)
