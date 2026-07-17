@@ -101,7 +101,7 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
       """Reads into the delay line at an exact sample delay and no interpolation.
 
       Args:
-        delay_samps: The amount of delay to apply (in samples).
+        delay_samps: (MInt) The amount of delay to apply (in samples).
 
       Returns:
         A single sample read from the delay buffer with no interpolation.
@@ -124,7 +124,7 @@ struct Delay[num_chans: Int = 1, interp: Interp = Interp.linear](Tapable, PolyRe
       """Reads into the delay line at a fractional delay time with `Self.interp` interpolation.
 
       Args:
-        delay_time: The amount of delay to apply (in seconds).
+        delay_time: (MFloat) The amount of delay to apply (in seconds).
 
       Returns:
         A single sample read from the delay buffer with specified interpolation.
