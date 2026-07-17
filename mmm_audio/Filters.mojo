@@ -329,7 +329,9 @@ struct FilterType(Equatable, ImplicitlyCopyable):
 struct SVF[num_chans: Int = 1](Movable, Copyable, PolyReset):
     """A State Variable Filter struct.
 
-    To use the different modes, see the mode-specific methods.
+    To use the different modes, see the mode-specific methods: `lpf`, `hpf`, `bpf`, `notch`, `peak`, `bell`, `allpass`, `lowshelf`, and `highshelf`. Each of these methods takes the same parameters: input, frequency, q, and gain_db (for those that use it).
+
+    One can also call the `next` method with a specified `FilterType` to process the input through the desired filter mode.
     
     Implementation from [Andrew Simper](https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf). 
     Translated from Oleg Nesterov's Faust implementation.
@@ -611,7 +613,7 @@ struct SVF[num_chans: Int = 1](Movable, Copyable, PolyReset):
         """
         return self.next[FilterType.highshelf](input, frequency, q, gain_db)
 
-struct lpf_LR4[num_chans: Int = 1](Movable, Copyable):
+struct lpf_LR4[num_chans: Int = 1](Movable, Copyable, PolyReset):
     """A 4th-order [Linkwitz-Riley](https://en.wikipedia.org/wiki/Linkwitz%E2%80%93Riley_filter) lowpass filter.
 
     Parameters:
@@ -648,8 +650,13 @@ struct lpf_LR4[num_chans: Int = 1](Movable, Copyable):
         # Second stage
         return self.svf2.lpf(cf, frequency, self.q)  # Second stage
 
+    def reset(mut self):
+        """Reset the internal state of the 4th-order Linkwitz-Riley lowpass filter."""
+        self.svf1.reset()
+        self.svf2.reset()
+
 struct OnePole[num_chans: Int = 1](Movable, Copyable, PolyReset):
-    """One-pole IIR filter that can be configured as lowpass or highpass.
+    """One-pole IIR filter that can be configured as lowpass or highpass. Has three defs: `next`, `lpf`, and `hpf`. The `next` def is the most general, allowing you to specify the filter coefficient directly. The `lpf` and `hpf` defs are convenience methods that calculate the appropriate coefficient based on a given cutoff frequency.
 
     Parameters:
         num_chans: Number of channels to process in parallel.
@@ -774,7 +781,7 @@ struct Amplitude[num_chans: Int](Movable, Copyable):
         return self.last_val
 
 struct Onsets[num_chans: Int = 1](Movable, Copyable):
-    """Amplitude-based onset detector.
+    """Amplitude-based onset detector. Uses Amplitude instead of an FFT to detect onsets. See SpectralFluxOnsets for an FFT-based onset detector.
     
     Parameters:
         num_chans: Number of channels to process in parallel.
@@ -903,6 +910,7 @@ struct VAOnePole[num_chans: Int = 1](Movable, Copyable, PolyReset):
 
     var last_1: MFloat[Self.num_chans]  # Previous output
     var step_val: Float64
+    var nyquist: Float64
 
     def __init__(out self, world: World):
         """Initialize the VAOnePole filter.
@@ -912,6 +920,26 @@ struct VAOnePole[num_chans: Int = 1](Movable, Copyable, PolyReset):
         """
         self.last_1 = MFloat[Self.num_chans](0.0)
         self.step_val = 1.0 / world[].sample_rate
+        self.nyquist = world[].sample_rate * 0.5 - 1e-6
+
+    @always_inline
+    def next[filter_type: FilterType = FilterType.lowpass](mut self, input: MFloat[Self.num_chans], freq: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Process one sample through the VA one-pole filter of the specified type.
+
+        Args:
+            input: The input signal to process.
+            freq: The cutoff frequency of the filter.
+        
+        Returns:
+            The next sample of the filtered output.
+        """
+        comptime if filter_type == FilterType.lowpass:
+            return self.lpf(input, freq)
+        elif filter_type == FilterType.highpass:
+            return self.hpf(input, freq)
+        else:
+            print("Unsupported filter type for VAOnePole. Use lowpass or highpass.")
+            return input
 
     @always_inline
     def lpf(mut self, input: MFloat[Self.num_chans], freq: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
@@ -925,15 +953,17 @@ struct VAOnePole[num_chans: Int = 1](Movable, Copyable, PolyReset):
             The next sample of the filtered output.
         """
 
-        var g =  tan(pi * freq * self.step_val)
+        var freq2 = clip(freq, 1e-6, self.nyquist)
+
+        var g =  tan(pi * freq2 * self.step_val)
 
         var G = g / (1.0 + g)
 
         var v = (input - self.last_1) * G
 
         var output = self.last_1 + v
-        self.last_1 = v + output
-        return output
+        self.last_1 = sanitize(v + output)
+        return sanitize(output)
 
     @always_inline
     def hpf(mut self, input: MFloat[Self.num_chans], freq: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
@@ -1067,8 +1097,6 @@ struct VAMoogLadder[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversa
         comptime if Self.ov_samp == TimesOversampling.none:
             return self.lp4(sig, freq, res)
         else:
-
-
             comptime for i in range(Self.ov_samp.times):
                 # upsample the input
                 sig2 = self.upsampler.next(sig, i)
@@ -1102,6 +1130,32 @@ struct Reson[num_chans: Int = 1](Movable, Copyable, PolyReset):
         self.tf2 = tf2[num_chans = Self.num_chans](world)
         self.coeffs = [MFloat[Self.num_chans](0.0) for _ in range(5)]
         self.sample_rate = world[].sample_rate
+
+    def next[filter_type: FilterType = FilterType.lowpass](mut self, input: MFloat[self.num_chans], freq: MFloat[self.num_chans], q: MFloat[self.num_chans], gain: MFloat[self.num_chans]) -> MFloat[self.num_chans]:
+        """Process input through a resonant filter with a give FilterType.
+
+        Parameters:
+            filter_type: The type of filter to apply (lowpass, highpass, bandpass).
+
+        Args:
+            input: The input signal to process.
+            freq: The cutoff frequency of the lowpass filter.
+            q: The resonance of the filter.
+            gain: The output gain (clipped to 0.0-1.0 range).
+
+        Returns:
+            The next sample of the filtered output.
+        """
+        comptime if filter_type == FilterType.lowpass:
+            return self.lpf(input, freq, q, gain)
+        elif filter_type == FilterType.highpass:
+            return self.hpf(input, freq, q, gain)
+        elif filter_type == FilterType.bandpass:
+            return self.bpf(input, freq, q, gain)
+        else:
+            print("Unsupported filter type. Returning input unprocessed.")
+            return input
+        
 
     @always_inline
     def lpf(mut self, input: MFloat[self.num_chans], freq: MFloat[self.num_chans], q: MFloat[self.num_chans], gain: MFloat[self.num_chans]) -> MFloat[self.num_chans]:
@@ -1335,6 +1389,7 @@ struct Biquad[num_chans: Int = 1](Movable, Copyable, PolyReset):
     # Transposed Direct Form II state
     var s1: MFloat[Self.num_chans]
     var s2: MFloat[Self.num_chans]
+    var nyquist: Float64
 
     var sample_rate: Float64
     
@@ -1347,6 +1402,7 @@ struct Biquad[num_chans: Int = 1](Movable, Copyable, PolyReset):
         self.s1 = MFloat[Self.num_chans](0.0)
         self.s2 = MFloat[Self.num_chans](0.0)
         self.sample_rate = world[].sample_rate
+        self.nyquist = world[].sample_rate * 0.5
 
     def reset(mut self):
         """Clears any leftover internal state so the filter starts clean after interruptions or discontinuities in the audio stream.""" 
@@ -1492,20 +1548,20 @@ struct Biquad[num_chans: Int = 1](Movable, Copyable, PolyReset):
         Returns:
             The next sample of the filtered output.
         """
-        var coefs = self._compute_coefficients[filter_type](frequency, q, gain_db)
+        f2 = clip(frequency, 0.0, self.nyquist)
+        var q2 = max(q, 1e-6)
+        var coefs = self._compute_coefficients[filter_type](f2, q2, gain_db)
         var b0 = coefs[0]
         var b1 = coefs[1]
         var b2 = coefs[2]
         var a1 = coefs[3]
         var a2 = coefs[4]
 
-        var y = b0 * input + self.s1
-        self.s1 = b1 * input - a1 * y + self.s2
-        self.s2 = b2 * input - a2 * y
-
-        return sanitize(y)
+        var y = sanitize(b0 * input + self.s1)
+        self.s1 = sanitize(b1 * input - a1 * y + self.s2)
+        self.s2 = sanitize(b2 * input - a2 * y)
+        return y
     
-     
     @always_inline
     def lpf(
         mut self,
