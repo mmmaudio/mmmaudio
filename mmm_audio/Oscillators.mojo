@@ -173,6 +173,8 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
 
     var phasor: Phasor[Self.num_chans]
     var world: World 
+    var freq_upsampler: Optional[Upsampler[Self.num_chans, Self.ov_samp]]
+    var phase_upsampler: Optional[Upsampler[Self.num_chans, Self.ov_samp]]
     var downsampler: Optional[Downsampler[Self.num_chans, Self.ov_samp]]
     var last_phase: MFloat[Self.num_chans]
 
@@ -185,10 +187,14 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
         self.world = world
         if Self.ov_samp == TimesOversampling.none:
             self.phasor = Phasor[self.num_chans](world)
+            self.freq_upsampler = None
+            self.phase_upsampler = None
             self.downsampler = None
         else:
             oversampled_world = world[].create_subworld(Self.ov_samp)
             self.phasor = Phasor[self.num_chans](oversampled_world)
+            self.freq_upsampler = Upsampler[self.num_chans, Self.ov_samp](world)
+            self.phase_upsampler = Upsampler[self.num_chans, Self.ov_samp](world)
             self.downsampler = Downsampler[self.num_chans, Self.ov_samp](world)
 
         self.last_phase = MFloat[self.num_chans](0.0)
@@ -227,14 +233,15 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
             self.last_phase = phase
             return out
         else:
-            comptime for _ in range(Self.ov_samp.times):
-                phase = self.phasor.next(freq, phase_offset, trig_mask)
-
+            comptime for i in range(Self.ov_samp.times):
+                freq2 = self.freq_upsampler.value().next(freq, i)
+                phase_offset2 = self.phase_upsampler.value().next(phase_offset, i)
+                phase = self.phasor.next(freq2, phase_offset2, trig_mask)
                 sample = MFloat[self.num_chans](0.0)
                 ref temp = self.world[].osc_buffers()
                 comptime for chan in range(self.num_chans):
                     sample[chan] = temp.at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
-                self.downsampler.value().add_sample(sample)  # Get the next sample from the Oscillator buffer using sinc interpolation
+                self.downsampler.value().add_sample(sample)
                 self.last_phase = phase
 
             return self.downsampler.value().get_sample()
@@ -289,8 +296,7 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
 
     @always_inline
     def next_all_basic_waveforms(
-            mut self, 
-            freq: Float64 = 100.0, 
+            mut self,  
             phase: Float64 = 0.0,
             last_phase: Float64 = 0.0, 
             trig: Bool = False
@@ -298,7 +304,6 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
         """Get the next sample of all basic waveforms (sine, triangle, saw, square) in a SIMD vector, where each waveform is in a different lane.
 
         Args:
-            freq: Frequency of the oscillator in Hz.
             phase: Current oscillator phase.
             last_phase: Previous oscillator phase.
             trig: Trigger signal to reset the waveform phase.
@@ -359,15 +364,17 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
         comptime if Self.ov_samp == TimesOversampling.none:
             var phase = self.phasor.next(freq, phase_offset, trig_mask)
             comptime for chan in range(self.num_chans):
-                sample = self.next_all_basic_waveforms(freq[chan], phase[chan], self.last_phase[chan], trig)
+                sample = self.next_all_basic_waveforms(phase[chan], self.last_phase[chan], trig)
                 out_sample[chan] = (MFloat[2](sample[Int(osc_type0[chan])], sample[Int(osc_type1[chan])]) * MFloat[2](1.0 - osc_frac_interp[chan], osc_frac_interp[chan])).reduce_add()
             self.last_phase = phase
             return out_sample
         else:
-            comptime for _ in range(Self.ov_samp.times):
-                var phase = self.phasor.next(freq, phase_offset, trig_mask)
+            comptime for i in range(Self.ov_samp.times):
+                freq2 = self.freq_upsampler.value().next(freq, i)
+                phase_offset2 = self.phase_upsampler.value().next(phase_offset, i)
+                var phase = self.phasor.next(freq2, phase_offset2, trig_mask)
                 comptime for chan in range(self.num_chans):
-                    sample = self.next_all_basic_waveforms(freq[chan], phase[chan], self.last_phase[chan], trig)
+                    sample = self.next_all_basic_waveforms(phase[chan], self.last_phase[chan], trig)
                     out_sample[chan] = (MFloat[2](sample[Int(osc_type0[chan])], sample[Int(osc_type1[chan])]) * MFloat[2](1.0 - osc_frac_interp[chan], osc_frac_interp[chan])).reduce_add()
                 self.downsampler.value().add_sample(out_sample)
                 self.last_phase = phase
@@ -421,8 +428,9 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
         else:
             comptime times_os_int = Self.ov_samp.times
             comptime for i in range(times_os_int):
-                # var last_phase = self.phasor.phase
-                var phase = self.phasor.next(freq, phase_offset, trig_mask)
+                freq2 = self.freq_upsampler.value().next(freq, i)
+                phase_offset2 = self.phase_upsampler.value().next(phase_offset, i)
+                var phase = self.phasor.next(freq2, phase_offset2, trig_mask)
                 comptime for out_chan in range(self.num_chans):
                     sample0[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
                     sample1[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
@@ -478,9 +486,10 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
             return out_sample
         else:
             comptime times_os_int = Self.ov_samp.times
-            comptime for _ in range(times_os_int):
-                # var last_phase = self.phasor.phase
-                var phase = self.phasor.next(freq, phase_offset, trig_mask)
+            comptime for i in range(times_os_int):
+                freq2 = self.freq_upsampler.value().next(freq, i)
+                phase_offset2 = self.phase_upsampler.value().next(phase_offset, i)
+                var phase = self.phasor.next(freq2, phase_offset2, trig_mask)
                 out_sample = MFloat[self.num_chans](0.0)
                 comptime for out_chan in range(self.num_chans):
                     sample = buffer.at_phase[self.interp, True, 0](self.world, phase[out_chan], self.last_phase[out_chan])

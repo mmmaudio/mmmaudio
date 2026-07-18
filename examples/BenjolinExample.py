@@ -46,14 +46,14 @@ def main():
     layout = QVBoxLayout()
 
     # Add all the controls
-    add_handle(layout, mmm_audio, "freq1", 20, 14000.0, 0.25, 100)
-    add_handle(layout, mmm_audio, "freq2", 0.1, 14000.0, 0.25, 5)
+    add_handle(layout, mmm_audio, "freq1", 20, 14000.0, 4, 100)
+    add_handle(layout, mmm_audio, "freq2", 0.1, 14000.0, 4, 5)
     add_handle(layout, mmm_audio, "scale", 0, 1.0, 1, 0.1)
     add_handle(layout, mmm_audio, "rungler1", 0, 1.0, 1, 0.1)
     add_handle(layout, mmm_audio, "rungler2", 0, 1.0, 1, 0.1)
     add_handle(layout, mmm_audio, "runglerFiltMul", 0, 1.0, 1.0, 0.5)
     add_handle(layout, mmm_audio, "loop", 0, 1.0, 1, 0.1)
-    add_handle(layout, mmm_audio, "filterFreq", 20, 20000, 0.25, 3000)
+    add_handle(layout, mmm_audio, "filterFreq", 20, 20000, 4, 3000)
     add_handle(layout, mmm_audio, "q", 0.1, 8.0, 0.5, 1.0)
     add_handle(layout, mmm_audio, "gain", 0.0, 2.0, 1, 1.0)
     add_handle(layout, mmm_audio, "filterType", 0, 8, 1.0, 0.0)

@@ -373,10 +373,6 @@ struct TanhAD[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversampling
         Returns:
             The anti-aliased `tanh` of `x`.
         """
-        # if not self.initialized:
-        #     self.x1 = x
-        #     self.initialized = True
-        #     return tanh(x)
 
         comptime if Self.ov_samp == TimesOversampling.none:
             return self._next1(x)
