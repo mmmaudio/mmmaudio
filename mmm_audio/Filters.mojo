@@ -926,6 +926,9 @@ struct VAOnePole[num_chans: Int = 1](Movable, Copyable, PolyReset):
     def next[filter_type: FilterType = FilterType.lowpass](mut self, input: MFloat[Self.num_chans], freq: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Process one sample through the VA one-pole filter of the specified type.
 
+        Parameters:
+            filter_type: The type of filter to apply. Can be `FilterType.lowpass` or `FilterType.highpass`.
+
         Args:
             input: The input signal to process.
             freq: The cutoff frequency of the filter.

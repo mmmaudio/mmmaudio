@@ -240,7 +240,15 @@ struct Osc[num_chans: Int = 1, interp: Interp = Interp.linear, ov_samp: TimesOve
             return self.downsampler.value().get_sample()
 
     def sine(mut self, freq: MFloat[self.num_chans] = MFloat[self.num_chans](100.0), phase_offset: MFloat[self.num_chans] = MFloat[self.num_chans](0.0), trig: Bool = False) -> MFloat[self.num_chans]:
-        """Generate the next sample of a sine wave oscillator."""
+        """Generate the next sample of a sine wave oscillator.
+        
+        Args:
+            freq: Frequency of the oscillator in Hz.
+            phase_offset: Offsets the phase of the oscillator (0 to 1).
+            trig: Trigger signal to reset the phase when switching from False to True (default is 0.0).
+
+        Returns:
+            The next sample of the oscillator output."""
         return self.next[OscType.sine](freq, phase_offset, trig)
 
     def triangle(mut self, freq: MFloat[self.num_chans] = MFloat[self.num_chans](100.0), phase_offset: MFloat[self.num_chans] = MFloat[self.num_chans](0.0), trig: Bool = False) -> MFloat[self.num_chans]:
@@ -593,7 +601,16 @@ struct LFOsc[num_chans: Int = 1, ov_samp: TimesOversampling = TimesOversampling.
             return self.downsampler.value().get_sample()
 
     def sine(mut self, freq: MFloat[self.num_chans] = MFloat[self.num_chans](100.0), phase_offset: MFloat[self.num_chans] = MFloat[self.num_chans](0.0), trig: Bool = False) -> MFloat[self.num_chans]:
-        """Generate the next sample of a sine wave oscillator."""
+        """Generate the next sample of a sine wave oscillator.
+        
+        Args:
+            freq: Frequency of the oscillator in Hz.
+            phase_offset: Offsets the phase of the oscillator (0 to 1).
+            trig: Trigger signal to reset the phase when switching from False to True (default is 0.0).
+
+        Returns:
+            The next sample of the oscillator output."""
+            
         return self.next[OscType.sine](freq, phase_offset, trig)
 
     def triangle(mut self, freq: MFloat[self.num_chans] = MFloat[self.num_chans](100.0), phase_offset: MFloat[self.num_chans] = MFloat[self.num_chans](0.0), trig: Bool = False) -> MFloat[self.num_chans]:
