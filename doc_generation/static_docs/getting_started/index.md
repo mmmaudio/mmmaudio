@@ -9,9 +9,11 @@ Join the [Discourse](https://mmmaudio.discourse.group/) Community!
 
 ## 1. Setup the Environment in your Operating System:
 
-Go to [MMMAudio-MacSetup](MMMAudio-MacSetup.md)
-Go to [MMMAudio-LinuxSetup](MMMAudio-LinuxSetup.md)
-Go to [MMMAudio-WindowsSetup](MMMAudio-WindowsSetup.md)
+[MMMAudio-MacSetup](MMMAudio-MacSetup.md)
+
+[MMMAudio-LinuxSetup](MMMAudio-LinuxSetup.md)
+
+[MMMAudio-WindowsSetup](MMMAudio-WindowsSetup.md)
 
 ## 2. Running Code
 

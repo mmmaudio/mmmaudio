@@ -77,8 +77,11 @@ pip install numpy scipy librosa pyautogui torch supriya-midi python-osc matplotl
 go to View->Command Palette->Select Python Interpreter. You need to select the version of Python that was installed by pixi or uv or python virtual environments.
 
 This will be at:
+
 `./.pixi/envs/default/python` (for pixi)
+
 `./.venv/bin/python` (for uv)
+
 `./venv/bin/python` (for python virtual environments)
 
 Don't select the Global python on your system. That won't work.
