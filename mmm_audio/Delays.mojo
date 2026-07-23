@@ -296,9 +296,9 @@ struct Comb[num_chans: Int = 1, interp: Interp = Interp.quad](Tapable, PolyReset
         Returns:
           The delayed output sample.
         """
-        var delayed = self.delay.read(delay_time)  # read first
+        var delayed = self.delay.read(delay_time)
         var fb_in = input + delayed * clip(feedback, -1.0, 1.0)
-        self.delay.write(fb_in)  # write separately
+        self.delay.write(fb_in)
         return delayed
 
     def next_decaytime(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans], decay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:

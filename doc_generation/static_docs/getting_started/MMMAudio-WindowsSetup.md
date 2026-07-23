@@ -16,7 +16,7 @@ Once Ubuntu is installed you will be prompted to create a username and password.
 
 ```
 cd ~
-git clone https://github.com/spluta/MMMAudio.git
+git clone https://github.com/mmmaudio/mmmaudio.git
 ```
 
 Then install pre-requisites (You will be prompted to give your linux password again.)
@@ -77,7 +77,9 @@ cd ~/MMMAudio
 code .
 ```
 
-Once in VSCode, install both the Mojo and Python extensions. It is important to do this *after* opening VSCode from WSL as the extensions installed on the Windows VSCode install will not carry over. Then create a new python environment and install the required python packages with pip.
+Once in VSCode, install both the Mojo and Python extensions. It is important to do this *after* opening VSCode from WSL as the extensions installed on the Windows VSCode install will not carry over. 
+
+Then create a new python environment and install the required python packages with pip. You can also look in [MMMAudio-LinuxSetup](MMMAudio-LinuxSetup.md) to see how to install with uv (which has version tracking for all dependencies).
 
 ```
 python3 -m venv venv 
