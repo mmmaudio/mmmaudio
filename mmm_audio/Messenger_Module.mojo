@@ -40,15 +40,6 @@ struct Messenger(Copyable, Movable):
 
         return Pointer(to=self.key_dict[name])
 
-    # def get_name_with_namespace(mut self, name: String) raises -> UnsafePointer[mut=False,String, ...]:
-    #     if not self.key_dict.__contains__(name):
-    #         if self.namespace:
-    #             with_namespace = self.namespace.value()+"."+name
-    #         else:
-    #             with_namespace = name
-    #         self.key_dict[name] = with_namespace
-
-    #     return UnsafePointer(to=self.key_dict[name])
 
     # update Bool
     def update(mut self, name: String, mut param: Bool):

@@ -667,6 +667,9 @@ struct OnePole[num_chans: SIMDLength = 1](Movable, Copyable, PolyReset):
     """
     var last_samp: MFloat[Self.num_chans]  # Previous output
     var world: World
+    # -2*pi/sample_rate, folded into one factor so `coeff` is a multiply
+    # rather than a per-sample divide through the world pointer.
+    var coef_mul: Float64
     
     def __init__(out self, world: World):
         """Initialize the one-pole filter.
@@ -677,6 +680,7 @@ struct OnePole[num_chans: SIMDLength = 1](Movable, Copyable, PolyReset):
 
         self.last_samp = MFloat[Self.num_chans](0.0)
         self.world = world
+        self.coef_mul = -2.0 * pi / world[].sample_rate
     
     @doc_hidden
     def next(mut self, input: MFloat[Self.num_chans], coef: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
@@ -722,7 +726,7 @@ struct OnePole[num_chans: SIMDLength = 1](Movable, Copyable, PolyReset):
     @doc_hidden
     def coeff(self, cutoff_hz: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Calculate feedback coefficient from cutoff frequency."""
-        return exp(-2.0 * pi * cutoff_hz / self.world[].sample_rate)
+        return exp(cutoff_hz * self.coef_mul)
 
     def reset(mut self):
         """Reset the one-pole filter to its initial state."""

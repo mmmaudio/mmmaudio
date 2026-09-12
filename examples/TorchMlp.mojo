@@ -26,6 +26,8 @@ struct TorchSynth(Movable, Copyable):
     var dc1: DCTrap[]
     var dc2: DCTrap[]
 
+    var sr: Float64
+
     def __init__(out self, world: World):
         self.world = world
         self.osc1 = Osc[1, Interp.sinc, TimesOversampling.x2](self.world)
@@ -49,6 +51,8 @@ struct TorchSynth(Movable, Copyable):
         self.dc1 = DCTrap(self.world)
         self.dc2 = DCTrap(self.world)
 
+        self.sr = self.world[].sample_rate
+
     @always_inline
     def next(mut self) -> MFloat[2]:
         self.model.model_input[0] = self.world[].mouse_x()
@@ -71,7 +75,7 @@ struct TorchSynth(Movable, Copyable):
         var osc1 = self.osc1.next_basic_waveforms[OscType.sine, OscType.triangle, OscType.saw, OscType.square](freq1, 0.0, False, osc_frac=osc_frac1)
 
         # samplerate reduction
-        osc1 = self.latch1.next(osc1, self.impulse1.next_bool(linexp(self.lags[4], 0.0, 1.0, 100.0, self.world[].sample_rate*0.5)))
+        osc1 = self.latch1.next(osc1, self.impulse1.next_bool(linexp(self.lags[4], 0.0, 1.0, 100.0, self.sr*0.5)))
         osc1 = self.filt1.lpf(osc1, linexp(self.lags[5], 0.0, 1.0, 100.0, 20000.0), linlin(self.lags[6], 0.0, 1.0, 0.707, 4.0))
 
         var tanh_gain = linlin(self.lags[7], 0.0, 1.0, 0.5, 10.0)
@@ -87,7 +91,7 @@ struct TorchSynth(Movable, Copyable):
         var osc_frac2 = linlin(self.lags[11], 0.0, 1.0, 0.0, 1.0)
         var osc2 = self.osc2.next_basic_waveforms[OscType.sine, OscType.triangle, OscType.saw, OscType.square](freq2, 0.0, False, osc_frac=osc_frac2)
 
-        osc2 = self.latch2.next(osc2, self.impulse2.next_bool(linexp(self.lags[12], 0.0, 1.0, 100.0, self.world[].sample_rate*0.5)))
+        osc2 = self.latch2.next(osc2, self.impulse2.next_bool(linexp(self.lags[12], 0.0, 1.0, 100.0, self.sr*0.5)))
 
         osc2 = self.filt2.lpf(osc2, linexp(self.lags[13], 0.0, 1.0, 100.0, 20000.0), linlin(self.lags[14], 0.0, 1.0, 0.707, 4.0))
 

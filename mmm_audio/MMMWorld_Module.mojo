@@ -110,6 +110,7 @@ struct MMMWorld(Movable, Copyable):
             print("Environment pointer is not set.")
 
 
+    @always_inline
     def mouse_x(self) -> Float64:
         """Returns the current mouse x position as a value between 0.0 and 1.0.
         
@@ -122,6 +123,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default mouse_x value of 0.0.")
         return 0.0
 
+    @always_inline
     def mouse_y(self) -> Float64:
         """Returns the current mouse y position as a value between 0.0 and 1.0.
         
@@ -134,6 +136,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default mouse_y value of 0.0.")
         return 0.0
 
+    @always_inline
     def top_of_block(self) -> Bool:
         """Returns true if the current sample is the first sample of the audio block.
         
@@ -146,6 +149,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default top_of_block value of False.")
         return False
     
+    @always_inline
     def block_state(self) -> Int:
         """Returns the block state.
         
@@ -158,6 +162,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default block_state value of 0.")
         return 0
 
+    @always_inline
     def num_in_chans(self) -> Int:
         """Returns the number of input channels.
         
@@ -170,6 +175,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default num_in_chans value of 0.")
         return 0
 
+    @always_inline
     def num_out_chans(self) -> Int:
         """Returns the number of output channels.
         
@@ -183,6 +189,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default num_out_chans value of 0.")
         return 0
 
+    @always_inline
     def sound_in(self, chan: Int) -> Float64:
         """Returns the input sample value for a given channel.
 

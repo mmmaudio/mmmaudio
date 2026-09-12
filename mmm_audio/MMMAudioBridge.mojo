@@ -577,9 +577,7 @@ struct MMMAudioBridge(Movable, Writable):
             unsafe_memset_zero(out_buffer, frames * num_out)
             return
 
-        # PortAudio honors framesPerBuffer, so `frames` is the block size;
-        # anything else would overrun the scratch buffers, so only as much as
-        # fits gets rendered and the rest goes out silent.
+        # PortAudio honors framesPerBuffer, so `frames` should be the block size
         var frames_to_render = min(frames, block_size)
 
         var in_buffer = MutPointer[Float32, MutUntrackedOrigin](

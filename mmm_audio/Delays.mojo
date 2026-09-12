@@ -32,6 +32,7 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
     var delay_line: Recorder[Self.num_chans]
     var two_sample_duration: Float64
     var sample_duration: Float64
+    var sample_rate: Float64
 
     def __init__(out self, world: World, max_delay_time: Float64 = 1.0):
       """Initialize the Delay line.
@@ -53,8 +54,9 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
           size_of_buffer += 4
         
         self.delay_line = Recorder[Self.num_chans](self.world, size_of_buffer, self.world[].sample_rate)
-        self.two_sample_duration = 2.0 / self.world[].sample_rate
-        self.sample_duration = 1.0 / self.world[].sample_rate
+        self.sample_rate = self.world[].sample_rate
+        self.two_sample_duration = 2.0 / self.sample_rate
+        self.sample_duration = 1.0 / self.sample_rate
 
     def __init__(out self, world: World, max_delay_samples: Int = 1024):
       """Initialize the Delay line.
@@ -76,8 +78,9 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
           size_of_buffer += 4
 
         self.delay_line = Recorder[Self.num_chans](self.world, size_of_buffer, self.world[].sample_rate)
-        self.two_sample_duration = 2.0 / self.world[].sample_rate
-        self.sample_duration = 1.0 / self.world[].sample_rate
+        self.sample_rate = self.world[].sample_rate
+        self.two_sample_duration = 2.0 / self.sample_rate
+        self.sample_duration = 1.0 / self.sample_rate
 
     def tap(mut self, var delay_samps: Int) -> MFloat[Self.num_chans]:
       """Taps into the delay line at an exact sample delay and no interpolation. Tap is different from read in that it always returns the full SIMD vector of one point in the delay line.
@@ -208,7 +211,7 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
           The fractional index in the delay buffer.
         """
 
-        var delay_samps = max(delay_time, self.sample_duration) * self.world[].sample_rate
+        var delay_samps = max(delay_time, self.sample_duration) * self.sample_rate
         # Because the SpanInterpolator functions always "read" forward,
         # we're writing into the delay line buffer backwards, so therefore,
         # here to go backwards in time we add the delay samples to the write head.
