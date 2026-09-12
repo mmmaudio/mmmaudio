@@ -502,29 +502,34 @@ struct MMMAudioBridge(Movable, Writable):
         return PythonObject(None)
 
     def get_audio_samples(mut self, loc_in_buffer: MutPointer[Float32, ...], mut loc_out_buffer: MutPointer[Float64, ...]) raises:
-        # Callers own the locking: take `graph` around this, and drain the
-        # message pools under `pools` beforehand.
+        # making this a reference is very efficient
+        ref env = self.environment_ptr[]
+        var block_size = env.block_size
+        var num_in = env.num_in_chans
+        var num_out = env.num_out_chans
 
-        self.environment_ptr[].top_of_block = True
+        env.top_of_block = True
 
-        for i in range(self.environment_ptr[].block_size):
-            self.environment_ptr[].block_state = i  # Update the block state
+        for i in range(block_size):
+            env.block_state = i  # Update the block state
 
             if i == 1:
-                self.environment_ptr[].top_of_block = False
-                self.environment_ptr[].messenger_manager.empty_msg_dicts()
+                env.top_of_block = False
+                env.messenger_manager.empty_msg_dicts()
 
-            if self.environment_ptr[].top_of_block:
-                self.environment_ptr[].print_counter += 1
+            if env.top_of_block:
+                env.print_counter += 1
             # fill the sound_in list with the current sample from all inputs
-            for j in range(self.environment_ptr[].num_in_chans):
-                self.environment_ptr[].sound_in[j] = Float64(loc_in_buffer[unsafe_offset=i * self.environment_ptr[].num_in_chans + j])
+            var in_offset = i * num_in
+            for j in range(num_in):
+                env.sound_in[j] = Float64(loc_in_buffer[unsafe_offset=in_offset + j])
 
             var samples = self.graph.next()  # Get the next audio samples from the graph
 
             # Fill the wire buffer with the sample data
-            for j in range(min(self.environment_ptr[].num_out_chans, samples.__len__())):
-                loc_out_buffer[unsafe_offset=i * self.environment_ptr[].num_out_chans + j] = samples[Int(j)]
+            var out_offset = i * num_out
+            for j in range(min(num_out, samples.__len__())):
+                loc_out_buffer[unsafe_offset=out_offset + j] = samples[Int(j)]
 
     def transfer_msgs_if_free(mut self) raises:
         """Drain whatever Python has queued into the message pools.
@@ -572,7 +577,7 @@ struct MMMAudioBridge(Movable, Writable):
             unsafe_memset_zero(out_buffer, frames * num_out)
             return
 
-        # PortAudio honours framesPerBuffer, so `frames` is the block size;
+        # PortAudio honors framesPerBuffer, so `frames` is the block size;
         # anything else would overrun the scratch buffers, so only as much as
         # fits gets rendered and the rest goes out silent.
         var frames_to_render = min(frames, block_size)
@@ -623,12 +628,11 @@ struct MMMAudioBridge(Movable, Writable):
 
         var loc_out_buffer = out_buffer.__array_interface__["data"][0].unsafe_get_as_pointer[DType.float64]()
 
-        # zero the output buffer
-        # TODO: is this necessary? aren't they going to be overwritten anyway?
-        # if they're not overwritten wouldn't that be a bug?
-        for j in range(py_self[].environment_ptr[].num_out_chans):
-            for i in range(py_self[].environment_ptr[].block_size):
-                loc_out_buffer[unsafe_offset=i * py_self[].environment_ptr[].num_out_chans + j] = 0.0
+        unsafe_memset_zero(
+            loc_out_buffer,
+            py_self[].environment_ptr[].block_size
+            * py_self[].environment_ptr[].num_out_chans,
+        )
 
         # Held for the whole render, which is what keeps the audio thread from
         # rendering the same graph at the same time - it sees the lock taken
