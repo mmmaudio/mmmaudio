@@ -13,10 +13,8 @@ if True:
     mmm_audio = MMMAudio(128, graph_name="MidiSequencer", package_name="examples")
     mmm_audio.start_audio()
 
-    from mmm_python.Patterns import Pseq, Pxrand
     import numpy as np
     import asyncio
-    from mmm_python.functions import midicps, linexp
 
     global scheduler
     scheduler = Scheduler()

@@ -4,6 +4,7 @@ channels = ["conda-forge", "pytorch", "https://conda.modular.com/max"]
 name = "MMMAudio"
 platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
 version = "0.1.0"
+preview = ["pixi-build"]
 
 [tasks.validate]
 args = [
@@ -53,6 +54,7 @@ jupyterlab = ">=4.5.5,<5"
 pixi-kernel = ">=0.7.1,<0.8"
 max = ">=26.5.0,<27"
 portaudio = ">=19.7.0,<20"
+json = { git = "https://github.com/ehsanmok/json.git", tag = "v0.4.0" }
 
 # torch comes from a different place on each platform.
 #

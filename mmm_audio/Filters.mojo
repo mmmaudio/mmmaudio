@@ -667,8 +667,6 @@ struct OnePole[num_chans: SIMDLength = 1](Movable, Copyable, PolyReset):
     """
     var last_samp: MFloat[Self.num_chans]  # Previous output
     var world: World
-    # -2*pi/sample_rate, folded into one factor so `coeff` is a multiply
-    # rather than a per-sample divide through the world pointer.
     var coef_mul: Float64
     
     def __init__(out self, world: World):

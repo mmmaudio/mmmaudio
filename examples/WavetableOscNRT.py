@@ -18,7 +18,7 @@ from mmm_python import *
 import json
 
 def main():
-    mmm_audio = MMMAudio(64, num_output_channels = 2, graph_name="WavetableOscSIMD", package_name="examples")
+    mmm_audio = MMMAudio(16, num_output_channels = 2, graph_name="WavetableOscSIMD", package_name="examples")
     poly_pal = PolyPal(mmm_audio, "poly", 16) 
 
     # in this case we use poly_pal.send_floats AND mmm_audio.send_float, so we need to pass both of them as targets to the NRT.save_to_wav function 
