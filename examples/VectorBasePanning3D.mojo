@@ -1,5 +1,5 @@
 from mmm_audio import *
-
+from std.time import perf_counter
 # THE SYNTH
 
 
@@ -13,7 +13,7 @@ struct VectorBasePanning3D(Movable, Copyable):
     var wsl: Int
     var pos: List[Float64]
     var mouse: Bool
-    var vbap: VBAP3D[11, 16]
+    var vbap: VBAP3D[5, 8]
     def __init__(out self, world: World):
         self.world = world
         self.dust = Dust[1](world)
@@ -25,34 +25,30 @@ struct VectorBasePanning3D(Movable, Copyable):
         self.pos = [0.0, -1.0]
         self.mouse = False
         comptime degrees_to_radians = pi/180
-        
-        # A 7.1.4 Atmos array
-        var speaker_array : Array[MFloat[2], 11] = [
-            MFloat[2](0.0, 0),#Center
-            MFloat[2](25 * degrees_to_radians, 0),# L
-            MFloat[2](-25 * degrees_to_radians, 0),# R
-            MFloat[2](90 * degrees_to_radians, 0), # LS
-            MFloat[2](-90 * degrees_to_radians, 0), # RS
-            MFloat[2](135  * degrees_to_radians, 0), # LB
-            MFloat[2](-135 * degrees_to_radians, 0), # RB
-            MFloat[2](40 * degrees_to_radians, 35 * degrees_to_radians), #LTF
-            MFloat[2](-40 * degrees_to_radians, 35 * degrees_to_radians), #RTF
-            MFloat[2](120 * degrees_to_radians, 35 * degrees_to_radians), #LTR
-            MFloat[2](-120 * degrees_to_radians, 35 * degrees_to_radians) #RTF
-            ]
-        
-        
-        # var speaker_array : Array[MFloat[2], 5] = [
-        #     MFloat[2](-0.5 * pi, 0),
-        #     MFloat[2](0.0, 0.0),
-        #     MFloat[2](0.5 * pi, 0.0),
-        #     MFloat[2](0.0, -0.5 * pi),
-        #     MFloat[2](0.0, 0.5 * pi)
-        # ]
-        self.vbap = VBAP3D[11, 16](speaker_array)
+        # var speaker_array : Array[MFloat[2], 11] = [
+        #     MFloat[2](0.0, 0),#Center
+        #     MFloat[2](25 * degrees_to_radians, 0),# L
+        #     MFloat[2](-25 * degrees_to_radians, 0),# R
+        #     MFloat[2](90 * degrees_to_radians, 0), # LS
+        #     MFloat[2](-90 * degrees_to_radians, 0), # RS
+        #     MFloat[2](135  * degrees_to_radians, 0), # LB
+        #     MFloat[2](-135 * degrees_to_radians, 0), # RB
+        #     MFloat[2](40 * degrees_to_radians, 35 * degrees_to_radians), #LTF
+        #     MFloat[2](-40 * degrees_to_radians, 35 * degrees_to_radians), #RTF
+        #     MFloat[2](120 * degrees_to_radians, 35 * degrees_to_radians), #LTR
+        #     MFloat[2](-120 * degrees_to_radians, 35 * degrees_to_radians) #RTF
+        #     ]
+        var speaker_array : Array[MFloat[2], 5] = [
+            MFloat[2](-0.5 * pi, 0),
+            MFloat[2](0.0, 0.0),
+            MFloat[2](0.5 * pi, 0.0),
+            MFloat[2](0.0, -0.5 * pi),
+            MFloat[2](0.0, 0.5 * pi)
+        ]
+        self.vbap = VBAP3D[5, 8](speaker_array)
 
         
-    def next(mut self) -> MFloat[16]:
+    def next(mut self) -> MFloat[8]:
         
         comptime two_pi = 2 * pi
 
@@ -69,17 +65,17 @@ struct VectorBasePanning3D(Movable, Copyable):
             var y = linlin(self.world[].mouse_y(), 0.0, 1.0, -1.0 * pi, 1.0 * pi)
             self.az = x
             self.ht = y
-        # self.world[].print("Hello?")
+        
         var sig = self.dust.next(10, 40) * 0.5
         sig = self.filt.bpf(sig, 1200, 10.0, 1.0)
 
-        # if self.messenger.notify_update("ht", self.ht):
-        #    _ = self.vbap.next(sig, self.az, self.ht)
+        
+        
         
 
         var out = self.vbap.next(sig, self.az, self.ht)
-        # var out = MFloat[8](0.0)
-        # self.world[].print(out)
+        
+        
         
         return out * 0.5
 

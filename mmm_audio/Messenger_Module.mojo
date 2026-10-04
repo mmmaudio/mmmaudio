@@ -402,6 +402,146 @@ struct Messenger(Copyable, Movable):
                 print("Error occurred while updating trig message. Error: ", error)
         return False
 
+
+    def notify_address_callback[call_back: def(List[Float64]) capturing -> None](mut self, name: String)-> Bool:
+        """
+        Get notified if a 'send_floats' message is received and execute a provided callback funciton.
+
+        Parameters:
+            call_back: A callback function that takes a 'List[Float64]' as its argument.
+        
+        Args:
+            name: A `String` to identify the trigger sent from Python.
+
+        Returns:
+            A 'Bool' indicating whether a list of floats was sent from Python under the specified name.
+
+        """
+        if self.world[].top_of_block():
+            try:
+                ref temp = self.world[].messenger_manager()
+                var opt = temp.get_floats(self.get_name_with_namespace(name)[])
+                if opt:
+                    call_back(opt.value())
+                    return True
+            except error:
+                print("Error occurred while updating float list message. Error: ", error)
+        return False
+    
+    def address_callback[call_back: def(List[Float64]) capturing -> None](mut self, name: String):
+        """
+        Executes a given callback function with a list of floats sent from Python.
+
+        Parameters:
+            call_back: A callback function that takes a 'List[Float64]' as its argument.
+        
+        Args:
+            name: A `String` to identify the trigger sent from Python.
+
+        """
+        if self.world[].top_of_block():
+            try:
+                ref temp = self.world[].messenger_manager()
+                var opt = temp.get_floats(self.get_name_with_namespace(name)[])
+                if opt:
+                    call_back(opt.value())
+                    
+            except error:
+                print("Error occurred while updating float list message. Error: ", error)
+        
+    
+    def notify_address_callback[call_back: def(List[Int]) capturing -> None](mut self, name: String)-> Bool:
+        """
+        Get notified if a 'send_ints' message is received and execute a provided callback funciton.
+
+        Parameters:
+            call_back: A callback function that takes a 'List[Int]' as its argument.
+        
+        Args:
+            name: A `String` to identify the trigger sent from Python.
+
+        Returns:
+            A 'Bool' indicating whether a list of ints was sent from Python under the specified name.
+
+        """
+        if self.world[].top_of_block():
+            try:
+                ref temp = self.world[].messenger_manager()
+                var opt = temp.get_ints(self.get_name_with_namespace(name)[])
+                if opt:
+                    call_back(opt.value())
+                    return True
+            except error:
+                print("Error occurred while updating int list message. Error: ", error)
+        return False
+    
+    def address_callback[call_back: def(List[Int]) capturing -> None](mut self, name: String):
+        """
+        Executes a given callback function with a list of ints sent from Python.
+
+        Parameters:
+            call_back: A callback function that takes a 'List[Int]' as its argument.
+        
+        Args:
+            name: A `String` to identify the trigger sent from Python.
+
+        """
+        if self.world[].top_of_block():
+            try:
+                ref temp = self.world[].messenger_manager()
+                var opt = temp.get_ints(self.get_name_with_namespace(name)[])
+                if opt:
+                    call_back(opt.value())
+                    
+            except error:
+                print("Error occurred while updating int list message. Error: ", error)
+
+    def notify_address_callback[call_back: def(List[String]) capturing -> None](mut self, name: String)-> Bool:
+        """
+        Get notified if a 'send_strings' message is received and execute a provided callback funciton.
+
+        Parameters:
+            call_back: A callback function that takes a 'List[String]' as its argument.
+        
+        Args:
+            name: A `String` to identify the trigger sent from Python.
+
+        Returns:
+            A 'Bool' indicating whether a list of strings was sent from Python under the specified name.
+
+        """
+        if self.world[].top_of_block():
+            try:
+                ref temp = self.world[].messenger_manager()
+                var opt = temp.get_strings(self.get_name_with_namespace(name)[])
+                if opt:
+                    call_back(opt.value())
+                    return True
+            except error:
+                print("Error occurred while updating string list message. Error: ", error)
+        return False
+    
+    def address_callback[call_back: def(List[String]) capturing -> None](mut self, name: String):
+        """
+        Executes a given callback function with a list of strings sent from Python.
+
+        Parameters:
+            call_back: A callback function that takes a 'List[String]' as its argument.
+        
+        Args:
+            name: A `String` to identify the trigger sent from Python.
+
+        """
+        if self.world[].top_of_block():
+            try:
+                ref temp = self.world[].messenger_manager()
+                var opt = temp.get_strings(self.get_name_with_namespace(name)[])
+                if opt:
+                    call_back(opt.value())
+                    
+            except error:
+                print("Error occurred while updating string list message. Error: ", error)
+
 @doc_hidden
 struct BoolMessage(Movable, Copyable):
     var retrieved: Bool

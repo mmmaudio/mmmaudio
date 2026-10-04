@@ -13,12 +13,18 @@ mmm_audio = MMMAudio(128, num_output_channels=11, graph_name="VectorBasePanning3
 mmm_audio.start_audio()
 degrees_to_radians = pi/180
 
-# 0.0 az is directly in front, negative values move counter clockwise, positive move clockwise.
-mmm_audio.send_float("az", 0.0 * degrees_to_radians)
-# 0.0 az is coplanar with the horizontal plane of the listener's head. Postive values move upward, negative downward. Between -1.0pi (directly below) and 1.0pi (directly above).
-mmm_audio.send_float("ht", 0.0 * degrees_to_radians)
+mmm_audio.send_float("az", -0.45 * pi)
+mmm_audio.send_float("ht", -0.2 * 2 * pi)
+mmm_audio.send_float("az", -0.25  * pi)
+# mmm_audio.send_float("az", 0.375 * 2 * pi)
+# mmm_audio.send_float("az", 0.5 * 2 * pi)
+# mmm_audio.send_float("az", 0.625 * 2 * pi)
+# mmm_audio.send_float("az", 0.75 * 2 * pi)
+# mmm_audio.send_float("az", 0.875 * 2 * pi)
+mmm_audio.send_float("az", 185 * degrees_to_radians + (1.0 * pi))
 
-#Enable/disable mouse. The mouse moves on the az from left to right, and elevation up and down. Scaled to the given speaker array.
+
+#Enable/disable mouse
 mmm_audio.send_bool("mouse", True)
 mmm_audio.send_bool("mouse", False)
 
