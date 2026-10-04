@@ -36,7 +36,7 @@ struct ClassifierWindow(FFTProcessable):
                 self.py_input[i] = self.scaled_coeffs[i]
             self.py_output = self.model(self.py_input)
             var o = Float64(py=self.py_output.item())
-            var display: String = "🐶" if o > 0.5 else "❌"
+            var display: String = "🐶" if o > 0.0 else "❌"
             print("Dog:",display,"---", o)
         except e:
             abort("Error predicting: " + String(e))
