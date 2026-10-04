@@ -1,11 +1,8 @@
 from mmm_audio import *
 
-from std.sys import simd_width_of
+comptime model_out_size = 14  # Define the output size of the model
 
-comptime model_out_size = 16  # Define the output size of the model
-
-# THE SYNTH - is imported from TorchSynth.mojo in this directory
-struct TorchSynth(Movable, Copyable):
+struct MLP_Synth(Movable, Copyable):
     var world: World  # Pointer to the MMMWorld instance
     var osc1: Osc[1, Interp.sinc, TimesOversampling.x2]  # Oscillator 1 with interpolation and oversampling
     var osc2: Osc[1, Interp.sinc, TimesOversampling.x2]  # Oscillator 2 with interpolation and oversampling
@@ -34,7 +31,7 @@ struct TorchSynth(Movable, Copyable):
         self.osc2 = Osc[1, Interp.sinc, TimesOversampling.x2](self.world)
 
         # load the trained model
-        self.model = MLP(self.world,"examples/nn_trainings/model_traced.pt", "mlp1", trig_rate=25.0)
+        self.model = MLP[2, model_out_size](self.world, "examples/nn_trainings/mlp_example_training.json", "mlp1", trig_rate=25.0)
 
         # Lags is a utility for processing multiple lag lines in parallel
         self.lags = Lags[model_out_size](self.world, 1/25.0)  # Assuming the model updates at 25 Hz
@@ -71,14 +68,14 @@ struct TorchSynth(Movable, Copyable):
 
         # next_interp implements a variable wavetable oscillator between the N provided wave types
         # in this case, we are using 0, 4, 5, 6 - Sine, BandLimited Tri, BL Saw, BL Square
-        var osc_frac1 = linlin(self.lags[3], 0.0, 1.0, 0.0, 1.0)
+        var osc_frac1 = linlin(self.lags[2], 0.0, 1.0, 0.0, 1.0)
         var osc1 = self.osc1.next_basic_waveforms[OscType.sine, OscType.triangle, OscType.saw, OscType.square](freq1, 0.0, False, osc_frac=osc_frac1)
 
         # samplerate reduction
-        osc1 = self.latch1.next(osc1, self.impulse1.next_bool(linexp(self.lags[4], 0.0, 1.0, 100.0, self.sr*0.5)))
-        osc1 = self.filt1.lpf(osc1, linexp(self.lags[5], 0.0, 1.0, 100.0, 20000.0), linlin(self.lags[6], 0.0, 1.0, 0.707, 4.0))
+        osc1 = self.latch1.next(osc1, self.impulse1.next_bool(linexp(self.lags[3], 0.0, 1.0, 100.0, self.sr*0.5)))
+        osc1 = self.filt1.lpf(osc1, linexp(self.lags[4], 0.0, 1.0, 100.0, 20000.0), linlin(self.lags[5], 0.0, 1.0, 0.707, 4.0))
 
-        var tanh_gain = linlin(self.lags[7], 0.0, 1.0, 0.5, 10.0)
+        var tanh_gain = linlin(self.lags[6], 0.0, 1.0, 0.5, 10.0)
 
         # get rid of dc offset
         osc1 = tanh(osc1*tanh_gain)
@@ -86,33 +83,18 @@ struct TorchSynth(Movable, Copyable):
 
         # oscillator 2 -----------------------
 
-        var freq2 = linlin(self.lags[8], 0.0, 1.0, 2.0, 5000.0) + (linlin(self.lags[9], 0.0, 1.0, 2.0, 5000.0) * osc1)
+        var freq2 = linlin(self.lags[7], 0.0, 1.0, 2.0, 5000.0) + (linlin(self.lags[8], 0.0, 1.0, 2.0, 5000.0) * osc1)
 
-        var osc_frac2 = linlin(self.lags[11], 0.0, 1.0, 0.0, 1.0)
+        var osc_frac2 = linlin(self.lags[9], 0.0, 1.0, 0.0, 1.0)
         var osc2 = self.osc2.next_basic_waveforms[OscType.sine, OscType.triangle, OscType.saw, OscType.square](freq2, 0.0, False, osc_frac=osc_frac2)
 
-        osc2 = self.latch2.next(osc2, self.impulse2.next_bool(linexp(self.lags[12], 0.0, 1.0, 100.0, self.sr*0.5)))
+        osc2 = self.latch2.next(osc2, self.impulse2.next_bool(linexp(self.lags[10], 0.0, 1.0, 100.0, self.sr*0.5)))
 
-        osc2 = self.filt2.lpf(osc2, linexp(self.lags[13], 0.0, 1.0, 100.0, 20000.0), linlin(self.lags[14], 0.0, 1.0, 0.707, 4.0))
+        osc2 = self.filt2.lpf(osc2, linexp(self.lags[11], 0.0, 1.0, 100.0, 20000.0), linlin(self.lags[12], 0.0, 1.0, 0.707, 4.0))
 
-        tanh_gain = linlin(self.lags[15], 0.0, 1.0, 0.5, 10.0)
+        tanh_gain = linlin(self.lags[13], 0.0, 1.0, 0.5, 10.0)
         osc2 = tanh(osc2*tanh_gain)
         osc2 = self.dc2.next(osc2)
         self.fb = osc2
 
         return MFloat[2](osc1, osc2) * 0.1
-
-
-# THE GRAPH
-
-struct TorchMlp(Movable, Copyable):
-    var world: World
-    var torch_synth: TorchSynth  # Instance of the TorchSynth
-
-    def __init__(out self, world: World):
-        self.world = world
-
-        self.torch_synth = TorchSynth(self.world)  # Initialize the TorchSynth with the world instance
-
-    def next(mut self) -> MFloat[2]:
-        return self.torch_synth.next()
