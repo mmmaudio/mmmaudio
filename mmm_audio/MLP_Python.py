@@ -158,13 +158,26 @@ def _module_kind(module) -> str:
     return getattr(module, "original_name", type(module).__name__)
 
 
+# layers that do nothing at inference time, so they can be left out of the export
+SKIPPED_LAYERS = {"Dropout"}
+
+def _leaf_modules(module):
+    """Yield the leaf modules of `module` in order, looking inside containers like `nn.Sequential`."""
+    # Not `modules()`/`children()`: they skip repeated modules, and `activations` hands every
+    # layer the same ReLU/Sigmoid/Tanh instance. `_modules` works for eager and TorchScript.
+    children = list(module._modules.values())
+    if not children:
+        yield module
+    for child in children:
+        yield from _leaf_modules(child)
+
 def _collect_layers(model) -> list[tuple[torch.Tensor, torch.Tensor, str]]:
-    """Walk `model.layers` and pair every Linear with the activation that follows it."""
+    """Walk the layers of `model` and pair every Linear with the activation that follows it."""
     layers = []
-    # Not `children()`: it skips repeated modules, and `activations` hands every layer
-    # the same ReLU/Sigmoid/Tanh instance. `_modules` works for eager and TorchScript.
-    for module in model.layers._modules.values():
+    for module in _leaf_modules(model):
         kind = _module_kind(module)
+        if kind in SKIPPED_LAYERS:
+            continue
         if kind == "Linear":
             layers.append([module.weight.detach().cpu(), module.bias.detach().cpu(), "none"])
         elif kind in ACTIVATION_NAMES:
@@ -182,7 +195,9 @@ def export_mlp_weights(model, out_file: str):
     """Write an MLP's weights as the JSON file the Mojo `MLP` loads.
 
     Args:
-        model: An `MLP` instance, or the path to a TorchScript `.pt` file of one.
+        model: A model made of Linear layers, each optionally followed by ReLU, Sigmoid or Tanh
+            (Dropout layers are skipped), such as an `MLP` instance or an `nn.Sequential`. Or the
+            path to a TorchScript `.pt` file of one.
         out_file: Path of the JSON file to write.
     """
     if isinstance(model, str):

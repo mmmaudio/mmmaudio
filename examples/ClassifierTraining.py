@@ -30,7 +30,7 @@ DOG_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/260518_172526/dog/*"
 OTHER_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/260518_172526/other/*"
 
 CHECKPOINT_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_state.pt"
-TRACED_MODEL_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_traced.pt"
+MODEL_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier.json"
 SCALER_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_scaler.joblib"
 HIDDEN_SIZES = (6,)
 EPOCHS = 300
@@ -404,18 +404,15 @@ def save_scaler(scaler: StandardScaler, scaler_path: Path = SCALER_PATH) -> None
     joblib.dump(scaler, scaler_path)
     print(f"saved scaler to {scaler_path}")
 
-def save_traced_model(
-    model: MFCCClassifier,
-    input_size: int,
-    traced_model_path: Path = TRACED_MODEL_PATH,
-) -> None:
-    traced_model_path.parent.mkdir(parents=True, exist_ok=True)
+def save_model(model: MFCCClassifier, model_path: Path = MODEL_PATH) -> None:
+    """Save the weights as a JSON file that the pure Mojo `MLPNetwork` in Classifier.mojo loads."""
+    from mmm_audio.MLP_Python import export_mlp_weights
+
+    model_path.parent.mkdir(parents=True, exist_ok=True)
     model_for_export = copy.deepcopy(model).to("cpu")
-    model_for_export.eval()
-    example_input = torch.randn(1, input_size, dtype=torch.float32)
-    traced_model = cast(torch.jit.ScriptModule, torch.jit.trace(model_for_export, example_input))
-    torch.jit.save(traced_model, traced_model_path.as_posix())
-    print(f"saved traced model to {traced_model_path}")
+    # the network outputs logits (BCEWithLogitsLoss); a final Sigmoid makes the Mojo side
+    # output the dog probability. Dropout is left out of the export.
+    export_mlp_weights(nn.Sequential(model_for_export.network, nn.Sigmoid()), model_path.as_posix())
 
 def print_metrics(split_name: str, metrics: dict[str, float]) -> None:
     print(
@@ -488,5 +485,5 @@ if __name__ == "__main__":
     print_metrics("validation", evaluate_classifier(model, validation_features, validation_labels, device))
     save_training_checkpoint(model, optimizer, scaler)
     save_scaler(scaler)
-    save_traced_model(model, train_features.shape[1])
+    save_model(model) # this saves the json file that MLPNetwork loads
 

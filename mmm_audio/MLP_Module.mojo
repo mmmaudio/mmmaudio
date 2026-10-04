@@ -20,7 +20,6 @@ Torch trains in float32, so float32 loses nothing against the source weights, an
 doubles the lanes per SIMD register, which roughly halves the cost of `forward`.
 """
 
-
 struct DenseLayer(Copyable, Movable):
     """One `nn.Linear` plus the activation that follows it.
 
@@ -305,8 +304,8 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
         return len(self.layers)
 
 
-struct MLP[input_size: Int = 2, output_size: Int = 16](Copyable, Movable):
-    """A multi-layer perceptron, trained in PyTorch by `MLP_Python.py`, that runs in pure Mojo.
+struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
+    """A multi-layer perceptron, trained in PyTorch by `MLP_Python.py`, that runs in pure Mojo. This is a convenience class around the MLPNetwork, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
 
     The weights come from the JSON file trained by MLP_Python.train_new_mlp`. 
     
@@ -374,12 +373,11 @@ struct MLP[input_size: Int = 2, output_size: Int = 16](Copyable, Movable):
             self.inference_gate = False
 
     @always_inline
-    def next[audio_rate: Bool = False](mut self):
+    def next[every_next: Bool = False](mut self):
         """MLP next function to be called every sample in the audio thread. The model input is taken from `model_input`, and the output is written to `model_output`.
 
         Parameters:
-            audio_rate: If True, the MLP will perform inference on every sample. If False (default), the MLP will perform inference at the rate specified by `trig_rate` (and only if `inference_gate` is True).
-
+            every_next: If True, the MLP will perform inference on every `next()` call. If False (default), the MLP will perform inference at the rate specified by `trig_rate`. In both cases, this is only if `inference_gate` is True.
         """
 
         self.messenger.update("toggle_inference", self.inference_gate)
@@ -395,7 +393,7 @@ struct MLP[input_size: Int = 2, output_size: Int = 16](Copyable, Movable):
                         self.model_output[i] = self.fake_model_output[i]
 
         if self.inference_gate:
-            comptime if audio_rate:
+            comptime if every_next:
                 self.mlp.forward(self.model_input, self.model_output)
             else:
                 if self.inference_trig.next_bool(self.trig_rate):
