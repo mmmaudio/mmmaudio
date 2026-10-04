@@ -206,6 +206,9 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
 
         Args:
             file_name: Path to a file written by `MLP_Python.py`.
+
+        Raises:
+            Error: If the file is missing, malformed, or the wrong shape.
         """
         var path = String(file_name)
         if path.endswith(".pt"):
