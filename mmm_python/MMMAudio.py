@@ -227,7 +227,9 @@ class MMMAudio:
                     x, y = cls._mouse_getter.position()
                     # Send mouse position to all instances via their command queues
                     for instance in cls.instances:
-                        instance.update_mouse_pos(x, y)
+                        # don't pile up positions in the queue while a graph is still compiling
+                        if instance.process_ready.is_set():
+                            instance.update_mouse_pos(x, y)
                 except Exception as e:
                     pass
                 await asyncio.sleep(delay)
@@ -288,15 +290,17 @@ class MMMAudio:
         self.process.start()
         print(f"[Main] Audio process started (PID: {self.process.pid})")
         
+        if MMMAudio._mouse_thread is None or not MMMAudio._mouse_thread.is_alive():
+            MMMAudio.start_mouse()
+        elif MMMAudio._mouse_getter.use_pyauto:
+            # mouse already running for another instance - this one still needs the dims
+            self.set_screen_dims(MMMAudio._mouse_getter.width, MMMAudio._mouse_getter.height)
+
         # Wait for process to be ready
         if self.process_ready.wait(timeout=audio_init_timeout):
             print(f"[Main] Audio process ready, sample rate: {self.sample_rate.value}")
-            
-            # Start mouse tracking if not already running
-            if MMMAudio._mouse_thread is None or not MMMAudio._mouse_thread.is_alive():
-                MMMAudio.start_mouse()
         else:
-            print("[Main] Warning: Audio process initialization timeout")
+            print("[Main] Warning: Audio process still initializing (compile is taking a while) - it will start when ready")
     
     def stop_process(self):
         """Stop the audio process and clean up resources"""
