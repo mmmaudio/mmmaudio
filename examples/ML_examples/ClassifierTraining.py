@@ -21,7 +21,7 @@ import torch.nn as nn
 from sklearn.preprocessing import StandardScaler
 import argparse
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from mmm_python import *
 
@@ -406,7 +406,7 @@ def save_scaler(scaler: StandardScaler, scaler_path: Path = SCALER_PATH) -> None
 
 def save_model(model: MFCCClassifier, model_path: Path = MODEL_PATH) -> None:
     """Save the weights as a JSON file that the pure Mojo `MLPNetwork` in Classifier.mojo loads."""
-    from mmm_audio.MLP_Python import export_mlp_weights
+    from mmm_audio.ML.MLP_Python import export_mlp_weights
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
     model_for_export = copy.deepcopy(model).to("cpu")

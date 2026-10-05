@@ -3,8 +3,8 @@ from mmm_audio.functions import *
 from mmm_audio.Buffer_Module import Buffer
 from mmm_audio.MMMWorld_Module import WindowType
 from mmm_audio.FFTProcess_Module import FFTProcessable
-from mmm_audio.Analysis import GetFloat64Featurable
-from mmm_audio.MBufAnalysisBridge import MBufAnalysis
+from mmm_audio.ML.Analysis import GetFloat64Featurable
+from mmm_audio.ML.MBufAnalysisBridge import MBufAnalysis
 from std.complex import *
 import std.math as Math
 from std.sys import size_of, simd_width_of

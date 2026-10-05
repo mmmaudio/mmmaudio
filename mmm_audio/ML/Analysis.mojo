@@ -1,13 +1,13 @@
 
 from std.math import atan2, ceil, floor, log2, log, exp, sin, sqrt, cos, pi, inf
-from .Buffer_Module import Buffer
-from .BufferedProcess_Module import BufferedProcessable
-from .FFTs import RealFFT
-from .FFTProcess_Module import FFTProcessable
+from mmm_audio.Buffer_Module import Buffer
+from mmm_audio.BufferedProcess_Module import BufferedProcessable
+from mmm_audio.FFTs import RealFFT
+from mmm_audio.FFTProcess_Module import FFTProcessable
 from .MBufAnalysisBridge import MBufAnalysis, Padding
-from .functions import *
-from .constants import *
-from .MMMWorld_Module import WindowType
+from mmm_audio.functions import *
+from mmm_audio.constants import *
+from mmm_audio.MMMWorld_Module import WindowType
 
 @always_inline
 @doc_hidden

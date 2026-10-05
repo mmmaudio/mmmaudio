@@ -3,7 +3,7 @@ This example demonstrates how to use YIN pitch detection, RMS amplitude analysis
 """
 
 from mmm_python import *
-ma = MMMAudio(128, graph_name="AnalysisExample", package_name="examples")
+ma = MMMAudio(128, graph_name="AnalysisExample", package_name="examples.ML_examples")
 ma.start_audio()
 
 ma.send_float("freq", 290.5)

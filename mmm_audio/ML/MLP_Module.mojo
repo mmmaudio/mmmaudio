@@ -154,11 +154,11 @@ def _activation_code(name: String) raises -> Int:
 struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
     """A multi-layer perceptron in pure Mojo which loads its weights from a torch trained JSON file.
 
-    Runs a network trained by `train_new_mlp` in `mmm_audio/MLP_Python.py`, which saves
+    Runs a network trained by `train_new_mlp` in `mmm_audio/ML/MLP_Python.py`, which saves
     the JSON weight file this loads. Older TorchScript `.pt` trainings must be converted
     to JSON first with:
     ```
-        from mmm_audio.MLP_Python import export_mlp_weights
+        from mmm_audio.ML.MLP_Python import export_mlp_weights
         export_mlp_weights("old_training.pt", "new_training.json")
     ```
 
@@ -314,7 +314,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
     
     Older TorchScript `.pt` trainings need to be converted to a `.json` file before they can be used. You can convert a `.pt` to `.json` with:
 
-        from mmm_audio.MLP_Python import export_mlp_weights
+        from mmm_audio.ML.MLP_Python import export_mlp_weights
         export_mlp_weights(pt_file_path, json_file_path)
 
     Messages:

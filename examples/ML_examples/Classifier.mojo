@@ -1,7 +1,7 @@
 from mmm_audio import *
 
-comptime scaler_path = "examples/nn_trainings/mfcc_classifier_scaler.joblib"
-comptime model_path = "examples/nn_trainings/mfcc_classifier.json"
+comptime scaler_path = "examples/ML_examples/nn_trainings/mfcc_classifier_scaler.joblib"
+comptime model_path = "examples/ML_examples/nn_trainings/mfcc_classifier.json"
 
 comptime windowsize = 1024
 comptime hopsize = windowsize // 2

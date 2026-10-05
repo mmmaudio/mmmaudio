@@ -1,6 +1,6 @@
 from .MMMWorld_Module import *
 
-from .Analysis import *
+from .ML.Analysis import *
 from .Buffer_Module import *
 from .BufferedProcess_Module import *
 from .Data import *
@@ -10,10 +10,10 @@ from .Envelopes import *
 from .FFTProcess_Module import *
 from .FFTs import *
 from .Filters import *
-from .MBufAnalysisBridge import *
-from .MLP_Module import *
+from .ML.MBufAnalysisBridge import *
+from .ML.MLP_Module import *
 from .Noise import *
-from .OnsetDetection_Module import *
+from .ML.OnsetDetection_Module import *
 from .Oscillators import *
 from .Oversampling import *
 from .Pan import *

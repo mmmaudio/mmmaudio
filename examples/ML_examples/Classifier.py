@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 import argparse
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from mmm_python import *
 
@@ -12,7 +12,7 @@ def main():
     args = parser.parse_args()
     # outdevice = 'BlackHole 2ch'
     outdevice = 'default'
-    mmm_audio = MMMAudio(in_device=None, out_device=outdevice, blocksize=512, graph_name="Classifier", package_name="examples")
+    mmm_audio = MMMAudio(in_device=None, out_device=outdevice, blocksize=512, graph_name="Classifier", package_name="examples.ML_examples")
     if args.src:
         mmm_audio.send_string("src", args.src)
     mmm_audio.start_audio()

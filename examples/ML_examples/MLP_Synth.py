@@ -6,8 +6,8 @@ The Mojo side MLP does not use PyTorch, but loads the training weights from a JS
 if True:
     from mmm_python import *
 
-    MMMAudio.compile("MLP_Synth", "examples")
-    m_a = MMMAudio(128, in_device=None, graph_name="MLP_Synth", package_name="examples")
+    MMMAudio.compile("MLP_Synth", "examples.ML_examples")
+    m_a = MMMAudio(128, in_device=None, graph_name="MLP_Synth", package_name="examples.ML_examples")
 
     # this one is a bit intense, so maybe start with a low volume
     m_a.start_audio()
@@ -15,7 +15,7 @@ if True:
 # the MLP training GUI can be used to train an MLP in Python and save the weights to a JSON file that can be loaded into Mojo.
 
 if True:
-    from mmm_audio import MLP_Trainer
+    from mmm_audio.ML import MLP_Trainer
     from mmm_python import *
 
     qapp = QApplication.instance() or QApplication([])
@@ -29,8 +29,8 @@ if True:
         layers,
         labels = ["freq1", "mod1", "osc1_frac", "sr_reduction", "lpf1", "q1", "tanh_gain2", "freq2", "mod2", "osc2_frac", "sr_reduction2", "lpf2", "q2", "tanh_gain2"],
         mlp_namespace = "mlp1",
-        save_points_path = "examples/nn_trainings/mlp_example_training_points.json",
-        save_path = "examples/nn_trainings/mlp_example_training.json",
+        save_points_path = "examples/ML_examples/nn_trainings/mlp_example_training_points.json",
+        save_path = "examples/ML_examples/nn_trainings/mlp_example_training.json",
         controls_list = [
             Slider2D(200, 200)
         ],

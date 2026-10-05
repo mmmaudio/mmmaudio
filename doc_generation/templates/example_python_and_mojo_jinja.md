@@ -3,12 +3,12 @@
 # {{ example_name }}
 
 <!-- Use mkdocs ":::" syntax to get docstring from Python file -->
-:::examples.{{python_file_stem}}
+:::{{example_module}}
     options:
       members: []
 
 {% if tosc is defined %}
-This example has a corresponding [TouchOSC file](https://github.com/spluta/MMMAudio/blob/main/examples/{{ tosc }}).
+This example has a corresponding [TouchOSC file](https://github.com/spluta/MMMAudio/blob/main/{{ example_rel_dir }}/{{ tosc }}).
 {% endif %}
 
 ## Python Code
@@ -23,6 +23,6 @@ This example has a corresponding [TouchOSC file](https://github.com/spluta/MMMAu
 <!-- Put the contents of the .mojo file *of the same name!* here -->
 ```mojo
 
---8<-- "examples/{{mojo_file_name}}"
+--8<-- "{{ example_rel_dir }}/{{mojo_file_name}}"
 
 ```

@@ -4,7 +4,7 @@ The audio plays in the left channel and onset impulses are heard in the right ch
 """
 
 from mmm_python import *
-ma = MMMAudio(128, graph_name="SpectralOnsetExample", package_name="examples")
+ma = MMMAudio(128, graph_name="SpectralOnsetExample", package_name="examples.ML_examples")
 ma.start_audio()
 
 # Adjust threshold for onset sensitivity (lower = more sensitive)
