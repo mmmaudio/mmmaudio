@@ -1,28 +1,20 @@
 """Contains a Multi-Layer Perceptron (MLP) implementation using PyTorch and the train_new_mlp function to train the network.
 
-Trained networks are saved as JSON weight files, which the pure Mojo `MLP` in
-`MLP_Module.mojo` loads without Python or torch. Older TorchScript `.pt` trainings can be
-converted with `export_mlp_weights`.
+Trained networks are saved as safetensors weight files, which the pure Mojo `MLP` in
+`MLP_Module.mojo` loads (with `SafeTensors.mojo`) without Python or torch. Older TorchScript
+`.pt` and JSON trainings can be converted with `export_mlp_weights`.
 
-JSON weight file format:
+Safetensors weight file format:
 
-    {
-      "format": "mmm_mlp",
-      "version": 2,
-      "layers": [
-        {
-          "in_size": 2,
-          "out_size": 64,
-          "activation": "relu",           # "none", "relu", "sigmoid" or "tanh"
-          "weight": [[...], ...],         # out_size rows of in_size floats (torch's [out, in] layout)
-          "bias": [...]                   # out_size floats
-        },
-        ...
-      ]
-    }
-
-Weights are float32 in torch; they are written as the float64 values they widen to,
-so reading them back and narrowing to float32 is exact.
+    tensors (float32):
+        "layers.0.weight"   [out_size, in_size]   (torch's nn.Linear layout)
+        "layers.0.bias"     [out_size]
+        "layers.1.weight"   ...
+    metadata (all strings):
+        "format":      "mmm_mlp"
+        "version":     "3"
+        "num_layers":  number of Linear layers
+        "activations": one per layer, comma separated: "none", "relu", "sigmoid" or "tanh"
 """
 
 import json
@@ -89,7 +81,7 @@ def train_new_mlp(X_train_list: list[list[float]], y_train_list: list[list[float
         layers: List of layer specifications (size and activation).
         learn_rate: Learning rate for the optimizer.
         epochs: Number of training epochs.
-        file_name: Where to save the trained weights, as a JSON file.
+        file_name: Where to save the trained weights, as a `.safetensors` file.
     """
 
     if torch.backends.mps.is_available():
@@ -140,16 +132,16 @@ def make_dummy_mlp_training(input_size: int, layers: list[tuple[int, str | None]
     Args:
         input_size: Size of the input layer.
         layers: List of layer specifications (size and activation), as in `train_new_mlp`.
-        file_name: Where to save the weights, as a JSON file.
+        file_name: Where to save the weights, as a `.safetensors` file.
     """
     layers_data = [(size, activations[activation] if activation is not None else None) for size, activation in layers]
     model = MLP(input_size, layers_data)
     export_mlp_weights(model, file_name)
 
-#--------The code below is for exporting the weights of a trained MLP to a JSON file that can be loaded by the Mojo MLP. It is not used in the Mojo code, but is useful for converting older TorchScript `.pt` trainings to the JSON format that the Mojo MLP expects.
+#--------The code below is for exporting the weights of a trained MLP to a safetensors file that can be loaded by the Mojo MLP. It is also useful for converting older TorchScript `.pt` and JSON trainings to the safetensors format that the Mojo MLP expects.
 
 FORMAT = "mmm_mlp"
-VERSION = 2
+VERSION = 3
 
 ACTIVATION_NAMES = {"ReLU": "relu", "Sigmoid": "sigmoid", "Tanh": "tanh"}
 
@@ -191,36 +183,48 @@ def _collect_layers(model) -> list[tuple[torch.Tensor, torch.Tensor, str]]:
     return [tuple(layer) for layer in layers]
 
 
+def _load_json_layers(json_file: str) -> list[tuple[torch.Tensor, torch.Tensor, str]]:
+    """Read the layers of an older (version 2) JSON weight file."""
+    with open(json_file) as f:
+        doc = json.load(f)
+    if doc.get("format") != FORMAT or doc.get("version") != 2:
+        raise ValueError(f"not a version 2 MLP JSON weight file: {json_file}")
+    return [
+        (torch.tensor(layer["weight"], dtype=torch.float32),
+         torch.tensor(layer["bias"], dtype=torch.float32),
+         layer["activation"])
+        for layer in doc["layers"]
+    ]
+
 def export_mlp_weights(model, out_file: str):
-    """Write an MLP's weights as the JSON file the Mojo `MLP` loads.
+    """Write an MLP's weights as the safetensors file the Mojo `MLP` loads.
 
     Args:
         model: A model made of Linear layers, each optionally followed by ReLU, Sigmoid or Tanh
             (Dropout layers are skipped), such as an `MLP` instance or an `nn.Sequential`. Or the
-            path to a TorchScript `.pt` file of one.
-        out_file: Path of the JSON file to write.
+            path to a TorchScript `.pt` file of one, or to an older JSON weight file.
+        out_file: Path of the `.safetensors` file to write.
     """
-    if isinstance(model, str):
-        model = torch.jit.load(model, map_location="cpu")
+    from safetensors.torch import save_file
 
-    layers = _collect_layers(model)
+    if isinstance(model, str) and model.endswith(".json"):
+        layers = _load_json_layers(model)
+    else:
+        if isinstance(model, str):
+            model = torch.jit.load(model, map_location="cpu")
+        layers = _collect_layers(model)
 
-    doc = {
+    tensors = {}
+    for i, (weight, bias, _) in enumerate(layers):
+        tensors[f"layers.{i}.weight"] = weight.to(torch.float32).contiguous()
+        tensors[f"layers.{i}.bias"] = bias.to(torch.float32).contiguous()
+    metadata = {
         "format": FORMAT,
-        "version": VERSION,
-        "layers": [
-            {
-                "in_size": weight.shape[1],
-                "out_size": weight.shape[0],
-                "activation": activation,
-                "weight": weight.to(torch.float32).tolist(),
-                "bias": bias.to(torch.float32).tolist(),
-            }
-            for weight, bias, activation in layers
-        ],
+        "version": str(VERSION),
+        "num_layers": str(len(layers)),
+        "activations": ",".join(activation for _, _, activation in layers),
     }
-    with open(out_file, "w") as f:
-        json.dump(doc, f)
+    save_file(tensors, out_file, metadata=metadata)
 
     sizes = [layers[0][0].shape[1]] + [w.shape[0] for w, _, _ in layers]
     print(f"Model saved to {out_file}: layer sizes {sizes}")

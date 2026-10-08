@@ -487,7 +487,8 @@ def compare_long_lists[chunk_size: Int = 64](a: List[Float64], b: List[Float64],
 
 def pca_test(whiten: Bool) raises:
 
-    var joblib = Python.import_module("joblib")
+    Python.add_to_path(".")
+    var data_python = Python.import_module("mmm_audio.ML.Data_Python")
     var np = Python.import_module("numpy")
 
     # dataset
@@ -499,8 +500,8 @@ def pca_test(whiten: Bool) raises:
     pca_py.fit(dataset)
 
     # write
-    var pca_py_tmp_path = "tmp_pca.joblib"
-    joblib.dump(pca_py, pca_py_tmp_path)
+    var pca_py_tmp_path = "tmp_pca.safetensors"
+    data_python.save_pca(pca_py, pca_py_tmp_path)
 
     # read with mojo
     var pca_mojo = PCA(pca_py_tmp_path)
@@ -537,7 +538,8 @@ def test_pca() raises:
     pca_test(whiten=True)
     
 def test_standard_scaler() raises:
-    var joblib = Python.import_module("joblib")
+    Python.add_to_path(".")
+    var data_python = Python.import_module("mmm_audio.ML.Data_Python")
     var np = Python.import_module("numpy")
     var sklearn = Python.import_module("sklearn")
 
@@ -550,8 +552,8 @@ def test_standard_scaler() raises:
     scaler_sklearn.fit(dataset)
 
     # write
-    var scaler_tmp_path = "tmp_standard_scaler.joblib"
-    joblib.dump(scaler_sklearn, scaler_tmp_path)
+    var scaler_tmp_path = "tmp_standard_scaler.safetensors"
+    data_python.save_standard_scaler(scaler_sklearn, scaler_tmp_path)
 
     # read with mojo
     var scaler_mojo = StandardScaler(scaler_tmp_path)

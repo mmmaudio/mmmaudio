@@ -17,6 +17,8 @@ def test_dir(dirpath: str, skips: list[str] = []):
             os.system(f"rm {stem}.o")
             
 if __name__ == "__main__":
-    test_dir("mmm_audio",["Analysis.mojo"])
+    test_dir("mmm_audio")
+    test_dir("mmm_audio/ML",["Analysis.mojo"])
     test_dir("examples")
+    test_dir("examples/ML_examples")
     test_dir("examples/tests")

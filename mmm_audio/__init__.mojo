@@ -3,7 +3,7 @@ from .MMMWorld_Module import *
 from .ML.Analysis import *
 from .Buffer_Module import *
 from .BufferedProcess_Module import *
-from .Data import *
+from .ML.Data import *
 from .Delays import *
 from .Distortion import *
 from .Envelopes import *
@@ -12,6 +12,7 @@ from .FFTs import *
 from .Filters import *
 from .ML.MBufAnalysisBridge import *
 from .ML.MLP_Module import *
+from .ML.SafeTensors import *
 from .Noise import *
 from .ML.OnsetDetection_Module import *
 from .Oscillators import *

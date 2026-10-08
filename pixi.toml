@@ -1,6 +1,6 @@
 [workspace]
 authors = ["Sam Pluta <spluta@gmail.com>","Ted Moore <ted@tedmooremusic.com>"]
-channels = ["conda-forge", "pytorch", "https://conda.modular.com/max"]
+channels = ["https://prefix.dev/modular-community", "conda-forge", "pytorch", "https://conda.modular.com/max"]
 name = "MMMAudio"
 platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
 version = "0.1.0"
@@ -54,7 +54,8 @@ jupyterlab = ">=4.5.5,<5"
 pixi-kernel = ">=0.7.1,<0.8"
 max = ">=26.5.0,<27"
 portaudio = ">=19.7.0,<20"
-json = { git = "https://github.com/ehsanmok/json.git", tag = "v0.4.0" }
+safetensors = ">=0.8.0,<0.9"
+emberjson = "*"
 
 # torch comes from a different place on each platform.
 #

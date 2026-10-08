@@ -14,7 +14,6 @@ from pathlib import Path
 import sys
 from typing import Any, cast
 
-import joblib
 import numpy as np
 import torch
 import torch.nn as nn
@@ -30,8 +29,8 @@ DOG_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/260518_172526/dog/*"
 OTHER_GLOB = "/Users/ted/Desktop/dog-dataset/_bounces/260518_172526/other/*"
 
 CHECKPOINT_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_state.pt"
-MODEL_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier.json"
-SCALER_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_scaler.joblib"
+MODEL_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier.safetensors"
+SCALER_PATH = Path(__file__).parent / "nn_trainings" / "mfcc_classifier_scaler.safetensors"
 HIDDEN_SIZES = (6,)
 EPOCHS = 300
 LEARNING_RATE = 1e-3
@@ -170,8 +169,10 @@ def load_or_fit_scaler(
     scaler_path: Path = SCALER_PATH,
 ) -> StandardScaler:
     if checkpoint is not None and scaler_path.exists():
+        from mmm_audio.ML.Data_Python import load_standard_scaler
+
         print(f"loaded scaler from {scaler_path}")
-        return joblib.load(scaler_path)
+        return load_standard_scaler(scaler_path.as_posix())
 
     if checkpoint is not None:
         scaler = rebuild_scaler_from_checkpoint(checkpoint)
@@ -400,12 +401,14 @@ def save_training_checkpoint(
     print(f"saved training checkpoint to {checkpoint_path}")
 
 def save_scaler(scaler: StandardScaler, scaler_path: Path = SCALER_PATH) -> None:
+    """Save the scaler as a safetensors file that the Mojo `StandardScaler` in Classifier.mojo loads."""
+    from mmm_audio.ML.Data_Python import save_standard_scaler
+
     scaler_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(scaler, scaler_path)
-    print(f"saved scaler to {scaler_path}")
+    save_standard_scaler(scaler, scaler_path.as_posix())
 
 def save_model(model: MFCCClassifier, model_path: Path = MODEL_PATH) -> None:
-    """Save the weights as a JSON file that the pure Mojo `MLPNetwork` in Classifier.mojo loads."""
+    """Save the weights as a safetensors file that the pure Mojo `MLPNetwork` in Classifier.mojo loads."""
     from mmm_audio.ML.MLP_Python import export_mlp_weights
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -485,5 +488,5 @@ if __name__ == "__main__":
     print_metrics("validation", evaluate_classifier(model, validation_features, validation_labels, device))
     save_training_checkpoint(model, optimizer, scaler)
     save_scaler(scaler)
-    save_model(model) # this saves the json file that MLPNetwork loads
+    save_model(model) # this saves the safetensors file that MLPNetwork loads
 

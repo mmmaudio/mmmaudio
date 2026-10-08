@@ -31,7 +31,7 @@ struct MLP_Synth(Movable, Copyable):
         self.osc2 = Osc[1, Interp.sinc, TimesOversampling.x2](self.world)
 
         # load the trained model
-        self.model = MLP[2, model_out_size](self.world, "examples/ML_examples/nn_trainings/mlp_example_training.json", "mlp1", trig_rate=25.0)
+        self.model = MLP[2, model_out_size](self.world, "examples/ML_examples/nn_trainings/mlp_example_training.safetensors", "mlp1", trig_rate=25.0)
 
         # Lags is a utility for processing multiple lag lines in parallel
         self.lags = Lags[model_out_size](self.world, 1/25.0)  # Assuming the model updates at 25 Hz

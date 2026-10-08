@@ -14,7 +14,7 @@ A typical session:
 5. When training finishes the new weights are loaded into MMMAudio. Turn inference on and
    the input controls now play the synth through the network.
 
-You can also save and load the training points and weights to JSON files. This means you can make a training set in Python, save it, and then load it into the GUI later to continue training or to train a new network.
+You can also save and load the training points to a JSON file, and the trained weights are saved as a safetensors file. This means you can make a training set in Python, save it, and then load it into the GUI later to continue training or to train a new network.
 
 The Mojo graph needs an `MLP` whose `input_size` and `output_size` match the GUI, and whose
 namespace matches `mlp_namespace`. See `examples/ML_examples/MLP_Synth.py` for a full example.
@@ -77,7 +77,7 @@ class MLPTrainingGUI():
             labels: One label per network output; one output slider is made for each.
             mlp_namespace: Namespace of the Mojo `MLP` to send messages to (e.g. `"mlp1"`).
             save_points_path: JSON file the training points are saved to and loaded from.
-            save_path: JSON file the trained weights are saved to and loaded into MMMAudio from.
+            save_path: `.safetensors` file the trained weights are saved to and loaded into MMMAudio from.
             controls_list: Input controls: `Slider2D`s (two inputs each) or Qt sliders with
                 `value()`, `minimum()` and `maximum()` (one input each). This list of controls should match the number of inputs specified by `input_size`. The controls will be added to the window and their values will be normalized to 0.0-1.0 for training.
             epochs: Number of training epochs. Can also be changed in the GUI. Default is 5000.
