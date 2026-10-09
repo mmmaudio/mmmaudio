@@ -3,7 +3,7 @@ from std.os.path import exists
 from std.python import Python
 from std.python._cpython import PyGILState_STATE
 from std.sys import simd_width_of
-from json import load as _load_json, Value as _JsonValue
+from mmm_audio.ML.SafeTensors import SafeTensors
 from mmm_audio.constants import *
 from mmm_audio.Oscillators import Phasor
 
@@ -11,7 +11,6 @@ comptime ACT_NONE = 0
 comptime ACT_RELU = 1
 comptime ACT_SIGMOID = 2
 comptime ACT_TANH = 3
-
 
 comptime MLPWeight = Float32
 """Storage and arithmetic type inside the network.
@@ -73,7 +72,7 @@ struct DenseLayer(Copyable, Movable):
         # Weight @ input + bias, `R` rows at a time
         var j = 0
         while j + R <= self.out_size:
-            var acc = InlineArray[SIMD[DType.float32, W], R](fill=0.0)
+            var acc = Array[SIMD[DType.float32, W], R](fill=0.0)
             for i in range(0, n_vec, W):
                 var x = buf.unsafe_load[width=W](in_offset + i)
                 comptime for r in range(R):
@@ -152,14 +151,14 @@ def _activation_code(name: String) raises -> Int:
     raise Error("unknown activation: " + name)
 
 struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
-    """A multi-layer perceptron in pure Mojo which loads its weights from a torch trained JSON file.
+    """A multi-layer perceptron in pure Mojo which loads its weights from a torch trained safetensors file.
 
-    Runs a network trained by `train_new_mlp` in `mmm_audio/MLP_Python.py`, which saves
-    the JSON weight file this loads. Older TorchScript `.pt` trainings must be converted
-    to JSON first with:
+    Runs a network trained by `train_new_mlp` in `mmm_python/ML/MLP_Python.py`, which saves
+    the safetensors weight file this loads (read with `SafeTensors`). Older TorchScript `.pt`
+    and JSON trainings must be converted to safetensors first with:
     ```
-        from mmm_audio.MLP_Python import export_mlp_weights
-        export_mlp_weights("old_training.pt", "new_training.json")
+        from mmm_python.ML.MLP_Python import export_mlp_weights
+        export_mlp_weights("old_training.pt", "new_training.safetensors")
     ```
 
     Supports any stack of `nn.Linear` layers, each optionally followed by ReLU,
@@ -191,7 +190,7 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
         """Make a network and load its weights, printing an error if the load fails.
 
         Args:
-            file_name: Path to a file written by `MLP_Python.py`.
+            file_name: Path to a file written by `mmm_python/ML/MLP_Python.py`.
         """
         self = Self()
         try:
@@ -200,65 +199,57 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
             print("Error loading MLP weights:", e)
 
     def load(mut self, file_name: String) raises:
-        """Replace the network with the one stored in `file_name`. It is looking for a JSON file written by `MLP_Python.py`. TorchScript `.pt` files are not supported; convert them with `export_mlp_weights` first.
+        """Replace the network with the one stored in `file_name`. It is looking for a safetensors file written by `mmm_python/ML/MLP_Python.py`. TorchScript `.pt` and JSON files are not supported; convert them with `export_mlp_weights` first.
 
         The current network is kept if the file is missing, malformed, or the wrong shape.
 
         Args:
-            file_name: Path to a file written by `MLP_Python.py`.
+            file_name: Path to a file written by `mmm_python/ML/MLP_Python.py`.
 
         Raises:
             Error: If the file is missing, malformed, or the wrong shape.
         """
         var path = String(file_name)
-        if path.endswith(".pt"):
-            raise Error("TorchScript files are not supported directly. Please convert them to JSON format first using `export_mlp_weights`.")
-        var doc = _load_json(path)
+        if path.endswith(".pt") or path.endswith(".json"):
+            raise Error("MLP trainings are now safetensors files. Convert " + path + " with `export_mlp_weights` in mmm_python/ML/MLP_Python.py.")
+        var st = SafeTensors(path)
 
-        if not doc.is_object() or doc.get("format", _JsonValue("")).string_or("") != "mmm_mlp":
+        if not st.has_metadata("format") or st.metadata("format") != "mmm_mlp":
             raise Error("not an MLP weight file: " + path)
-        var version = doc["version"].as_int()
-        if version != 2:
-            raise Error("unsupported MLP weight file version " + String(version))
+        var version = st.metadata("version")
+        if version != "3":
+            raise Error("unsupported MLP weight file version " + version)
 
-        var layers_json = doc["layers"]
-        var layers = List[DenseLayer](capacity=len(layers_json))
+        var activations = st.metadata("activations").split(",")
+        var num_layers = Int(st.metadata("num_layers"))
+        if len(activations) != num_layers:
+            raise Error("MLP weight file has " + String(num_layers) + " layers but " + String(len(activations)) + " activations")
+
+        var layers = List[DenseLayer](capacity=num_layers)
         var widest = Self.input_size
         var expected_in = Self.input_size
-        var l = 0
-        for layer_json in layers_json:
-            var in_size = Int(layer_json["in_size"].as_int())
-            var out_size = Int(layer_json["out_size"].as_int())
-            var activation = _activation_code(layer_json["activation"].as_string())
+        for l in range(num_layers):
+            var prefix = "layers." + String(l) + "."
+            var shape = st.shape(prefix + "weight")
+            if len(shape) != 2:
+                raise Error("layer " + String(l) + " weight is not 2 dimensional")
+            var out_size = shape[0]
+            var in_size = shape[1]
             if in_size != expected_in:
                 raise Error(
                     "layer " + String(l) + " expects " + String(in_size)
                     + " inputs but receives " + String(expected_in)
                 )
 
-            var layer = DenseLayer(in_size, out_size, activation)
-            var weight_json = layer_json["weight"]
-            if len(weight_json) != out_size:
-                raise Error("layer " + String(l) + " weight has the wrong number of rows")
-            var i = 0
-            for row in weight_json:
-                if len(row) != in_size:
-                    raise Error("layer " + String(l) + " weight has the wrong number of columns")
-                for v in row:
-                    layer.weight[i] = MLPWeight(v.as_float())
-                    i += 1
-            var bias_json = layer_json["bias"]
-            if len(bias_json) != out_size:
+            var layer = DenseLayer(in_size, out_size, _activation_code(String(activations[l])))
+            layer.weight = st.get[DType.float32](prefix + "weight")
+            layer.bias = st.get[DType.float32](prefix + "bias")
+            if len(layer.bias) != out_size:
                 raise Error("layer " + String(l) + " bias has the wrong size")
-            i = 0
-            for v in bias_json:
-                layer.bias[i] = MLPWeight(v.as_float())
-                i += 1
             layers.append(layer^)
 
             expected_in = out_size
             widest = max(widest, out_size)
-            l += 1
 
         if expected_in != Self.output_size:
             raise Error(
@@ -308,20 +299,20 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
 
 
 struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
-    """A multi-layer perceptron, trained in PyTorch by `MLP_Python.py`, that runs in pure Mojo. This is a convenience class around the MLPNetwork, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
+    """A multi-layer perceptron, trained in PyTorch by `mmm_python/ML/MLP_Python.py`, that runs in pure Mojo. This is a convenience class around the MLPNetwork, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
 
-    The weights come from the JSON file trained by MLP_Python.train_new_mlp`. 
-    
-    Older TorchScript `.pt` trainings need to be converted to a `.json` file before they can be used. You can convert a `.pt` to `.json` with:
+    The weights come from the safetensors file trained by `MLP_Python.train_new_mlp`.
 
-        from mmm_audio.MLP_Python import export_mlp_weights
-        export_mlp_weights(pt_file_path, json_file_path)
+    Older TorchScript `.pt` and JSON trainings need to be converted to a `.safetensors` file before they can be used. You can convert them with:
+
+        from mmm_python.ML.MLP_Python import export_mlp_weights
+        export_mlp_weights(old_file_path, safetensors_file_path)
 
     Messages:
 
     - `toggle_inference` (bool): run the network, or hold still for training
     - `fake_model_output` (floats): with inference off, write these to `model_output`
-    - `load_mlp_training` (string): load a new training (`.json` files only)
+    - `load_mlp_training` (string): load a new training (`.safetensors` files only)
 
     Parameters:
       input_size: The size of the input vector.
@@ -343,7 +334,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
 
         Args:
           world: Pointer to the MMMWorld.
-          file_name: The path to the JSON weight file.
+          file_name: The path to the safetensors weight file.
           namespace: Optional namespace for the Messenger.
           trig_rate: The rate in Hz at which to trigger inference.
         """
@@ -366,7 +357,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
         If the load fails, inference is turned off.
 
         Args:
-          file_name: The path to the model file (`.json` only).
+          file_name: The path to the model file (`.safetensors` only).
         """
         try:
             self.mlp.load(file_name)

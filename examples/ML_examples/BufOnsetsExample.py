@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from mmm_python import *
 import matplotlib.pyplot as plt
@@ -8,7 +8,7 @@ import numpy as np
 import librosa
 
 d = {
-    "path":"/Users/ted/Documents/_TEACHING/_materials/flucoma/FluCoMa-Pedagogical-Materials-repo/media/Nicol-LoopE-M.wav",
+    "path":"resources/Shiverer.wav",
      "thresh":68.0,
      "min_slice_len":0.1,# in seconds
      "window_size":1024,

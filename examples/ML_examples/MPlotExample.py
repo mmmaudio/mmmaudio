@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSizePolicy
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from mmm_python import *
 from umap import UMAP
 from sklearn.neighbors import KDTree
@@ -62,7 +62,7 @@ def main():
         data_umap = UMAP(n_components=2,learning_rate=0.1,min_dist=0.01,n_epochs=200).fit_transform(data)
 
         # pickle analysis
-        with open("examples/MPlotExample_Analysis.pkl", "wb") as f:
+        with open("examples/ML_examples/MPlotExample_Analysis.pkl", "wb") as f:
             pickle.dump({
                 "data_umap": data_umap,
                 "slice_points": slice_points,
@@ -77,7 +77,7 @@ def main():
 
     kdtree = KDTree(data_umap)
 
-    ma = MMMAudio(128,graph_name="MPlotExample", package_name="examples", in_device=None, out_device="default")
+    ma = MMMAudio(128,graph_name="MPlotExample", package_name="examples.ML_examples", in_device=None, out_device="default")
     ma.send_string("load_sound", d["path"])
 
     prev = None

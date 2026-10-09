@@ -3,7 +3,7 @@
 """
 
 from mmm_python import *
-ma = MMMAudio(128, graph_name="MelBandsExample", package_name="examples")
+ma = MMMAudio(128, graph_name="MelBandsExample", package_name="examples.ML_examples")
 ma.start_audio()
 
 ma.send_float("viz_mul",300.0) # 300 is the default in Mojo also

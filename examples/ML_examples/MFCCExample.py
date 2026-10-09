@@ -3,7 +3,7 @@
 """
 
 from mmm_python import *
-ma = MMMAudio(128, graph_name="MFCCExample", package_name="examples")
+ma = MMMAudio(128, graph_name="MFCCExample", package_name="examples.ML_examples")
 ma.start_audio()
 
 ma.send_int("update_modulus",80) # higher number = slower updates

@@ -5,8 +5,8 @@ from std.python.bindings import PythonModuleBuilder
 from std.os import abort
 from mmm_audio.constants import *
 from mmm_audio.Buffer_Module import Buffer, SpanInterpolator
-from mmm_audio.Analysis import *
-from mmm_audio.OnsetDetection_Module import OnsetDetection, OnsetMetric, OnsetDetectionFeature
+from mmm_audio.ML.Analysis import *
+from mmm_audio.ML.OnsetDetection_Module import OnsetDetection, OnsetMetric, OnsetDetectionFeature
 from mmm_audio.MMMWorld_Module import MMMWorld, Environment
 from mmm_audio.Windows_Module import Windows, WindowType
 from std.memory.alloc import unsafe_alloc

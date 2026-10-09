@@ -1,13 +1,13 @@
 
 from std.math import atan2, ceil, floor, log2, log, exp, sin, sqrt, cos, pi, inf
-from .Buffer_Module import Buffer
-from .BufferedProcess_Module import BufferedProcessable
-from .FFTs import RealFFT
-from .FFTProcess_Module import FFTProcessable
+from mmm_audio.Buffer_Module import Buffer
+from mmm_audio.BufferedProcess_Module import BufferedProcessable
+from mmm_audio.FFTs import RealFFT
+from mmm_audio.FFTProcess_Module import FFTProcessable
 from .MBufAnalysisBridge import MBufAnalysis, Padding
-from .functions import *
-from .constants import *
-from .MMMWorld_Module import WindowType
+from mmm_audio.functions import *
+from mmm_audio.constants import *
+from mmm_audio.MMMWorld_Module import WindowType
 
 @always_inline
 @doc_hidden
@@ -1710,10 +1710,10 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
         #     if b[1] <= 0.0:
         #         return True
         #     return a[1] > b[1]
-        def cmp_fn(a: Tuple[Float64, Float64], b: Tuple[Float64, Float64]) capturing -> Bool:
+        def cmp_fn(a: Tuple[Float64, Float64], b: Tuple[Float64, Float64]) -> Bool:
             return a[1] > b[1]
 
-        sort[cmp_fn](self.freq_amp_pairs)
+        sort(self.freq_amp_pairs, cmp_fn)
 
 struct Chroma(FFTProcessable, GetFloat64Featurable):
     """A struct for computing chroma features.
