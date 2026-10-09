@@ -15,7 +15,7 @@ if True:
 # the MLP training GUI can be used to train an MLP in Python and save the weights to a safetensors file that can be loaded into Mojo.
 
 if True:
-    from mmm_audio.ML import MLP_Trainer
+    from mmm_python.ML import MLP_Trainer
     from mmm_python import *
 
     qapp = QApplication.instance() or QApplication([])

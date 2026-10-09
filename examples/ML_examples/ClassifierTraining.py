@@ -169,7 +169,7 @@ def load_or_fit_scaler(
     scaler_path: Path = SCALER_PATH,
 ) -> StandardScaler:
     if checkpoint is not None and scaler_path.exists():
-        from mmm_audio.ML.Data_Python import load_standard_scaler
+        from mmm_python.ML.Data_Python import load_standard_scaler
 
         print(f"loaded scaler from {scaler_path}")
         return load_standard_scaler(scaler_path.as_posix())
@@ -402,14 +402,14 @@ def save_training_checkpoint(
 
 def save_scaler(scaler: StandardScaler, scaler_path: Path = SCALER_PATH) -> None:
     """Save the scaler as a safetensors file that the Mojo `StandardScaler` in Classifier.mojo loads."""
-    from mmm_audio.ML.Data_Python import save_standard_scaler
+    from mmm_python.ML.Data_Python import save_standard_scaler
 
     scaler_path.parent.mkdir(parents=True, exist_ok=True)
     save_standard_scaler(scaler, scaler_path.as_posix())
 
 def save_model(model: MFCCClassifier, model_path: Path = MODEL_PATH) -> None:
     """Save the weights as a safetensors file that the pure Mojo `MLPNetwork` in Classifier.mojo loads."""
-    from mmm_audio.ML.MLP_Python import export_mlp_weights
+    from mmm_python.ML.MLP_Python import export_mlp_weights
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
     model_for_export = copy.deepcopy(model).to("cpu")

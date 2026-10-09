@@ -4,7 +4,7 @@ from mmm_audio.ML.SafeTensors import SafeTensors
 
 @doc_hidden
 def _open_data_file(path: String, format: String) raises -> SafeTensors:
-    """Open a safetensors file written by `Data_Python.py` and check that it holds `format`.
+    """Open a safetensors file written by `mmm_python/ML/Data_Python.py` and check that it holds `format`.
 
     Args:
         path: Path to the `.safetensors` file.
@@ -17,7 +17,7 @@ def _open_data_file(path: String, format: String) raises -> SafeTensors:
         Error: If the file is a joblib file, is missing, or does not hold `format`.
     """
     if path.endswith(".joblib"):
-        raise Error("joblib files are no longer supported. Convert " + path + " to safetensors with `Data_Python.py`.")
+        raise Error("joblib files are no longer supported. Convert " + path + " to safetensors with `mmm_python/ML/Data_Python.py`.")
     var st = SafeTensors(path)
     if not st.has_metadata("format") or st.metadata("format") != format:
         raise Error("not a " + format + " safetensors file: " + path)
@@ -32,7 +32,7 @@ struct StandardScaler(Copyable, Movable):
     
     This is not a *full* StandardScaler implementation. It is only designed 
     to load a "fit" sklearn StandardScaler from Python, saved as a safetensors file with
-    `save_standard_scaler` in `Data_Python.py`, that can then be used 
+    `save_standard_scaler` in `mmm_python/ML/Data_Python.py`, that can then be used 
     to inverse_transform_point points from the scaled space back to the original space.
     The pattern of use here would be to do the data analysis and machine learning in Python
     using sklearn, then load only the needed data into Mojo for real-time processing.
@@ -43,7 +43,7 @@ struct StandardScaler(Copyable, Movable):
     def __init__(out self, path: Optional[String] = None):
         """Initializes the StandardScaler struct. If a path is provided, it loads a fitted
         sklearn StandardScaler from it. The StandardScaler must have been fit in Python and
-        saved with `save_standard_scaler` in `Data_Python.py`.
+        saved with `save_standard_scaler` in `mmm_python/ML/Data_Python.py`.
 
         Args:
             path: Optional path to a StandardScaler `.safetensors` file.
@@ -59,7 +59,7 @@ struct StandardScaler(Copyable, Movable):
 
     def load(mut self, path: String) raises:
         """Loads StandardScaler data from a safetensors file written by
-        `save_standard_scaler` in `Data_Python.py`.
+        `save_standard_scaler` in `mmm_python/ML/Data_Python.py`.
 
         Args:
             path: Path to a StandardScaler `.safetensors` file.
@@ -104,7 +104,7 @@ struct PCA(Copyable, Movable):
     
     This is not a *full* PCA implementation. It is only designed to load a "fit" sklearn 
     [PCA](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html)
-    from Python, saved as a safetensors file with `save_pca` in `Data_Python.py`, that can then be used to inverse_transform_point points from the PCA space 
+    from Python, saved as a safetensors file with `save_pca` in `mmm_python/ML/Data_Python.py`, that can then be used to inverse_transform_point points from the PCA space 
     back to the original space. The pattern of use here would be to do the data analysis 
     and machine learning in Python using sklearn, then load only the needed data into 
     Mojo for real-time processing.
@@ -120,7 +120,7 @@ struct PCA(Copyable, Movable):
     def __init__(out self, path: Optional[String] = None):
         """Initializes the PCA struct. If a path is provided, it loads a fitted sklearn PCA
         from it. The PCA must have been fit in Python and saved with `save_pca` in
-        `Data_Python.py`.
+        `mmm_python/ML/Data_Python.py`.
         
         Args:
             path: Optional path to a PCA `.safetensors` file.
@@ -140,7 +140,7 @@ struct PCA(Copyable, Movable):
                 abort("Error loading PCA: " + String(e))
 
     def load(mut self, path: String) raises:
-        """Loads PCA data from a safetensors file written by `save_pca` in `Data_Python.py`.
+        """Loads PCA data from a safetensors file written by `save_pca` in `mmm_python/ML/Data_Python.py`.
 
         Args:
             path: Path to a PCA `.safetensors` file.

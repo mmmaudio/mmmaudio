@@ -415,7 +415,7 @@ class MLPTrainingGUI():
         print("training the network")
         learn_rate = 0.001
 
-        from mmm_audio.ML.MLP_Python import train_new_mlp
+        from mmm_python.ML.MLP_Python import train_new_mlp
         import threading
 
         # copies, so adding or deleting points mid-training doesn't touch this run

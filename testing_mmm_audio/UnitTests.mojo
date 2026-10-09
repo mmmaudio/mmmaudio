@@ -488,7 +488,7 @@ def compare_long_lists[chunk_size: Int = 64](a: List[Float64], b: List[Float64],
 def pca_test(whiten: Bool) raises:
 
     Python.add_to_path(".")
-    var data_python = Python.import_module("mmm_audio.ML.Data_Python")
+    var data_python = Python.import_module("mmm_python.ML.Data_Python")
     var np = Python.import_module("numpy")
 
     # dataset
@@ -539,7 +539,7 @@ def test_pca() raises:
     
 def test_standard_scaler() raises:
     Python.add_to_path(".")
-    var data_python = Python.import_module("mmm_audio.ML.Data_Python")
+    var data_python = Python.import_module("mmm_python.ML.Data_Python")
     var np = Python.import_module("numpy")
     var sklearn = Python.import_module("sklearn")
 

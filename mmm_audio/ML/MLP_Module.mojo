@@ -153,11 +153,11 @@ def _activation_code(name: String) raises -> Int:
 struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
     """A multi-layer perceptron in pure Mojo which loads its weights from a torch trained safetensors file.
 
-    Runs a network trained by `train_new_mlp` in `mmm_audio/ML/MLP_Python.py`, which saves
+    Runs a network trained by `train_new_mlp` in `mmm_python/ML/MLP_Python.py`, which saves
     the safetensors weight file this loads (read with `SafeTensors`). Older TorchScript `.pt`
     and JSON trainings must be converted to safetensors first with:
     ```
-        from mmm_audio.ML.MLP_Python import export_mlp_weights
+        from mmm_python.ML.MLP_Python import export_mlp_weights
         export_mlp_weights("old_training.pt", "new_training.safetensors")
     ```
 
@@ -190,7 +190,7 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
         """Make a network and load its weights, printing an error if the load fails.
 
         Args:
-            file_name: Path to a file written by `MLP_Python.py`.
+            file_name: Path to a file written by `mmm_python/ML/MLP_Python.py`.
         """
         self = Self()
         try:
@@ -199,19 +199,19 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
             print("Error loading MLP weights:", e)
 
     def load(mut self, file_name: String) raises:
-        """Replace the network with the one stored in `file_name`. It is looking for a safetensors file written by `MLP_Python.py`. TorchScript `.pt` and JSON files are not supported; convert them with `export_mlp_weights` first.
+        """Replace the network with the one stored in `file_name`. It is looking for a safetensors file written by `mmm_python/ML/MLP_Python.py`. TorchScript `.pt` and JSON files are not supported; convert them with `export_mlp_weights` first.
 
         The current network is kept if the file is missing, malformed, or the wrong shape.
 
         Args:
-            file_name: Path to a file written by `MLP_Python.py`.
+            file_name: Path to a file written by `mmm_python/ML/MLP_Python.py`.
 
         Raises:
             Error: If the file is missing, malformed, or the wrong shape.
         """
         var path = String(file_name)
         if path.endswith(".pt") or path.endswith(".json"):
-            raise Error("MLP trainings are now safetensors files. Convert " + path + " with `export_mlp_weights` in MLP_Python.py.")
+            raise Error("MLP trainings are now safetensors files. Convert " + path + " with `export_mlp_weights` in mmm_python/ML/MLP_Python.py.")
         var st = SafeTensors(path)
 
         if not st.has_metadata("format") or st.metadata("format") != "mmm_mlp":
@@ -299,13 +299,13 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
 
 
 struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
-    """A multi-layer perceptron, trained in PyTorch by `MLP_Python.py`, that runs in pure Mojo. This is a convenience class around the MLPNetwork, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
+    """A multi-layer perceptron, trained in PyTorch by `mmm_python/ML/MLP_Python.py`, that runs in pure Mojo. This is a convenience class around the MLPNetwork, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
 
     The weights come from the safetensors file trained by `MLP_Python.train_new_mlp`.
 
     Older TorchScript `.pt` and JSON trainings need to be converted to a `.safetensors` file before they can be used. You can convert them with:
 
-        from mmm_audio.ML.MLP_Python import export_mlp_weights
+        from mmm_python.ML.MLP_Python import export_mlp_weights
         export_mlp_weights(old_file_path, safetensors_file_path)
 
     Messages:
