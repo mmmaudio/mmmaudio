@@ -1710,10 +1710,10 @@ struct TopNFreqs(FFTProcessable, GetFloat64Featurable):
         #     if b[1] <= 0.0:
         #         return True
         #     return a[1] > b[1]
-        def cmp_fn(a: Tuple[Float64, Float64], b: Tuple[Float64, Float64]) capturing -> Bool:
+        def cmp_fn(a: Tuple[Float64, Float64], b: Tuple[Float64, Float64]) -> Bool:
             return a[1] > b[1]
 
-        sort[cmp_fn](self.freq_amp_pairs)
+        sort(self.freq_amp_pairs, cmp_fn)
 
 struct Chroma(FFTProcessable, GetFloat64Featurable):
     """A struct for computing chroma features.

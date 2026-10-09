@@ -472,8 +472,8 @@ struct MessengerManager(Movable, Copyable):
         """
         comptime if reflect[T].base_name() == "SIMD" and conforms_to(T, CoordLike):
             # SIMD conforms to CoordLike
-            comptime dt = T.DTYPE
-            comptime width = size_of[T]() // size_of[Scalar[dt]]()
+            comptime dtype = T.DTYPE
+            comptime width = size_of[T]() // size_of[Scalar[dtype]]()
             # single-lane SIMD types (e.g. MFloat[1]) are treated as scalars, so we can use the same getters as for non-SIMD types.
             comptime if T == Float64:
                 var opt = self.get_float(key)
@@ -489,10 +489,10 @@ struct MessengerManager(Movable, Copyable):
                 # multi-lane SIMD types (e.g. MFloat[2], MFloat[4]) are treated as lists, so we go through and set the values one by one from the list of floats sent from Python.
                 var opt = self.get_floats(key)
                 if opt:
-                    var v = rebind[SIMD[dt, width]](param)
+                    var v = rebind[SIMD[dtype, width]](param)
                     ref values = opt.value()
                     for i in range(min(len(values), width)):
-                        v[i] = Scalar[dt](values[i])
+                        v[i] = Scalar[dtype](values[i])
                     param = rebind[T](v).copy()
                     return True
             return False

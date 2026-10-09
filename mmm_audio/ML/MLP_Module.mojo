@@ -12,7 +12,6 @@ comptime ACT_RELU = 1
 comptime ACT_SIGMOID = 2
 comptime ACT_TANH = 3
 
-
 comptime MLPWeight = Float32
 """Storage and arithmetic type inside the network.
 
@@ -73,7 +72,7 @@ struct DenseLayer(Copyable, Movable):
         # Weight @ input + bias, `R` rows at a time
         var j = 0
         while j + R <= self.out_size:
-            var acc = InlineArray[SIMD[DType.float32, W], R](fill=0.0)
+            var acc = Array[SIMD[DType.float32, W], R](fill=0.0)
             for i in range(0, n_vec, W):
                 var x = buf.unsafe_load[width=W](in_offset + i)
                 comptime for r in range(R):

@@ -940,12 +940,12 @@ struct TopNPeaks(Movable,Copyable):
         for i in range(N):
             out_list[i] = 0
 
-        def cmp_fn(a: Int, b: Int) capturing -> Bool:
+        def cmp_fn(a: Int, b: Int) {imm in_list} -> Bool:
             return in_list[a] > in_list[b]
 
         # TODO: is it possible to find the peaks and then sort only those?
         # it's not completely necessary to sort the whole list here.
-        sort[cmp_fn](self.ordinal)
+        sort(self.ordinal, cmp_fn)
 
         var valid_peaks: Int = 0
         for idx in self.ordinal:
@@ -1122,6 +1122,44 @@ def fast_atan2[dtype: DType, //](y: SIMD[dtype, _], x: type_of(y)) -> type_of(y)
     r = swapped.select((_HALF_PI - r) + _HALF_PI_TAIL, r)
     r = x.lt(0.0).select((_ONE_PI - r) + _ONE_PI_TAIL, r)
     return y.lt(0.0).select(-r, r)
+
+@always_inline
+def fast_tanh[w: Int](x: SIMD[DType.float32, w]) -> SIMD[DType.float32, w]:
+    """Hyperbolic tangent of float32 values, from a rational approximation.
+
+    A degree 9/8 minimax rational approximation, accurate to within 1.5e-7 for |x| < 8.01773357391357422.
+
+    Args:
+        x: The input SIMD vector of float32 values.
+
+    Returns:
+        The hyperbolic tangent of each element in x.
+    """
+    var c = x.clamp(-8.01773357391357422, 8.01773357391357422)
+    var x2 = c * c
+    var p = ((1.394553628e-8 * x2 + 2.102733560e-5) * x2 + 3.520756727e-3) * x2 + 1.340216100e-1
+    var q = (((8.015776984e-7 * x2 + 3.326951409e-4) * x2 + 2.597254514e-2) * x2 + 4.673548340e-1) * x2 + 1.0
+    return (x2 * c * p + c) / q
+
+@always_inline
+def nam_fast_tanh[w: Int](x: SIMD[DType.float32, w]) -> SIMD[DType.float32, w]:
+    """NeuralAmpModelerCore's rational `fast_tanh`: cheaper, but only good to about 9e-4.
+
+    Kept for NAM models whose activation is "Fasttanh", which were trained with exactly
+    this function. Prefer `fast_tanh` everywhere else.
+
+    Args:
+        x: The input SIMD vector of float32 values.
+
+    Returns:
+        An approximation of the hyperbolic tangent of each element in x.
+    """
+    var ax = abs(x)
+    var x2 = x * x
+    return (
+        x * (2.45550750702956 + 2.45550750702956 * ax + (0.893229853513558 + 0.821226666969744 * ax) * x2)
+        / (2.44506634652299 + (2.44506634652299 + x2) * abs(x + 0.814642734961073 * x * ax))
+    )
 
 def all_lanes_equal[dtype: DType, width: SIMDLength](v: SIMD[dtype, width]) -> Bool:
     return (v.eq(v[0])).reduce_and()

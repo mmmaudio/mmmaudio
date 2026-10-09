@@ -96,10 +96,10 @@ struct SpinLock(Movable):
     else can afford to `acquire`.
     """
 
-    var held: Atomic[DType.int64]
+    var held: Atomic[Int64]
 
     def __init__(out self):
-        self.held = Atomic[DType.int64](0)
+        self.held = Atomic[Int64](0)
 
     def try_acquire(mut self) -> Bool:
         var expected: Int64 = 0
@@ -128,12 +128,12 @@ struct AudioState(Movable):
     is the right answer.
     """
 
-    var active: Atomic[DType.int64]
+    var active: Atomic[Int64]
     var pools: SpinLock
     var graph: SpinLock
 
     def __init__(out self):
-        self.active = Atomic[DType.int64](0)
+        self.active = Atomic[Int64](0)
         self.pools = SpinLock()
         self.graph = SpinLock()
 

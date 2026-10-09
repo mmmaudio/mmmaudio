@@ -420,8 +420,8 @@ def dbap2D[
 def dbap3D[
     num_speakers: Int, 
     simd_out_size: Int,
-    speaker_positions: InlineArray[MFloat[4], num_speakers],
-    weights: InlineArray[Float64, num_speakers]]
+    speaker_positions: Array[MFloat[4], num_speakers],
+    weights: Array[Float64, num_speakers]]
     (
         sample: Float64, 
         pos: MFloat[4], 
@@ -436,8 +436,8 @@ def dbap3D[
     Parameters:
         num_speakers: The number of speakers as an integer.
         simd_out_size: Must be a power of 2 and greater than num_speakers.
-        speaker_positions: The speaker positions as an InlineArray of Tuple[Float64] x/y/z coordinates in meters from a center position.
-        weights: An InlineArray of Float64s (between 0.0 and 1.0) defining speaker weights for DBAP. Speaker weights allow for a source to be restricted to a subset of speakers. Speaker weights of 0.0 will disallow a source from playing through that speaker.
+        speaker_positions: The speaker positions as an Array of Tuple[Float64] x/y/z coordinates in meters from a center position.
+        weights: An Array of Float64s (between 0.0 and 1.0) defining speaker weights for DBAP. Speaker weights allow for a source to be restricted to a subset of speakers. Speaker weights of 0.0 will disallow a source from playing through that speaker.
 
     Args:
         sample: Mono input sample.
@@ -454,7 +454,7 @@ def dbap3D[
     # Calculates the covariance of speaker distances 
     
 
-    def variance_of_dists[comp_num_speakers: Int, comp_speaker_positions: InlineArray[MFloat[4], comp_num_speakers]]() -> Float64:
+    def variance_of_dists[comp_num_speakers: Int, comp_speaker_positions: Array[MFloat[4], comp_num_speakers]]() -> Float64:
        
         var dists = MFloat[next_power_of_two(comp_num_speakers)](0.0)
         
