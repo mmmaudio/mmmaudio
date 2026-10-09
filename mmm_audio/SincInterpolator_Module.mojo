@@ -37,6 +37,11 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
         for i in range(self.table_size * 2):
             self.sinc_points.append(Int(i * self.table_size/(self.ripples * 2)))  # Initialize sinc points based on the sinc table size
 
+        debug_assert[assert_mode="safe"](
+            len(self.table) == self.mask + 1,
+            "sinc table length ", len(self.table), " does not match mask ", self.mask,
+        )
+
         self.sinc_power_f64 = Float64(self.power)  # Assuming sinc_power is 14
         self.max_layer = self.power - 3
 
@@ -44,16 +49,17 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
     @always_inline
     def interp_points(self, sp: Int, sinc_offset: Int, sinc_mult: Int, frac: Float64) -> Float64:
         """Helper function to perform quadratic interpolation on sinc table points."""
-        var sinc_indexA = self.sinc_points[sp] - (sinc_offset * sinc_mult)
+
+        var sinc_indexA = self.sinc_points.unsafe_get(sp) - (sinc_offset * sinc_mult)
         
         var idxA = sinc_indexA & self.mask
         var idxB = (sinc_indexA + 1) & self.mask
         var idxC = (sinc_indexA + 2) & self.mask
         
         return quadratic_interp(
-            self.table[idxA],
-            self.table[idxB], 
-            self.table[idxC],
+            self.table.unsafe_get(idxA),
+            self.table.unsafe_get(idxB), 
+            self.table.unsafe_get(idxC),
             frac
         )
 
@@ -68,6 +74,7 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
         comptime simd_width = simd_width_of[DType.float64]()
         var out: MFloat[num_chans] = MFloat[num_chans](0.0)
         var data_len: Int = len(data)
+        check_wrap_mask[mask](data_len)
         
         # Process SIMD chunks
         var offset: Int
@@ -85,20 +92,20 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
                     if loc_point < 0:
                         loc_point += data_len
 
-                var spaced_point = Int(Float64(loc_point) / Float64(spacing)) * spacing
+                var spaced_point = loc_point & ~(spacing - 1)  # spacing is always 1 << layer
                 var sinc_offset = loc_point - spaced_point
                 
                 var sinc_value = self.interp_points(sp, sinc_offset, sinc_mult, frac)
-                out += sinc_value * data[Int(spaced_point)]
+                out += sinc_value * data.unsafe_get(spaced_point)
             else:
                 var loc_point = index + offset * spacing
                 
                 if loc_point >= 0 and loc_point < data_len:
-                    var spaced_point = Int(Float64(loc_point) / Float64(spacing)) * spacing
+                    var spaced_point = loc_point & ~(spacing - 1)
                     var sinc_offset = loc_point - spaced_point
                     
                     var sinc_value = self.interp_points(sp, sinc_offset, sinc_mult, frac)
-                    out += sinc_value * data[Int(spaced_point)]
+                    out += sinc_value * data.unsafe_get(spaced_point)
 
         return out
 

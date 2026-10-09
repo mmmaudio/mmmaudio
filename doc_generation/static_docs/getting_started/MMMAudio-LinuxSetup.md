@@ -9,56 +9,47 @@ git clone https://github.com/mmmaudio/mmmaudio.git
 
 or [grab the latest release](https://github.com/mmmaudio/mmmaudio/releases).
 
-## 2a. Installing portaudio and hidapi
+## 2a. System packages
 
-Use your package manager to install `portaudio` and `hidapi` as system-wide c libraries. 
+Install the audio server and the build tools:
 
 ```shell
 sudo apt update
-sudo apt install libportaudio2 portaudio19-dev
-sudo apt install libhidapi-hidraw0 libhidapi-dev
 sudo apt install pulseaudio python3-dev build-essential
 ```
 
-Linux users may encounter issues installing some packages, like pyaudio. This is probably because you need to build the package on your machine. You may need some or more of the following:
+Linux users may encounter issues installing some packages. This is probably because you need to build the package on your machine. You may need some or more of the following:
 ```
 sudo apt-get install python3-all-dev python3-venv
 ```
+Reading HID devices (joysticks, controllers) as a normal user needs permission
+on the device node - either a udev rule for your device or membership in the
+group that owns it. 
+
 Linux users may also have an issue with pyautogui, which we use to track the mouse. If this is the case, the best solution is to look for how to switch Ubuntu to Xorg instead of Wayland (available on ubuntu 24 and before) or to simply use the fake_mouse window when examples are looking for the mouse. We will look for future solutions that do not use pyautogui.
 
-## 2b.1. Option 1 - Setup with pixi
+## 2b. Set up the environment with pixi
 
-Not recommended for Linux!
+### 1 Install pixi:
 
-## 2b.2. Option 2 - Setup using uv
+See [pixi's installation instructions](https://pixi.prefix.dev/latest/installation/).
 
-### 1 Install uv:
-
-See [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
-
-### 2 Install the uv virtual environment and MMMAudio dependencies:
+### 2 Install the dependencies
 
 In the root MMMAudio directory, type:
 
-```
-uv venv --python 3.14
-uv sync
-```
-
-This 1) creates the virtual environment, 2) sync the dependencies, 3) installs the correct pre-release version of Mojo.
-
-## 2b.3. Option 3 - Setup the Python Virtual Environment
-
-### 1 Set up the environment and install the dependencies:
-
-From the root MMMAudio directory:
-(I recommend explicitly specifying the Python version here, eg: 'python3.14 -m venv venv')
 ```shell
-python -m venv venv 
-source venv/bin/activate
-
-pip install numpy scipy librosa pyautogui torch supriya-midi python-osc matplotlib PySide6 mojo==1.0.0 hidapi pyaudio
+pixi install
 ```
+
+This will install a .pixi hidden folder with the pixi virtual environment.
+
+(You can change the version of python inside the pixi.toml file if you need to.)
+
+### 3 Run everything inside that environment
+
+Use `pixi run python ...` for one command, or `pixi shell` to drop into the
+environment for a session. 
 
 ## 3 Edit the .vscode/settings.json file to have the following:
 ```
@@ -75,17 +66,14 @@ pip install numpy scipy librosa pyautogui torch supriya-midi python-osc matplotl
 
 *(This requires you to have the [Python Extension](https://github.com/microsoft/vscode-python#quick-start) installed in your VSCode.)*
 
-go to View->Command Palette->Select Python Interpreter. You need to select the version of Python that was installed by pixi or uv or python virtual environments.
+go to View->Command Palette->Select Python Interpreter. You need to select the version of Python that pixi installed.
 
 This will be at:
 
-`./.pixi/envs/default/python` (for pixi)
+`./.pixi/envs/default/bin/python`
 
-`./.venv/bin/python` (for uv)
-
-`./venv/bin/python` (for python virtual environments)
-
-Don't select the Global python on your system. That won't work.
+Don't select the Global python on your system, or a `.venv`/`venv` you made
+yourself. Those won't work.
 
 If the venv you just installed isn't available, quit and restart VS Code and try to Select Python Interpreter again.
 

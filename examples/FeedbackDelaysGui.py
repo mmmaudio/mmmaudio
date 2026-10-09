@@ -47,16 +47,16 @@ def main():
     layout.addWidget(gatebutton)
 
     # Create a slider
-    delaytimeslider = Handle("delay time",ControlSpec(0, 1.0, 0.5), 0.5, callback=lambda v: mmm_audio.send_float("delay_time", v))
+    delaytimeslider = Handle("delay time",ControlSpec(0, 1.0, 2.0), 0.5, callback=lambda v: mmm_audio.send_float("delay_time", v))
     layout.addWidget(delaytimeslider)
 
-    feedbackslider = Handle("feedback",ControlSpec(-130, -0.1, 4), -6, callback=lambda v: mmm_audio.send_float("feedback", v))
+    feedbackslider = Handle("feedback",ControlSpec(-130, -0.1, 0.25), -6, callback=lambda v: mmm_audio.send_float("feedback", v))
     layout.addWidget(feedbackslider)
 
-    freqslider = Handle("ffreq",ControlSpec(20, 20000, 0.5), 8000, callback=lambda v: mmm_audio.send_float("ffreq", v))
+    freqslider = Handle("ffreq",ControlSpec(20, 20000, 2.0), 8000, callback=lambda v: mmm_audio.send_float("ffreq", v))
     layout.addWidget(freqslider)
 
-    qslider = Handle("q",ControlSpec(0.1, 10, 0.5), 1.0, callback=lambda v: mmm_audio.send_float("q", v))
+    qslider = Handle("q",ControlSpec(0.1, 10, 2.0), 1.0, callback=lambda v: mmm_audio.send_float("q", v))
     layout.addWidget(qslider)
 
     mixslider = Handle("mix",ControlSpec(0.0, 1.0, 2), 0.2, callback=lambda v: mmm_audio.send_float("mix", v))

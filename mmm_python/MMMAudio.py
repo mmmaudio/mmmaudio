@@ -31,10 +31,10 @@ class MouseGetter:
 
         if system in ["darwin", "windows"]:
             import pyautogui
-            print(f"Using pyautogui for mouse tracking on {system}")
+            # print(f"Using pyautogui for mouse tracking on {system}")
             self.pyautogui = pyautogui
             self.width, self.height = pyautogui.size()
-            print(self.width, self.height)
+            # print(self.width, self.height)
             self.use_pyauto = True
             
         elif system == "linux":
@@ -95,9 +95,9 @@ class MMMAudio:
     _mouse_getter = None
 
     @classmethod
-    def get_audio_devices(cls, print_them=True) -> list:
+    def get_audio_devices(cls, print_them=True):
         """Get a list of available audio devices with their input/output capabilities.
-        
+
         Args:
             print_them: If True, prints the devices to the console.
 
@@ -105,31 +105,27 @@ class MMMAudio:
             A named tuple containing two dictionaries: (in_devices, out_devices).
             Each dictionary maps device index to a list of [name, max_channels, sample_rate].
         """
-        import pyaudio
-        p = pyaudio.PyAudio()
-
         ret_devices = namedtuple('Devices', ['in_devices', 'out_devices'])(dict(), dict())
 
-        # Iterate through all devices
-        for i in range(p.get_device_count()):
-            device_info = p.get_device_info_by_index(i)
-            name = device_info.get('name')
-            max_input = device_info.get('maxInputChannels')
-            max_output = device_info.get('maxOutputChannels')
-            
-            # Identify device type
-            print_list = []
-            if max_input > 0:
-                print_list.append(f"Input  Device {i}: \"{name}\", Channels: {max_input}, Sample Rate: {device_info.get('defaultSampleRate')} Hz")
-                ret_devices[0][i] = [name, max_input, device_info.get('defaultSampleRate')]
-            if max_output > 0:
-                print_list.append(f"Output Device {i}: \"{name}\", Channels: {max_output}, Sample Rate: {device_info.get('defaultSampleRate')} Hz")
-                ret_devices[1][i] = [name, max_output, device_info.get('defaultSampleRate')]
-            if print_them:
-                for msg in print_list:
-                    print(msg)
+        # portaudio_ffi is a standalone Mojo module - it pulls in no graph and
+        # no part of mmm_audio, so asking for the device list costs one small
+        # compile rather than a whole graph's worth.
+        import mojo.importer
+        from mmm_audio import portaudio_ffi
+
+        in_devices, out_devices = portaudio_ffi.get_audio_devices()
+        ret_devices[0].update({int(i): list(info) for i, info in in_devices.items()})
+        ret_devices[1].update({int(i): list(info) for i, info in out_devices.items()})
+
+        if print_them:
+            for i in sorted(set(ret_devices[0]) | set(ret_devices[1])):
+                if i in ret_devices[0]:
+                    name, channels, rate = ret_devices[0][i]
+                    print(f"Input  Device {i}: \"{name}\", Channels: {channels}, Sample Rate: {rate} Hz")
+                if i in ret_devices[1]:
+                    name, channels, rate = ret_devices[1][i]
+                    print(f"Output Device {i}: \"{name}\", Channels: {channels}, Sample Rate: {rate} Hz")
                 print("")
-        p.terminate()
 
         return ret_devices
 
@@ -214,7 +210,7 @@ class MMMAudio:
     def start_mouse(cls):
         """Start mouse tracking in the main process and send updates to all instances."""
         if cls._mouse_thread is not None and cls._mouse_thread.is_alive():
-            print("[Main] Mouse tracking already running")
+            # print("[Main] Mouse tracking already running")
             return cls._mouse_getter.width, cls._mouse_getter.height
         
         cls._mouse_getter = MouseGetter.get_instance()
@@ -231,7 +227,9 @@ class MMMAudio:
                     x, y = cls._mouse_getter.position()
                     # Send mouse position to all instances via their command queues
                     for instance in cls.instances:
-                        instance.update_mouse_pos(x, y)
+                        # don't pile up positions in the queue while a graph is still compiling
+                        if instance.process_ready.is_set():
+                            instance.update_mouse_pos(x, y)
                 except Exception as e:
                     pass
                 await asyncio.sleep(delay)
@@ -243,7 +241,7 @@ class MMMAudio:
                 daemon=True
             )
             cls._mouse_thread.start()
-            print("[Main] Mouse tracking started")
+            # print("[Main] Mouse tracking started")
         
         return cls._mouse_getter.width, cls._mouse_getter.height
 
@@ -255,7 +253,7 @@ class MMMAudio:
         if cls._mouse_thread is not None:
             cls._mouse_thread.join(timeout=1.0)
             cls._mouse_thread = None
-        print("[Main] Mouse tracking stopped")
+        # print("[Main] Mouse tracking stopped")
 
     def _signal_handler(self, signum, frame):
         """Handle Ctrl+C signal"""
@@ -292,22 +290,17 @@ class MMMAudio:
         self.process.start()
         print(f"[Main] Audio process started (PID: {self.process.pid})")
         
-        # Check if process died immediately
-        # import time
-        # time.sleep(0.5)
-        # if not self.process.is_alive():
-        #     print(f"[Main] ERROR: Process died immediately! Exit code: {self.process.exitcode}")
-        #     return
+        if MMMAudio._mouse_thread is None or not MMMAudio._mouse_thread.is_alive():
+            MMMAudio.start_mouse()
+        elif MMMAudio._mouse_getter.use_pyauto:
+            # mouse already running for another instance - this one still needs the dims
+            self.set_screen_dims(MMMAudio._mouse_getter.width, MMMAudio._mouse_getter.height)
 
         # Wait for process to be ready
         if self.process_ready.wait(timeout=audio_init_timeout):
             print(f"[Main] Audio process ready, sample rate: {self.sample_rate.value}")
-            
-            # Start mouse tracking if not already running
-            if MMMAudio._mouse_thread is None or not MMMAudio._mouse_thread.is_alive():
-                MMMAudio.start_mouse()
         else:
-            print("[Main] Warning: Audio process initialization timeout")
+            print("[Main] Warning: Audio process still initializing (compile is taking a while) - it will start when ready")
     
     def stop_process(self):
         """Stop the audio process and clean up resources"""
@@ -346,7 +339,7 @@ class MMMAudio:
         return self.process is not None and self.process.is_alive()
     
     # =========================================================================
-    # Message sending methods (same interface as original)
+    # Message sending methods
     # =========================================================================
     
     def send_bool(self, key: str, value: bool):
@@ -527,200 +520,64 @@ class MMMAudio:
             
             # Move all imports inside the try block
             import numpy as np
-            import pyaudio
-            import threading
             from math import ceil
-            import queue
-            
+
             sys.stdout.flush()
-        
-            def get_device_info(p_temp, device_name, is_input=True):
-                if device_name != "default":
-                    for i in range(p_temp.get_device_count()):
-                        dev_info = p_temp.get_device_info_by_index(i)
-                        if device_name in dev_info['name']:
-                            return dev_info
-                    print(f"[PID {pid}] Device '{device_name}' not found, using default")
-                
-                if is_input:
-                    return p_temp.get_default_input_device_info()
-                else:
-                    return p_temp.get_default_output_device_info()
-            
+
             # =========================================================================
-            # Initialize Mojo bridge
+            # Initialize Mojo bridge - PortAudio lives entirely on the Mojo side
             # =========================================================================
-            
+
             MMMAudioBridge = MMMAudio.compile(graph_name, package_name)
+            if MMMAudioBridge is None:
+                raise RuntimeError(
+                    f"could not compile graph '{graph_name}' from package '{package_name}'"
+                )
 
             # =========================================================================
-            # Initialize PyAudio and get device info
+            # Initialize the Mojo audio bridge
+            #
+            # An empty device name means "leave this direction closed". The
+            # bridge resolves the rest against PortAudio, clamps the channel
+            # counts to what the devices actually have, and takes the sample
+            # rate from the devices themselves.
             # =========================================================================
 
-            if in_device is None:
-                in_device = "default"
-                in_device_exists = False
-            else:
-                in_device_exists = True
-            if out_device is None:
-                out_device = "default"
-                out_device_exists = False
-            else:
-                out_device_exists = True
+            d = {
+                "block_size": blocksize,
+                "num_in_chans": num_input_channels,
+                "num_out_chans": num_output_channels,
+                "in_device": in_device or "",
+                "out_device": out_device or "",
+            }
+            mmm_audio_bridge = MMMAudioBridge.MMMAudioBridge(d)
 
-            
-            p_temp = pyaudio.PyAudio()
-
-            if in_device_exists:
-                in_device_info = get_device_info(p_temp, in_device, True)
-            if out_device_exists:
-                out_device_info = get_device_info(p_temp, out_device, False)
-
-            
-            p_temp.terminate()
-            
-            if in_device_exists and out_device_exists:
-                if in_device_info['defaultSampleRate'] != out_device_info['defaultSampleRate']:
-                    print(f"[PID {pid}] Sample rate mismatch!")
-                    sys.stdout.flush()
-                    return
-
-            if in_device_exists:
-                sample_rate = int(in_device_info['defaultSampleRate'])
-            elif out_device_exists:
-                sample_rate = int(out_device_info['defaultSampleRate'])
-            else:
-                sample_rate = 48000
+            config = mmm_audio_bridge.get_config()
+            sample_rate = int(config["sample_rate"])
+            actual_input_channels = int(config["num_in_chans"])
+            actual_output_channels = int(config["num_out_chans"])
             sample_rate_value.value = sample_rate
-            
-            if in_device_exists:
-                in_device_index = in_device_info['index']
-                actual_input_channels = min(num_input_channels, int(in_device_info['maxInputChannels']))
-            else:
-                actual_input_channels = 0
-            if out_device_exists:
-                out_device_index = out_device_info['index']
-                actual_output_channels = min(num_output_channels, int(out_device_info['maxOutputChannels']))
-            else:
-                actual_output_channels = 0
-            
-            print(f"[PID {pid}] Using input device: {in_device_info['name'] if in_device_exists else 'None'}")
-            print(f"[PID {pid}] Using output device: {out_device_info['name'] if out_device_exists else 'None'}")
+
+            print(f"[PID {pid}] Using input device: {config['in_device']}")
+            print(f"[PID {pid}] Using output device: {config['out_device']}")
             print(f"[PID {pid}] Sample rate: {sample_rate}, Block size: {blocksize}")
             print(f"[PID {pid}] Input channels: {actual_input_channels}, Output channels: {actual_output_channels}")
             sys.stdout.flush()
-            
-            # =========================================================================
-            # Initialize Mojo audio bridge
-            # =========================================================================
-            
-            d = {
-                "sample_rate": sample_rate, 
-                "block_size": blocksize,
-                "num_in_chans": actual_input_channels, 
-                "num_out_chans": actual_output_channels
-                }
-            mmm_audio_bridge = MMMAudioBridge.MMMAudioBridge(d)
-            # =========================================================================
-            # Shared state for callback
-            # =========================================================================
-            audio_active = threading.Event()
-            input_queue = queue.Queue(maxsize=32)
-            
-            # Lock for thread-safe bridge access
-            bridge_lock = threading.Lock()
 
             # =========================================================================
-            # Audio callbacks
+            # Open the PortAudio stream
+            #
+            # It stays open for the life of the process, writing silence until
+            # start_audio; that way starting and stopping the graph doesn't
+            # reopen the device. The callback runs on PortAudio's own thread
+            # without touching Python, so there is no queue between input and
+            # output any more and no lock to hold here - the bridge serializes
+            # the audio thread against these commands itself.
             # =========================================================================
-            def input_callback(in_data, frame_count, time_info, status):
-                """Called by PyAudio when input data is available"""
-                if audio_active.is_set():
-                    try:
-                        input_queue.put_nowait(in_data)
-                    except queue.Full:
-                        pass  # Drop frame if queue is full
-                return (None, pyaudio.paContinue)
-            
-            def output_callback(in_data, frame_count, time_info, status):
-                """Called by PyAudio when output data is needed"""
-                if not audio_active.is_set():
-                    # Return silence when not active
-                    silence = np.zeros(
-                        frame_count * actual_output_channels,
-                        dtype=np.float32
-                    )
-                    return (silence.tobytes(), pyaudio.paContinue)
-                
-                try:
-                    # Get input data from queue
-                    try:
-                        input_bytes = input_queue.get_nowait()
-                        in_array = np.frombuffer(input_bytes, dtype=np.float32)
-                    except queue.Empty:
-                        in_array = np.zeros(
-                            frame_count * actual_input_channels,
-                            dtype=np.float32
-                        )
-                    
-                    
-                    out_buffer = np.zeros(
-                        (frame_count, actual_output_channels),
-                        dtype=np.float64
-                    )
-                    # Process through Mojo bridge
-                    with bridge_lock:
-                        mmm_audio_bridge.next(in_array, out_buffer)
-                    
-                    out_buffer = np.clip(out_buffer, -1.0, 1.0)
-                    output_bytes = out_buffer.astype(np.float32).tobytes()
-                    
-                    return (output_bytes, pyaudio.paContinue)
-                
-                except Exception as e:
-                    print(f"[PID {pid}] Output callback error: {e}")
-                    sys.stdout.flush()
-                    silence = np.zeros(
-                        frame_count * actual_output_channels,
-                        dtype=np.float32
-                    )
-                    return (silence.tobytes(), pyaudio.paContinue)
-            
-            # =========================================================================
-            # Initialize PyAudio with callbacks
-            # =========================================================================
-            p = pyaudio.PyAudio()
-            format_code = pyaudio.paFloat32
-            
-            input_stream = None
-            output_stream = None
-            
-            if in_device_exists:
-                input_stream = p.open(
-                    format=format_code,
-                    channels=actual_input_channels,
-                    rate=sample_rate,
-                    input=True,
-                    input_device_index=in_device_index,
-                    frames_per_buffer=blocksize,
-                    stream_callback=input_callback
-                )
-                input_stream.start_stream()
 
-            if out_device_exists:
-                output_stream = p.open(
-                    format=format_code,
-                    channels=actual_output_channels,
-                    rate=sample_rate,
-                    output=True,
-                    output_device_index=out_device_index,
-                    frames_per_buffer=blocksize,
-                    stream_callback=output_callback
-                )
-                output_stream.start_stream()
-            
+            mmm_audio_bridge.open_audio_stream()
             sys.stdout.flush()
-            
+
             # =========================================================================
             # Signal ready
             # =========================================================================
@@ -739,85 +596,70 @@ class MMMAudio:
                 return False
 
             def handle_start_audio(args):
-                audio_active.set()
+                mmm_audio_bridge.start_audio()
                 audio_running.value = True
                 print(f"[PID {pid}] Audio activated")
                 sys.stdout.flush()
                 return True
 
             def handle_stop_audio(args):
-                audio_active.clear()
+                mmm_audio_bridge.stop_audio()
                 audio_running.value = False
-                # Clear the input queue
-                while not input_queue.empty():
-                    try:
-                        input_queue.get_nowait()
-                    except:
-                        break
                 print(f"[PID {pid}] Audio deactivated")
                 sys.stdout.flush()
                 return True
 
             def handle_send_bool(args):
                 key, value = args
-                with bridge_lock:
-                    mmm_audio_bridge.update_bool_msg([key, value])
+                mmm_audio_bridge.update_bool_msg([key, value])
                 return True
             
             def handle_send_bools(args):
                 key, values = args
                 key_vals = [key]
                 key_vals.extend(values)
-                with bridge_lock:
-                    mmm_audio_bridge.update_bools_msg(key_vals)
+                mmm_audio_bridge.update_bools_msg(key_vals)
                 return True
 
             def handle_send_float(args):
                 key, value = args
-                with bridge_lock:
-                    mmm_audio_bridge.update_float_msg([key, value])
+                mmm_audio_bridge.update_float_msg([key, value])
                 return True
 
             def handle_send_floats(args):
                 key, values = args
                 key_vals = [key]
                 key_vals.extend(values)
-                with bridge_lock:
-                    mmm_audio_bridge.update_floats_msg(key_vals)
+                mmm_audio_bridge.update_floats_msg(key_vals)
                 return True
 
             def handle_send_int(args):
                 key, value = args
-                with bridge_lock:
-                    mmm_audio_bridge.update_int_msg([key, value])
+                mmm_audio_bridge.update_int_msg([key, value])
                 return True
 
             def handle_send_ints(args):
                 key, values = args
                 key_vals = [key]
                 key_vals.extend([int(i) for i in values])
-                with bridge_lock:
-                    mmm_audio_bridge.update_ints_msg(key_vals)
+                mmm_audio_bridge.update_ints_msg(key_vals)
                 return True
 
             def handle_send_trig(args):
                 key = args[0]
-                with bridge_lock:
-                    mmm_audio_bridge.update_trig_msg([key])
+                mmm_audio_bridge.update_trig_msg([key])
                 return True
 
             def handle_send_string(args):
                 key, value = args
-                with bridge_lock:
-                    mmm_audio_bridge.update_string_msg([key, str(value)])
+                mmm_audio_bridge.update_string_msg([key, str(value)])
                 return True
 
             def handle_send_strings(args):
                 key, values = args
                 key_vals = [key]
                 key_vals.extend(values)
-                with bridge_lock:
-                    mmm_audio_bridge.update_strings_msg(key_vals)
+                mmm_audio_bridge.update_strings_msg(key_vals)
                 return True
 
             def handle_get_samples(args):
@@ -828,35 +670,46 @@ class MMMAudio:
                     dtype=np.float64
                 ).reshape(samples, actual_output_channels)
 
+                # next() reads the input buffer as float32, so it has to be
+                # float32 here too
                 in_buf = np.zeros(
                     (blocksize, actual_input_channels),
-                    dtype=np.float64
+                    dtype=np.float32
                 )
                 temp_out = np.zeros(
                     (blocksize, actual_output_channels),
                     dtype=np.float64
                 )
 
-                with bridge_lock:
+                # Rendering offline advances the same graph the audio thread
+                # is running. The bridge's graph lock keeps the two from
+                # overlapping, but left running they'd hand blocks back and
+                # forth and the waveform would come back stitched together out
+                # of every other block - so stop the graph for the duration.
+                was_running = bool(audio_running.value)
+                if was_running:
+                    mmm_audio_bridge.stop_audio()
+                try:
                     for i in range(blocks):
                         mmm_audio_bridge.next(in_buf, temp_out)
                         for j in range(temp_out.shape[0]):
                             if i * blocksize + j < samples:
                                 waveform[i * blocksize + j] = temp_out[j]
+                finally:
+                    if was_running:
+                        mmm_audio_bridge.start_audio()
 
                 response_queue.put(("SAMPLES", waveform))
                 return True
 
             def handle_update_mouse(args):
                 x, y = args
-                with bridge_lock:
-                    mmm_audio_bridge.update_mouse_pos([x, y])
+                mmm_audio_bridge.update_mouse_pos([x, y])
                 return True
 
             def handle_set_screen_dims(args):
                 width, height = args
-                with bridge_lock:
-                    mmm_audio_bridge.set_screen_dims((width, height))
+                mmm_audio_bridge.set_screen_dims((width, height))
                 return True
 
             command_handlers = [
@@ -913,16 +766,9 @@ class MMMAudio:
             print(f"[PID {pid}] Cleaning up...")
             sys.stdout.flush()
             
-            audio_active.clear()
-            
-            if input_stream is not None:
-                input_stream.stop_stream()
-                input_stream.close()
-            if output_stream is not None:
-                output_stream.stop_stream()
-                output_stream.close()
-            p.terminate()
-            
+            mmm_audio_bridge.close_audio_stream()
+            audio_running.value = False
+
             print(f"[PID {pid}] Audio process terminated")
             sys.stdout.flush()
 

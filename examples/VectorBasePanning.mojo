@@ -12,8 +12,8 @@ struct VectorBasePanning(Movable, Copyable):
     var wsl: Int
     var pos: List[Float64]
     var mouse: Bool
-    var vbap_4: VBAP2D
-    var vbap_7: VBAP2D
+    var vbap_4: VBAP2D[4, 4]
+    var vbap_7: VBAP2D[7, 8]
     def __init__(out self, world: World):
         self.world = world
         self.dust = Dust[1](world)
@@ -23,7 +23,7 @@ struct VectorBasePanning(Movable, Copyable):
         self.wsl = 0
         self.pos = [0.0, -1.0]
         self.mouse = False
-        self.vbap_4 = VBAP2D([
+        self.vbap_4 = VBAP2D[4, 4]([
             deg_to_rad(-55),
             deg_to_rad(55),
             deg_to_rad(-110),
@@ -31,7 +31,7 @@ struct VectorBasePanning(Movable, Copyable):
             ])
 
         #A Left-Front, Left-Right, Center, Left, Right, Rear-Left, Rear-Right array where Center is channel 3
-        self.vbap_7 = VBAP2D([
+        self.vbap_7 = VBAP2D[7, 8]([
             deg_to_rad(-30),
             deg_to_rad(30),
             0,
@@ -57,11 +57,11 @@ struct VectorBasePanning(Movable, Copyable):
         sig = self.filt.bpf(sig, 1200, 10.0, 1.0)
 
         # 4 speaker setup
-        # var pan = self.vbap_4.next[4](sig, self.az)
-        # var out = MFloat[max_simd](pan[0], pan[1], pan[2], pan[3], 0.0, 0.0, 0.0, 0.0)
+        var pan = self.vbap_4.next(sig, self.az)
+        var out = MFloat[8](pan[0], pan[1], pan[2], pan[3], 0.0, 0.0, 0.0, 0.0)
         
         # 7 speaker setup, note that the simd_out_size must be a power of two and larger than the speaker array size.
-        var out = self.vbap_7.next[8](sig, self.az)
+        # var out = self.vbap_7.next[8](sig, self.az)
 
         # output for a 7.1 surround sound setup
         return MFloat[8](out[0], out[1], out[2], 0.0,out[3], out[4], out[5], out[6]) * 0.5

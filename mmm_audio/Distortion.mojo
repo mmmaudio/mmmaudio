@@ -1,4 +1,5 @@
 from mmm_audio.Oversampling import Downsampler, Upsampler
+from mmm_audio.Buffer_Module import SIMDBuffer, Buffer
 from mmm_audio.Polyphony import PolyReset
 from mmm_audio.constants import *
 from mmm_audio.BooleanTests import RisingBoolDetector
@@ -576,5 +577,153 @@ struct BuchlaWavefolder[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = 
                 # upsample the input
                 x2 = self.upsampler.next(x, i)
                 y = self._next1(x2, amp)
+                self.downsampler.add_sample(y)
+            return self.downsampler.get_sample()
+
+struct WaveShaper[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, times_ov: TimesOversampling = TimesOversampling.none](Copyable, Movable):
+    """A waveshaper that reads its transfer function out of a buffer.
+
+    The input is treated as a position along the table: -1 reads the first
+    frame, 1 reads the last one, and anything outside that range is clipped
+    rather than wrapped. Tables built by SuperCollider's `Signal.chebyFill`
+    (and the Mojo `cheby_fill`) are laid out exactly this way, with x running
+    from -1 to 1 across all `num_frames` frames.
+
+    A buffer with more than one channel holds more than one transfer function,
+    and `dist_frac` crossfades between them.
+
+    Parameters:
+        num_chans: The number of channels for SIMD operations.
+        interp: The interpolation method to use when reading the table.
+        times_ov: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
+    """
+    var world: World
+    var upsampler: Upsampler[Self.num_chans, Self.times_ov]
+    var downsampler: Downsampler[Self.num_chans, Self.times_ov]
+
+    def __init__(out self, world: World):
+        """Initialize the WaveShaper.
+
+        Args:
+            world: A pointer to the MMMWorld.
+        """
+        comptime assert Self.interp != Interp.sinc, (
+            "WaveShaper does not support Interp.sinc. Use Interp.cubic for a smooth curve, and times_ov for anti-aliasing."
+        )
+
+        self.world = world
+        self.upsampler = Upsampler[Self.num_chans, Self.times_ov](world)
+        self.downsampler = Downsampler[Self.num_chans, Self.times_ov](world)
+
+    @doc_hidden
+    @always_inline
+    def _phase(self, input: MFloat[Self.num_chans], num_frames: Int, num_frames_f64: Float64) -> MFloat[Self.num_chans]:
+        """Turn an input sample into the phase that reads the matching frame.
+
+        Scales the input from -1 to 1 into a frame index, and backs it off by 1.5 frames if using lagrange4 interpolation.
+        """
+        var scale: Float64 = Float64(num_frames - 1) / num_frames_f64 if num_frames > 1 else 0.0
+        var f_idx = (0.5 + 0.5 * clip(input, -1.0, 1.0)) * scale
+
+        # lagrange4() centres its kernel at fd = 1.5 + frac, so it reads 1.5
+        # frames above the index it is handed. Back that out, holding at 0 so
+        # the fractional part never goes negative.
+        comptime if Self.interp == Interp.lagrange4:
+            f_idx = max(f_idx - 1.5 / num_frames_f64, 0.0)
+
+        return f_idx
+
+    @doc_hidden
+    @always_inline
+    def _read[simd_chans: SIMDLength](mut self, input: MFloat[Self.num_chans], buffer: SIMDBuffer[simd_chans], dist_frac: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Read one sample per channel out of a SIMDBuffer table."""
+        if buffer.num_frames == 0:
+            return MFloat[Self.num_chans](0.0)
+
+        var phase = self._phase(input, buffer.num_frames, buffer.num_frames_f64)
+
+        # Where dist_frac lands between the buffer's tables.
+        comptime max_chan = Int(simd_chans) - 1
+        var chan_fl = Float64(max_chan) * clip(dist_frac, 0.0, 1.0)
+
+        var out = MFloat[Self.num_chans](0.0)
+        comptime for out_chan in range(Self.num_chans):
+            var sample = buffer.at_phase[Self.interp, False, 0, True](self.world, phase[out_chan])
+            var chan0 = clip(Int(chan_fl[out_chan]), 0, max_chan)
+            var chan1 = clip(chan0 + 1, 0, max_chan)
+            var frac = chan_fl[out_chan] - Float64(chan0)
+            out[out_chan] = sample[chan0] * (1.0 - frac) + sample[chan1] * frac
+
+        return out
+
+    @doc_hidden
+    @always_inline
+    def _read(mut self, input: MFloat[Self.num_chans], buffer: Buffer, dist_frac: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Read one sample per channel out of a Buffer table."""
+        if buffer.num_frames == 0 or buffer.num_chans == 0:
+            return MFloat[Self.num_chans](0.0)
+
+        var phase = self._phase(input, buffer.num_frames, buffer.num_frames_f64)
+
+        var max_chan = Int(buffer.num_chans) - 1
+        var chan_fl = Float64(max_chan) * clip(dist_frac, 0.0, 1.0)
+
+        var out = MFloat[Self.num_chans](0.0)
+        comptime for out_chan in range(Self.num_chans):
+            var chan0 = clip(Int(chan_fl[out_chan]), 0, max_chan)
+            var chan1 = clip(chan0 + 1, 0, max_chan)
+            var frac = chan_fl[out_chan] - Float64(chan0)
+            var sample0 = buffer.at_phase[Self.interp, False, 0, True](self.world, chan0, phase[out_chan])
+            var sample1 = buffer.at_phase[Self.interp, False, 0, True](self.world, chan1, phase[out_chan])
+            out[out_chan] = sample0[0] * (1.0 - frac) + sample1[0] * frac
+
+        return out
+
+    @always_inline
+    def next[simd_chans: SIMDLength](mut self, input: MFloat[Self.num_chans], buffer: SIMDBuffer[simd_chans], dist_frac: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.0)) -> MFloat[Self.num_chans]:
+        """Waveshape the input sample with a transfer function held in a SIMDBuffer.
+
+        Parameters:
+            simd_chans: Number of transfer functions stored in the buffer, one per channel.
+
+        Args:
+            input: The input sample. Values outside -1 to 1 are clipped.
+            buffer: The SIMDBuffer holding the transfer function(s).
+            dist_frac: A value between 0 and 1 that picks a transfer function from the buffer's channels, interpolating between neighbours. 0 is the first channel, 1 is the last.
+
+        Returns:
+            The waveshaped output sample.
+        """
+        comptime if Self.times_ov == TimesOversampling.none:
+            return self._read(input, buffer, dist_frac)
+        else:
+            var x2: MFloat[Self.num_chans]
+            var y: MFloat[Self.num_chans]
+            comptime for i in range(Self.times_ov.times):
+                x2 = self.upsampler.next(input, i)
+                y = self._read(x2, buffer, dist_frac)
+                self.downsampler.add_sample(y)
+            return self.downsampler.get_sample()
+
+    @always_inline
+    def next(mut self, input: MFloat[Self.num_chans], buffer: Buffer, dist_frac: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.0)) -> MFloat[Self.num_chans]:
+        """Waveshape the input sample with a transfer function held in a Buffer.
+
+        Args:
+            input: The input sample. Values outside -1 to 1 are clipped.
+            buffer: The Buffer holding the transfer function(s).
+            dist_frac: A value between 0 and 1 that picks a transfer function from the buffer's channels, interpolating between neighbours. 0 is the first channel, 1 is the last.
+
+        Returns:
+            The waveshaped output sample.
+        """
+        comptime if Self.times_ov == TimesOversampling.none:
+            return self._read(input, buffer, dist_frac)
+        else:
+            var x2: MFloat[Self.num_chans]
+            var y: MFloat[Self.num_chans]
+            comptime for i in range(Self.times_ov.times):
+                x2 = self.upsampler.next(input, i)
+                y = self._read(x2, buffer, dist_frac)
                 self.downsampler.add_sample(y)
             return self.downsampler.get_sample()

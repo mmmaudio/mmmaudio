@@ -71,7 +71,8 @@ struct Phasor[num_chans: SIMDLength = 1](Movable, Copyable):
         var resets = self.rising_bool_detector.next(trig)
         self.phase = resets.select(0.0, self.phase)
 
-        return (self.phase + phase_offset) % 1.0
+        var out = self.phase + phase_offset
+        return out - floor(out)
             
     @always_inline
     def next_bool(mut self, freq: MFloat[self.num_chans] = 100.0, phase_offset: MFloat[self.num_chans] = 0.0, trig: MBool[self.num_chans] = MBool[self.num_chans](fill=True)) -> MBool[self.num_chans]:
@@ -234,7 +235,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             ref temp = self.world[].osc_buffers()
             comptime for chan in range(self.num_chans):
                 out[chan] = temp.at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
-            self.last_phase = phase
+            comptime if Self.interp == Interp.sinc:
+                self.last_phase = phase
             return out
         else:
             comptime for i in range(Self.ov_samp.times):
@@ -246,7 +248,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                 comptime for chan in range(self.num_chans):
                     sample[chan] = temp.at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
                 self.downsampler.value().add_sample(sample)
-                self.last_phase = phase
+                comptime if Self.interp == Interp.sinc:
+                    self.last_phase = phase
 
             return self.downsampler.value().get_sample()
 
@@ -370,7 +373,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             comptime for chan in range(self.num_chans):
                 var sample = self.next_all_basic_waveforms(phase[chan], self.last_phase[chan], trig)
                 out_sample[chan] = (MFloat[2](sample[Int(osc_type0[chan])], sample[Int(osc_type1[chan])]) * MFloat[2](1.0 - osc_frac_interp[chan], osc_frac_interp[chan])).reduce_add()
-            self.last_phase = phase
+            comptime if Self.interp == Interp.sinc:
+                self.last_phase = phase
             return out_sample
         else:
             comptime for i in range(Self.ov_samp.times):
@@ -381,7 +385,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                     var sample = self.next_all_basic_waveforms(phase[chan], self.last_phase[chan], trig)
                     out_sample[chan] = (MFloat[2](sample[Int(osc_type0[chan])], sample[Int(osc_type1[chan])]) * MFloat[2](1.0 - osc_frac_interp[chan], osc_frac_interp[chan])).reduce_add()
                 self.downsampler.value().add_sample(out_sample)
-                self.last_phase = phase
+                comptime if Self.interp == Interp.sinc:
+                    self.last_phase = phase
             return self.downsampler.value().get_sample()
    
     @always_inline
@@ -427,7 +432,10 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             comptime for out_chan in range(self.num_chans):
                     sample0[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
                     sample1[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
-            self.last_phase = phase
+            # See Osc.next - last_phase is only ever read as sinc
+            # interpolation's prev_phase.
+            comptime if Self.interp == Interp.sinc:
+                self.last_phase = phase
             return linear_interp(sample0, sample1, scaled_osc_frac)
         else:
             comptime times_os_int = Self.ov_samp.times
@@ -439,7 +447,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                     sample0[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
                     sample1[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
                 self.downsampler.value().add_sample(linear_interp(sample0, sample1, scaled_osc_frac))
-                self.last_phase = phase
+                comptime if Self.interp == Interp.sinc:
+                    self.last_phase = phase
             return self.downsampler.value().get_sample()
 
     @always_inline
@@ -486,7 +495,10 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                 var sample = buffer.at_phase[self.interp, True, 0](self.world, phase[out_chan], self.last_phase[out_chan])
                 out_sample[out_chan] = (MFloat[2](sample[Int(buf_chan0[out_chan])], sample[Int(buf_chan1[out_chan])]) * MFloat[2](1.0 - scaled_osc_frac[out_chan], scaled_osc_frac[out_chan])).reduce_add()
                 
-            self.last_phase = phase
+            # See Osc.next - last_phase is only ever read as sinc
+            # interpolation's prev_phase.
+            comptime if Self.interp == Interp.sinc:
+                self.last_phase = phase
             return out_sample
         else:
             comptime times_os_int = Self.ov_samp.times
@@ -499,7 +511,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                     var sample = buffer.at_phase[self.interp, True, 0](self.world, phase[out_chan], self.last_phase[out_chan])
                     out_sample[out_chan] = (MFloat[2](sample[Int(buf_chan0[out_chan])], sample[Int(buf_chan1[out_chan])]) * MFloat[2](1.0 - scaled_osc_frac[out_chan], scaled_osc_frac[out_chan])).reduce_add()
                 self.downsampler.value().add_sample(out_sample)
-                self.last_phase = phase
+                comptime if Self.interp == Interp.sinc:
+                    self.last_phase = phase
             return self.downsampler.value().get_sample()
 
 struct OscBank[num: Int](Movable, Copyable):
@@ -983,6 +996,7 @@ struct OscBuffers(Movable, Copyable):
     var square_buffer: SIMDBuffer[1]
     var basic_waveforms: SIMDBuffer[4]
 
+    @always_inline
     def at_phase[osc_type: OscType, interp: Interp = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0) -> Float64:
         comptime if osc_type == OscType.sine:
             return self.sine_buffer.at_phase[interp=interp, bWrap=True, mask=OscBuffersMask](world, phase, prev_phase)
@@ -995,6 +1009,7 @@ struct OscBuffers(Movable, Copyable):
         else:
             return 0.0
 
+    @always_inline
     def at_phase_basic_waveform[interp: Interp = Interp.none](self, world: World, phase: Float64, prev_phase: Float64 = 0) -> MFloat[4]:
         return self.basic_waveforms.at_phase[interp=interp, bWrap=True, mask=OscBuffersMask](world, phase, prev_phase)
 

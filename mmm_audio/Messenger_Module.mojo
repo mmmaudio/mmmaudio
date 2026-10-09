@@ -1,5 +1,7 @@
 from mmm_audio.constants import *
 from std.collections import Dict, Set
+from std.sys import size_of
+from std.utils.coord import CoordLike
 
 struct Messenger(Copyable, Movable):
     """Communication between Python and Mojo.
@@ -40,357 +42,48 @@ struct Messenger(Copyable, Movable):
 
         return Pointer(to=self.key_dict[name])
 
-    # def get_name_with_namespace(mut self, name: String) raises -> UnsafePointer[mut=False,String, ...]:
-    #     if not self.key_dict.__contains__(name):
-    #         if self.namespace:
-    #             with_namespace = self.namespace.value()+"."+name
-    #         else:
-    #             with_namespace = name
-    #         self.key_dict[name] = with_namespace
 
-    #     return UnsafePointer(to=self.key_dict[name])
+    def update[T: Copyable & Deinitable, //](mut self, name: String, mut param: T):
+        """Update a variable with a value sent from Python.
 
-    # update Bool
-    def update(mut self, name: String, mut param: Bool):
-        """Update a Bool variable with a value sent from Python.
+        The message type comes from the type of `param`:
 
-        Args:
-            name: A `String` to identify the Bool sent from Python.
-            param: A `Bool` variable to be updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_bool(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-            except error:
-                print("Error occurred while updating bool message. Error: ", error)
-
-    # notify_update Bool
-    def notify_update(mut self, name: String, mut param: Bool) -> Bool:
-        """Notify and update a Bool variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the Bool sent from Python.
-            param: A `Bool` variable to be updated.
-
-        Returns:
-            A `Bool` indicating whether the parameter was updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_bool(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-                    return True
-            except error:
-                print("Error occurred while updating bool message. Error: ", error)
-        return False
-
-    # update List[Bool]
-    # def update(mut self, name: String, mut param: List[Bool]):
-    #     if self.world[].top_of_block():
-    #         try:
-    #             var opt = self.world[].messenger_manager[].get_bools(self.get_name_with_namespace(name)[])
-    #             if opt:
-    #                 param = opt.value().copy()
-    #         except error:
-    #             print("Error occurred while updating bool message. Error: ", error)
-
-    # # notify_update List[Bool]
-    # def notify_update(mut self, name: String, mut param: List[Bool]) -> Bool:
-    #     if self.world[].top_of_block():
-    #         try:
-    #             var opt = self.world[].messenger_manager[].get_bools(self.get_name_with_namespace(name)[])
-    #             if opt:
-    #                 param = opt.value().copy()
-    #                 return True
-    #         except error:
-    #             print("Error occurred while updating bool message. Error: ", error)
-    #     return False
-
-    # update Float64
-    def update(mut self, name: String, mut param: Float64):
-        """Update a Float64 variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the Float64 sent from Python.
-            param: A `Float64` variable to be updated.
-        """
-        
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_float(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-            except error:
-                print("Error occurred while updating float message. Error: ", error)
-
-    # notify_update Float64
-    def notify_update(mut self, name: String, mut param: Float64) -> Bool:
-        """Notify and update a Float64 variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the Float64 sent from Python.
-            param: A `Float64` variable to be updated.
-
-        Returns:
-            A `Bool` indicating whether the parameter was updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_float(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-                    return True
-            except error:
-                print("Error occurred while updating float message. Error: ", error)
-        return False
-
-    # update List[Float64]
-    def update(mut self, name: String, mut param: List[Float64]):
-        """Update a List[Float64] variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the List[Float64] sent from Python.
-            param: A `List[Float64]` variable to be updated. The List will be resized to match the incoming data.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_floats(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value().copy()
-            except error:
-                print("Error occurred while updating float list message. Error: ", error)
-
-    # notify_update List[Float64]
-    def notify_update(mut self, name: String, mut param: List[Float64]) -> Bool:
-        """Notify and update a List[Float64] variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the List[Float64] sent from Python.
-            param: A `List[Float64]` variable to be updated. The List will be resized to match the incoming data.
-
-        Returns:
-            A `Bool` indicating whether the parameter was updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_floats(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value().copy()
-                    return True
-            except error:
-                print("Error occurred while updating float list message. Error: ", error)
-        return False
-
-    def update[dtype: DType, num_chans: SIMDLength](mut self, name: String, mut param: SIMD[dtype, num_chans]):
-        """Update a SIMD[DType.float64] variable with a value sent from Python.
+        - `Float64` is set by `send_float`, `Int` by `send_int`, `Bool` by `send_bool` and `String` by `send_string`.
+        - `List[Float64]`, `List[Int]`, `List[Bool]` and `List[String]` are set by `send_floats`, `send_ints`,
+          `send_bools` and `send_strings`. The List is resized to match the incoming data.
+        - Any other `SIMD` (such as `MFloat[2]` or `Float32`) is set lane by lane by `send_floats`. The SIMD is
+          *not* resized: lanes beyond the values sent keep their value, and extra values are ignored.
 
         Parameters:
-            dtype: The scalar dtype stored in the SIMD parameter.
-            num_chans: Number of SIMD lanes to update.
+            T: The type of `param`, inferred.
 
         Args:
-            name: A `String` to identify the SIMD[DType.float64] sent from Python.
-            param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
+            name: A `String` to identify the value sent from Python.
+            param: The variable to be updated.
         """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_floats(self.get_name_with_namespace(name)[])
-                if opt:
-                    for i in range(len(opt.value())):
-                        param[i] = Scalar[dtype](opt.value()[i])
-            except error:
-                print("Error occurred while updating float SIMD message. Error: ", error)
+        _ = self.notify_update(name, param)
 
-    def notify_update[dtype: DType, num_chans: SIMDLength](mut self, name: String, mut param: SIMD[dtype, num_chans]) -> Bool:
-        """Notify and update a SIMD[DType.float64] variable with a value sent from Python.
+    def notify_update[T: Copyable & Deinitable, //](mut self, name: String, mut param: T) -> Bool:
+        """Notify and update a variable with a value sent from Python.
+
+        The message type comes from the type of `param`, as described in `update`.
 
         Parameters:
-            dtype: The scalar dtype stored in the SIMD parameter.
-            num_chans: Number of SIMD lanes to update.
+            T: The type of `param`, inferred.
 
         Args:
-            name: A `String` to identify the SIMD[DType.float64] sent from Python.
-            param: A `SIMD[DType.float64]` variable to be updated. The SIMD will *not* be resized to match the incoming data. It is the user's responsibility to ensure the sizes match.
+            name: A `String` to identify the value sent from Python.
+            param: The variable to be updated.
 
         Returns:
             A `Bool` indicating whether the parameter was updated.
         """
         if self.world[].top_of_block():
             try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_floats(self.get_name_with_namespace(name)[])
-                if opt:
-                    for i in range(len(opt.value())):
-                        param[i] = Scalar[dtype](opt.value()[i])
-                    return True
+                ref manager = self.world[].messenger_manager()
+                return manager._update_param(self.get_name_with_namespace(name)[], param)
             except error:
-                print("Error occurred while updating float SIMD message. Error: ", error)
-        return False
-
-    # update Int
-    def update(mut self, name: String, mut param: Int):
-        """Update a Int variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the Int sent from Python.
-            param: A `Int` variable to be updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_int(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-            except error:
-                print("Error occurred while updating int message. Error: ", error)
-
-    # notify_update Int
-    def notify_update(mut self, name: String, mut param: Int) -> Bool:
-        """Notify and update a Int variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the Int sent from Python.
-            param: A `Int` variable to be updated.
-
-        Returns:
-            A `Bool` indicating whether the parameter was updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_int(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-                    return True
-            except error:
-                print("Error occurred while updating int message. Error: ", error)
-        return False
-
-    # update List[Int]
-    def update(mut self, name: String, mut param: List[Int]):
-        """Update a List[Int] variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the List[Int] sent from Python.
-            param: A `List[Int]` variable to be updated. The List will be resized to match the incoming data.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_ints(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value().copy()
-            except error:
-                print("Error occurred while updating int list message. Error: ", error)
-
-    # notify_update List[Int]
-    def notify_update(mut self, name: String, mut param: List[Int]) -> Bool:
-        """Notify and update a List[Int] variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the List[Int] sent from Python.
-            param: A `List[Int]` variable to be updated. The List will be resized to match the incoming data.
-
-        Returns:
-            A `Bool` indicating whether the parameter was updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_ints(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value().copy()
-                    return True
-            except error:
-                print("Error occurred while updating int list message. Error: ", error)
-        return False
-
-    # update String
-    def update(mut self, name: String, mut param: String):
-        """Update a String variable with a value sent from Python.
-        
-        Args:
-            name: A `String` to identify the String sent from Python.
-            param: A `String` variable to be updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_string(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-            except error:
-                print("Error occurred while updating text message. Error: ", error)
-
-    # notify_update String
-    def notify_update(mut self, name: String, mut param: String) -> Bool:
-        """Notify and update a String variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the String sent from Python.
-            param: A `String` variable to be updated.
-
-        Returns:
-            A `Bool` indicating whether the parameter was updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_string(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value()
-                    return True
-            except error:
-                print("Error occurred while updating text message. Error: ", error)
-        return False
-
-    # update List[String]
-    def update(mut self, name: String, mut param: List[String]):
-        """Update a List[String] variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the List[String] sent from Python.
-            param: A `List[String]` variable to be updated. The List will be resized to match the incoming data.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_strings(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value().copy()
-            except error:
-                print("Error occurred while updating text message. Error: ", error)
-    
-    # notify_update List[String]
-    def notify_update(mut self, name: String, mut param: List[String]) -> Bool:
-        """Notify and update a List[String] variable with a value sent from Python.
-
-        Args:
-            name: A `String` to identify the List[String] sent from Python.
-            param: A `List[String]` variable to be updated. The List will be resized to match the incoming data.
-
-        Returns:
-            A `Bool` indicating whether the parameter was updated.
-        """
-        if self.world[].top_of_block():
-            try:
-                ref temp = self.world[].messenger_manager()
-                var opt = temp.get_strings(self.get_name_with_namespace(name)[])
-                if opt:
-                    param = opt.value().copy()
-                    return True
-            except error:
-                print("Error occurred while updating text message. Error: ", error)
+                print("Error occurred while updating message '", name, "'. Error: ", error)
         return False
 
     def notify_trig(mut self, name: String) -> Bool:
@@ -410,6 +103,55 @@ struct Messenger(Copyable, Movable):
             except error:
                 print("Error occurred while updating trig message. Error: ", error)
         return False
+
+
+    def notify_address_callback[T: Copyable & Deinitable, //, call_back: def(T) capturing -> None](mut self, name: String) -> Bool:
+        """
+        Get notified if a message is received and execute a provided callback function with its value.
+
+        The message type comes from the callback's argument type, which can be `Float64`, `Int`,
+        `Bool`, `String`, `List[Float64]`, `List[Int]`, `List[Bool]` or `List[String]`. For example,
+        a callback taking a `List[Float64]` responds to `send_floats` from Python, and one taking
+        an `Int` responds to `send_int`.
+
+        Parameters:
+            T: The callback's argument type, inferred from `call_back`.
+            call_back: A callback function that takes the message value as its argument.
+
+        Args:
+            name: A `String` to identify the message sent from Python.
+
+        Returns:
+            A `Bool` indicating whether a message was sent from Python under the specified name.
+        """
+        if self.world[].top_of_block():
+            try:
+                ref manager = self.world[].messenger_manager()
+                var opt = manager._get_message[T](self.get_name_with_namespace(name)[])
+                if opt:
+                    call_back(opt.value())
+                    return True
+            except error:
+                print("Error occurred while handling callback message. Error: ", error)
+        return False
+
+    def address_callback[T: Copyable & Deinitable, //, call_back: def(T) capturing -> None](mut self, name: String):
+        """
+        Executes a given callback function with a value sent from Python.
+
+        The message type comes from the callback's argument type, which can be `Float64`, `Int`,
+        `Bool`, `String`, `List[Float64]`, `List[Int]`, `List[Bool]` or `List[String]`. For example,
+        a callback taking a `List[Float64]` responds to `send_floats` from Python, and one taking
+        an `Int` responds to `send_int`.
+
+        Parameters:
+            T: The callback's argument type, inferred from `call_back`.
+            call_back: A callback function that takes the message value as its argument.
+
+        Args:
+            name: A `String` to identify the message sent from Python.
+        """
+        _ = self.notify_address_callback[call_back](name)
 
 @doc_hidden
 struct BoolMessage(Movable, Copyable):
@@ -710,6 +452,92 @@ struct MessengerManager(Movable, Copyable):
             self.strings_msgs[key].retrieved = True
             return self.strings_msgs[key].value.copy()
         return None
+
+    @doc_hidden
+    def _update_param[T: Copyable & Deinitable](mut self, key: String, mut param: T) raises -> Bool:
+        """Set `param` from the message of its type sent under `key`, as described in `Messenger.update`.
+
+        Parameters:
+            T: The type of `param`.
+
+        Args:
+            key: The full (namespaced) message name.
+            param: The variable to be updated.
+
+        Returns:
+            True if a message was sent under `key` and `param` was updated.
+
+        Raises:
+            Error: If the manager fails to look up the message.
+        """
+        comptime if reflect[T].base_name() == "SIMD" and conforms_to(T, CoordLike):
+            # SIMD conforms to CoordLike
+            comptime dtype = T.DTYPE
+            comptime width = size_of[T]() // size_of[Scalar[dtype]]()
+            # single-lane SIMD types (e.g. MFloat[1]) are treated as scalars, so we can use the same getters as for non-SIMD types.
+            comptime if T == Float64:
+                var opt = self.get_float(key)
+                if opt:
+                    param = rebind[T](opt.value()).copy()
+                    return True
+            elif T == Int:
+                var opt = self.get_int(key)
+                if opt:
+                    param = rebind[T](opt.value()).copy()
+                    return True
+            else:
+                # multi-lane SIMD types (e.g. MFloat[2], MFloat[4]) are treated as lists, so we go through and set the values one by one from the list of floats sent from Python.
+                var opt = self.get_floats(key)
+                if opt:
+                    var v = rebind[SIMD[dtype, width]](param)
+                    ref values = opt.value()
+                    for i in range(min(len(values), width)):
+                        v[i] = Scalar[dtype](values[i])
+                    param = rebind[T](v).copy()
+                    return True
+            return False
+        else:
+            # non-SIMD types, like Lists of Float64 or Int: just use the _get_message function to retrieve the value and update param.
+            var opt = self._get_message[T](key)
+            if opt:
+                param = opt.value().copy()
+                return True
+            return False
+
+    @doc_hidden
+    def _get_message[T: Copyable & Deinitable](mut self, key: String) raises -> Optional[T]:
+        """Get the message of type `T` sent under `key`, choosing the getter for `T` at compile time.
+
+        Parameters:
+            T: One of the message types listed in `Messenger.address_callback`.
+
+        Args:
+            key: The full (namespaced) message name.
+
+        Returns:
+            The value, if a message of type `T` was sent under `key`.
+
+        Raises:
+            Error: If the manager fails to look up the message.
+        """
+        comptime if T == Float64:
+            return rebind[Optional[T]](self.get_float(key)).copy()
+        elif T == Int:
+            return rebind[Optional[T]](self.get_int(key)).copy()
+        elif T == Bool:
+            return rebind[Optional[T]](self.get_bool(key)).copy()
+        elif T == String:
+            return rebind[Optional[T]](self.get_string(key)).copy()
+        elif T == List[Float64]:
+            return rebind[Optional[T]](self.get_floats(key)).copy()
+        elif T == List[Int]:
+            return rebind[Optional[T]](self.get_ints(key)).copy()
+        elif T == List[Bool]:
+            return rebind[Optional[T]](self.get_bools(key)).copy()
+        elif T == List[String]:
+            return rebind[Optional[T]](self.get_strings(key)).copy()
+        else:
+            comptime assert False, "Messenger messages must be Float64, Int, Bool, String, List[Float64], List[Int], List[Bool] or List[String]"
 
     @always_inline
     def get_trig(mut self, key: String) -> Bool:

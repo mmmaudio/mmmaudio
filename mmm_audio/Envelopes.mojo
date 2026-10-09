@@ -411,6 +411,144 @@ struct ASREnv(Movable, Copyable):
 
         return ramp * sustain
 
+struct ADSREnv(Movable, Copyable, PolyReset):
+    """Gated attack / decay / sustain / release envelope generator.
+
+    The gate can be reopened at any point, including part way through a release. The attack
+    then starts from wherever the envelope currently sits rather than jumping to zero, so
+    retriggering does not click.
+    """
+
+    var sweep: Sweep[1]
+    var gate_changed: Changed[Bool]
+    var stage: Int
+    var value: Float64
+    var segment_start: Float64
+    var is_active: Bool
+    """True from the moment the gate opens until the release has finished."""
+    var eoc: Bool
+    """End of cycle: True for the single sample on which the release completes."""
+    var eoc_rbd: RisingBoolDetector[1]
+    var world: World
+
+    comptime idle = 0
+    comptime attacking = 1
+    comptime decaying = 2
+    comptime sustaining = 3
+    comptime releasing = 4
+
+    def __init__(out self, world: World):
+        """Initialize the ADSREnv struct.
+
+        Args:
+            world: Pointer to the MMMWorld.
+        """
+        self.sweep = Sweep(world)
+        self.gate_changed = Changed(False)
+        self.stage = Self.idle
+        self.value = 0.0
+        self.segment_start = 0.0
+        self.is_active = False
+        self.eoc = False
+        self.eoc_rbd = RisingBoolDetector()
+        self.world = world
+
+    def reset(mut self):
+        """Return to rest, so a recycled polyphony voice does not inherit the last note."""
+        self.stage = Self.idle
+        self.value = 0.0
+        self.segment_start = 0.0
+        self.is_active = False
+        self.eoc = False
+        self.sweep.phase = 0.0
+
+    @doc_hidden
+    @always_inline
+    def _segment[
+        win_type: WindowType = WindowType.none, interp: Interp = Interp.none
+    ](mut self, seconds: Float64, curve: Float64) -> Float64:
+        """Advance the current segment and return its progress, 0 to 1, after shaping."""
+        # A segment of zero seconds runs the phase far past 1 in a single sample, which the
+        # clip below turns into an immediate arrival rather than a divide by zero.
+        _ = self.sweep.next(1.0 / max(seconds, 1e-9))
+        self.sweep.phase = clip(self.sweep.phase, 0.0, 1.0)
+        var ramp = lincurve(self.sweep.phase, 0.0, 1.0, 0.0, 1.0, curve)
+        comptime if win_type != WindowType.none:
+            ramp *= win_read[win_type, interp](self.world, ramp * 0.5)
+        return ramp
+
+    def next[
+        win_type: WindowType = WindowType.none, interp: Interp = Interp.none
+    ](
+        mut self,
+        attack: Float64,
+        decay: Float64,
+        sustain: Float64,
+        release: Float64,
+        gate: Bool,
+        curve: MFloat[2] = 1,
+    ) -> Float64:
+        """Advance the envelope one sample.
+
+        Parameters:
+            win_type: Used to apply a window type to the envelope curves. Default is WindowType.none, which means linear ramps. See `WindowType` struct for available window types.
+            interp: Interpolation type to apply to the window. Default is Interp.none. See `Interp` struct for available interpolation types.
+
+        Args:
+            attack: Attack time in seconds, from the current value up to full.
+            decay: Decay time in seconds, from full down to the sustain level.
+            sustain: Sustain level (0 to 1), held for as long as the gate is open.
+            release: Release time in seconds, from the current value down to zero.
+            gate: Gate signal. True holds the note, False releases it.
+            curve: Can pass a Float64 for equivalent curve on rise and fall or MFloat[2] for different rise and fall curve. Curve values greater than 1.0 will create an exponential curve, while values between 0 and 1.0 will create a logarithmic curve. 1.0 is linear.
+
+        Returns:
+            The current envelope value, 0 to 1.
+        """
+        # The stage has to be tracked explicitly. Inferring it from the value does not work:
+        # as soon as the decay drops below full it would look like an unfinished attack.
+        if self.gate_changed.next(gate):
+            self.sweep.phase = 0.0
+            self.segment_start = self.value
+            if gate:
+                self.stage = Self.attacking
+                self.is_active = True
+            else:
+                self.stage = Self.releasing
+
+        var level = clip(sustain, 0.0, 1.0)
+
+        if self.stage == Self.attacking:
+            var shaped = self._segment[win_type, interp](attack, curve[0])
+            self.value = self.segment_start + (1.0 - self.segment_start) * shaped
+            if self.sweep.phase >= 1.0:
+                self.value = 1.0
+                self.segment_start = 1.0
+                self.sweep.phase = 0.0
+                self.stage = Self.decaying
+
+        elif self.stage == Self.decaying:
+            var shaped = self._segment[win_type, interp](decay, curve[1])
+            self.value = self.segment_start + (level - self.segment_start) * shaped
+            if self.sweep.phase >= 1.0:
+                self.value = level
+                self.stage = Self.sustaining
+
+        elif self.stage == Self.sustaining:
+            self.value = level
+
+        elif self.stage == Self.releasing:
+            var shaped = self._segment[win_type, interp](release, curve[1])
+            self.value = self.segment_start * (1.0 - shaped)
+            if self.sweep.phase >= 1.0:
+                self.value = 0.0
+                self.stage = Self.idle
+                self.is_active = False
+
+        self.eoc = self.eoc_rbd.next(not self.is_active)
+        return self.value
+
+
 struct Compressor[num_chans: SIMDLength, ov_samp: TimesOversampling = TimesOversampling.none](Movable, Copyable):
     """Compressor from Nathan Ho's [Negative Compression web post](https://nathan.ho.name/posts/negative-compression/).
     

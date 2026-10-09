@@ -1,9 +1,9 @@
 from mmm_audio.constants import *
-from std.math import pow, log10, log, log2, abs, isnan, log1p, floor
+from std.math import pow, log10, log, log2, abs, isnan, log1p, floor, iota
 from std.python import PythonObject
 from std.os import abort
 from std.pathlib import Path
-from std.random import random_float64
+from std.random import random_float64, random_ui64
 
 def mprint[*Ts: Writable](world: World, *values: *Ts, n_blocks: UInt16 = 10, sep: StringSlice[ImmStaticOrigin] = " ", end: StringSlice[ImmStaticOrigin] = "\n") -> None:
     """Prints the provided arguments to the console.
@@ -417,6 +417,29 @@ def fold[dtype: DType](x: SIMD[dtype, _], lo: type_of(x), hi: type_of(x)) -> typ
     return folded + lo2
 
 @always_inline
+def check_wrap_mask[mask: Int](length: Int):
+    """Verify that a compile-time wrap mask matches the runtime length of the table it wraps. Does nothing when `mask` is 0, which selects modulo wrapping instead.
+
+    Parameters:
+        mask: The bitmask that will be applied to indices.
+
+    Args:
+        length: The number of elements actually available to index.
+    """
+    # Plain debug_assert, so this is compiled out unless the build passes
+    # -D ASSERT=all. The readers run inside the audio thread's per-sample loop and
+    # the mask/length relationship is fixed for the life of a table, so checking it
+    # at sample rate only pays off when the optimizer hoists it. ASSERT=all is also
+    # the build in which unsafe_get regains its own bounds checks, so running the
+    # tests that way validates every mask in the codebase at once.
+    comptime if mask != 0:
+        debug_assert(
+            length == mask + 1,
+            "wrap mask ", mask, " requires a table length of ", mask + 1,
+            " but the table has ", length, " elements",
+        )
+
+@always_inline
 def quadratic_interp[
     dtype: DType, //
 ](y0: SIMD[dtype, _], y1: type_of(y0), y2: type_of(y0), x: type_of(y0)) -> type_of(x):
@@ -624,6 +647,30 @@ def sanitize(x: MFloat[_]) -> type_of(x):
 
     return should_zero.select(0.0, x)
 
+comptime _GOLDEN64 = 0x9E3779B97F4A7C15
+"""The 64-bit golden-ratio odd constant, used to space seeds and lanes apart."""
+
+@doc_hidden
+@always_inline
+def _splitmix64[N: SIMDLength](var z: SIMD[DType.uint64, N]) -> SIMD[DType.uint64, N]:
+    """The splitmix64 finalizer, evaluated on a whole vector at once."""
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EB
+    return z ^ (z >> 31)
+
+@doc_hidden
+@always_inline
+def _simd_uniform[N: SIMDLength]() -> MFloat[N]:
+    """Draw one 64-bit value and expand it across N lanes with a vectorized splitmix64.
+
+    See SIMDRand for an even more efficient implementation.
+    """
+    var bits = SIMD[DType.uint64, N](random_ui64(0, 0xFFFFFFFFFFFFFFFF))
+
+    bits += iota[DType.uint64, N]() * _GOLDEN64
+
+    return MFloat[N](from_bits=(_splitmix64(bits) >> 12) | 0x3FF0000000000000) - 1.0
+
 def rrand(min: Int, max: Int) -> Int:
     """Generates a random Int from a uniform distribution. Can receive a SIMD Float or an Int, returning the same type.
 
@@ -634,22 +681,22 @@ def rrand(min: Int, max: Int) -> Int:
     Returns:
         A random Int sample from the specified range.
     """
-    return Int(random_float64(Float64(min), Float64(max) + 0.99999999999999))
+    var range = (max - min) + 1
+    
+    return min + Int(random_ui64(0, 0xFFFFFFFFFFFFFFFF) % UInt64(range))
 
 def rrand(min: MFloat[_], max: type_of(min)) -> type_of(min):
     """Generates a random value from a uniform distribution. Can receive a SIMD Float or an Int, returning the same type.
 
     Args:
         min: The minimum sample (inclusive).
-        max: The maximum sample (inclusive).
+        max: The maximum sample (exclusive).
 
     Returns:
         A random Float64 sample from the specified range.
     """
-    var u = MFloat[min.length](0.0)
-    comptime for i in range(min.length):
-        u[i] = random_float64(min[i], max[i])
-    return u
+
+    return min + (max - min) * _simd_uniform[min.length]()
 
 @always_inline
 def exprand(min: MFloat[_], max: type_of(min)) -> type_of(min):
@@ -893,12 +940,12 @@ struct TopNPeaks(Movable,Copyable):
         for i in range(N):
             out_list[i] = 0
 
-        def cmp_fn(a: Int, b: Int) capturing -> Bool:
+        def cmp_fn(a: Int, b: Int) {imm in_list} -> Bool:
             return in_list[a] > in_list[b]
 
         # TODO: is it possible to find the peaks and then sort only those?
         # it's not completely necessary to sort the whole list here.
-        sort[cmp_fn](self.ordinal)
+        sort(self.ordinal, cmp_fn)
 
         var valid_peaks: Int = 0
         for idx in self.ordinal:
@@ -938,6 +985,164 @@ def find_quadratic_peak(p1: Float64, p2: Float64, p3: Float64) -> Tuple[Float64,
     var vertex_y = a * vertex_x * vertex_x + b * vertex_x + c
     
     return (vertex_x, vertex_y)
+
+# Minimax polynomial coefficients for sin and cos on [-pi/4, pi/4], from the
+# FDLIBM kernels. Both polynomials are accurate to within an ulp over that range.
+comptime _S1 = -1.66666666666666324348e-01
+comptime _S2 = 8.33333333332248946124e-03
+comptime _S3 = -1.98412698298579493134e-04
+comptime _S4 = 2.75573137070700676789e-06
+comptime _S5 = -2.50507602534068634195e-08
+comptime _S6 = 1.58969099521155010221e-10
+
+comptime _C1 = 4.16666666666666019037e-02
+comptime _C2 = -1.38888888888741095749e-03
+comptime _C3 = 2.48015872894767294178e-05
+comptime _C4 = -2.75573143513906633035e-07
+comptime _C5 = 2.08757232129817482790e-09
+comptime _C6 = -1.13596475577881948265e-11
+
+# 2/pi, then pi/2 split into three parts so that `n * _PI_2_HI` stays exact for
+# |n| < 2**20 and the low parts carry the bits that would otherwise be lost.
+comptime _TWO_OVER_PI = 6.36619772367581382433e-01
+comptime _PI_2_HI = 1.57079632673412561417e+00
+comptime _PI_2_MID = 6.07710050630396597660e-11
+comptime _PI_2_LO = 2.02226624879595063154e-21
+
+@always_inline
+def sincos(x: MFloat[_]) -> Tuple[type_of(x), type_of(x)]:
+    """Computes the sine and cosine of x together, using minimax polynomials.
+
+    Unlike `std.math.sin` and `std.math.cos`, which fall back to a scalar libm call
+    per lane, this evaluates every lane of the vector at once and shares the argument
+    reduction between the two results. That makes it several times faster than calling
+    `sin` and `cos` separately on a SIMD vector, at close to the same accuracy (within
+    a few ulps for arguments up to roughly 1e6 radians, degrading gradually past that).
+
+    Args:
+        x: The angle, or SIMD vector of angles, in radians.
+
+    Returns:
+        A Tuple of (sine of x, cosine of x).
+    """
+    # Cody-Waite reduction: x = n*(pi/2) + r, with r in [-pi/4, pi/4]
+    var n = round(x * _TWO_OVER_PI)
+    var r = ((x - n * _PI_2_HI) - n * _PI_2_MID) - n * _PI_2_LO
+
+    var z = r * r
+
+    var sin_poly = _S1 + z * (_S2 + z * (_S3 + z * (_S4 + z * (_S5 + z * _S6))))
+    var cos_poly = _C1 + z * (_C2 + z * (_C3 + z * (_C4 + z * (_C5 + z * _C6))))
+
+    var sin_r = r + (r * z) * sin_poly
+    var cos_r = (1.0 - 0.5 * z) + (z * z) * cos_poly
+
+    # Fold the quadrant back in. n varies per lane, so this has to be a blend, not a branch.
+    var quadrant = n.cast[DType.int]()
+    var swapped = (quadrant & 1).ne(0)
+    var sin_x = swapped.select(cos_r, sin_r)
+    var cos_x = swapped.select(sin_r, cos_r)
+
+    sin_x = (quadrant & 2).ne(0).select(-sin_x, sin_x)
+    cos_x = ((quadrant + 1) & 2).ne(0).select(-cos_x, cos_x)
+
+    return (sin_x, cos_x)
+
+
+# Minimax polynomial for atan on [-tan(pi/8), tan(pi/8)], from the FDLIBM kernel.
+comptime _AT0 = 3.33333333333329318027e-01
+comptime _AT1 = -1.99999999998764832476e-01
+comptime _AT2 = 1.42857142725034663711e-01
+comptime _AT3 = -1.11111104054623557880e-01
+comptime _AT4 = 9.09088713343650656196e-02
+comptime _AT5 = -7.69187620504482999495e-02
+comptime _AT6 = 6.66107313738753120669e-02
+comptime _AT7 = -5.83357013379057348645e-02
+comptime _AT8 = 4.97687799461593236017e-02
+comptime _AT9 = -3.65315727442169155270e-02
+comptime _AT10 = 1.62858201153657823623e-02
+
+comptime _TAN_PI_8 = 0.4142135623730951
+
+# Each angle is split into the nearest double and the bit of it that does not fit,
+# so that the quadrant corrections below stay accurate to the last place.
+comptime _QUARTER_PI = 0.7853981633974483
+comptime _QUARTER_PI_TAIL = 3.061616997868383e-17
+comptime _HALF_PI = 1.5707963267948966
+comptime _HALF_PI_TAIL = 6.123233995736766e-17
+comptime _ONE_PI = 3.141592653589793
+comptime _ONE_PI_TAIL = 1.2246467991473532e-16
+
+
+@always_inline
+def fast_atan2[dtype: DType, //](y: SIMD[dtype, _], x: type_of(y)) -> type_of(y):
+    """Computes atan2(y, x) with a minimax polynomial, evaluating every SIMD lane at once.
+
+    `std.math.atan2` falls back to a scalar libm call per lane, so on a SIMD vector this
+    is several times faster, at close to the same accuracy (within a few ulps). Unlike
+    libm it does not distinguish the sign of a zero argument, so `fast_atan2(-0.0, -1.0)`
+    returns pi rather than -pi. Zero over zero returns zero, as libm does.
+
+    It works for any float dtype, and is built only from arithmetic and selects, so unlike
+    `std.math.atan2` it also compiles for Metal, where `RealFFTGPU` relies on it.
+
+    Parameters:
+        dtype: The float dtype of the arguments, inferred from them.
+
+    Args:
+        y: The ordinate, or SIMD vector of ordinates.
+        x: The abscissa, or SIMD vector of abscissas.
+
+    Returns:
+        The angle in radians between the positive x axis and the point (x, y), in [-pi, pi].
+    """
+    var a = abs(y)
+    var b = abs(x)
+
+    # Work with whichever ratio lands in [0, 1], then undo the swap afterwards
+    var swapped = a.gt(b)
+    var num = swapped.select(b, a)
+    var den = swapped.select(a, b)
+
+    # den is max(|y|, |x|), so it is only zero when both inputs are; keep the divide finite
+    var t = num / den.eq(0.0).select(type_of(y)(1.0), den)
+
+    # atan(t) = pi/4 + atan((t - 1)/(t + 1)) folds (tan(pi/8), 1] down onto the poly's range
+    var folded = t.gt(_TAN_PI_8)
+    var z = folded.select((t - 1.0) / (t + 1.0), t)
+
+    # Odd polynomial in z, split into two chains so the two halves evaluate in parallel
+    var zz = z * z
+    var w = zz * zz
+    var lo = zz * (_AT0 + w * (_AT2 + w * (_AT4 + w * (_AT6 + w * (_AT8 + w * _AT10)))))
+    var hi = w * (_AT1 + w * (_AT3 + w * (_AT5 + w * (_AT7 + w * _AT9))))
+    var core = z - z * (lo + hi)
+
+    var r = folded.select(_QUARTER_PI + (core + _QUARTER_PI_TAIL), core)
+    r = swapped.select((_HALF_PI - r) + _HALF_PI_TAIL, r)
+    r = x.lt(0.0).select((_ONE_PI - r) + _ONE_PI_TAIL, r)
+    return y.lt(0.0).select(-r, r)
+
+@always_inline
+def fast_tanh[dtype: DType, //](x: SIMD[dtype, _]) -> type_of(x):
+    """Hyperbolic tangent of float32 values, from a rational approximation.
+
+    A degree 9/8 minimax rational approximation, accurate to within 1.5e-7 for |x| < 8.01773357391357422.
+
+    Parameters:
+        dtype: The float dtype of the input, inferred from it.
+
+    Args:
+        x: The input SIMD vector of float32 values.
+
+    Returns:
+        The hyperbolic tangent of each element in x.
+    """
+    var c = x.clamp(-8.01773357391357422, 8.01773357391357422)
+    var x2 = c * c
+    var p = ((1.394553628e-8 * x2 + 2.102733560e-5) * x2 + 3.520756727e-3) * x2 + 1.340216100e-1
+    var q = (((8.015776984e-7 * x2 + 3.326951409e-4) * x2 + 2.597254514e-2) * x2 + 4.673548340e-1) * x2 + 1.0
+    return (x2 * c * p + c) / q
 
 def all_lanes_equal[dtype: DType, width: SIMDLength](v: SIMD[dtype, width]) -> Bool:
     return (v.eq(v[0])).reduce_and()

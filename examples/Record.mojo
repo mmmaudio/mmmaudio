@@ -12,6 +12,7 @@ struct Record(Movable, Copyable):
     var input_chan: Int
     var messenger: Messenger
     var note_time: Float64
+    var sr: Float64
 
     def __init__(out self, world: World):
         self.world = world
@@ -25,6 +26,7 @@ struct Record(Movable, Copyable):
         self.input_chan = 0
         self.messenger = Messenger(self.world)
         self.note_time = 0.0
+        self.sr = self.world[].sample_rate
 
     def start_recording(mut self):
         self.buffer.write_head = 0
@@ -37,7 +39,7 @@ struct Record(Movable, Copyable):
         self.is_recording = False
         self.is_playing = 1.0
         self.trig = True
-        self.note_time = Float64(self.buffer.write_head-1) / self.world[].sample_rate
+        self.note_time = Float64(self.buffer.write_head-1) / self.sr
         print("Recorded duration:", self.note_time, "seconds")
         print("Recording stopped. Now playing.")
 

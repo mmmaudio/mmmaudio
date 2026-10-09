@@ -1,9 +1,10 @@
 [workspace]
 authors = ["Sam Pluta <spluta@gmail.com>","Ted Moore <ted@tedmooremusic.com>"]
-channels = ["conda-forge", "pytorch", "https://conda.modular.com/max"]
+channels = ["https://prefix.dev/modular-community", "conda-forge", "pytorch", "https://conda.modular.com/max"]
 name = "MMMAudio"
 platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
 version = "0.1.0"
+preview = ["pixi-build"]
 
 [tasks.validate]
 args = [
@@ -51,17 +52,40 @@ mkdocstrings-python = ">=2.0.2,<3"
 ipykernel = ">=7.1.0,<8"
 jupyterlab = ">=4.5.5,<5"
 pixi-kernel = ">=0.7.1,<0.8"
-# portaudio = ">=19.7.0,<20"
-# libhidapi = ">=0.15,<1"
-# pyaudio = "*"
+max = ">=26.5.0,<27"
+portaudio = ">=19.7.0,<20"
+safetensors = ">=0.8.0,<0.9"
+emberjson = "*"
+
+# torch comes from a different place on each platform.
+#
+# On macOS the PyPI wheel bundles its own libomp, which collides with the copy
+# conda-forge installs for libopenblas, numba and scikit-learn - torch then
+# fails to import
+#
+# So Linux keeps the PyPI build so it doesn't lose CUDA (which would ).
+
+[target.osx-arm64.dependencies]
+pytorch = { version = ">=2.13,<3", channel = "conda-forge" }
+
+[target.linux-64.dependencies]
+alsa-plugins = "*"
+
+[target.linux-aarch64.dependencies]
+alsa-plugins = "*"
+
+[target.linux-64.pypi-dependencies]
+torch = ">=2.10.0, <3"
+
+[target.linux-aarch64.pypi-dependencies]
+torch = ">=2.10.0, <3"
 
 [pypi-dependencies]
-torch = ">=2.10.0, <3"
 pyautogui = ">=0.9.54, <0.10"
 python-osc = ">=1.9.3, <2"
 hidapi = ">=0.15.0, <0.16"
-pyaudio = ">=0.2.14, <0.3"
 mkdocs-pdf = ">=0.1.2, <0.2"
 mkdocs-with-pdf = ">=0.9.3, <0.10"
 mkdocs-simple-hooks = ">=0.1.5, <0.2"
-supriya-midi = ">=26.5b0, <27"
+supriya-midi = ">=26.9b0, <27"
+mido = ">=1.3.3, <2"
