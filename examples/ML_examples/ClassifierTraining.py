@@ -408,7 +408,7 @@ def save_scaler(scaler: StandardScaler, scaler_path: Path = SCALER_PATH) -> None
     save_standard_scaler(scaler, scaler_path.as_posix())
 
 def save_model(model: MFCCClassifier, model_path: Path = MODEL_PATH) -> None:
-    """Save the weights as a safetensors file that the pure Mojo `MLPNetwork` in Classifier.mojo loads."""
+    """Save the weights as a safetensors file that the pure Mojo `MLP` in Classifier.mojo loads."""
     from mmm_python.ML.MLP_Python import export_mlp_weights
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -488,5 +488,5 @@ if __name__ == "__main__":
     print_metrics("validation", evaluate_classifier(model, validation_features, validation_labels, device))
     save_training_checkpoint(model, optimizer, scaler)
     save_scaler(scaler)
-    save_model(model) # this saves the safetensors file that MLPNetwork loads
+    save_model(model) # this saves the safetensors file that MLP loads
 
