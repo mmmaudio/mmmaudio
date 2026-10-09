@@ -1,4 +1,5 @@
 from std.os.path import exists
+from emberjson import from_json, Document
 
 @fieldwise_init
 struct TensorInfo(Copyable, Movable):
@@ -228,7 +229,7 @@ def _dtype_size(dtype: String) raises -> Int:
 
 @doc_hidden
 def _parse_header(text: Span[UInt8, _], data_start: Int, mut tensors: Dict[String, TensorInfo], mut metadata: Dict[String, String]) raises:
-    """Parse the safetensors JSON header into tensor entries and `__metadata__`.
+    """Parse the safetensors JSON header into tensor entries and `__metadata__`, with emberjson.
 
     Args:
         text: The header bytes.
@@ -236,212 +237,31 @@ def _parse_header(text: Span[UInt8, _], data_start: Int, mut tensors: Dict[Strin
         tensors: Receives one `TensorInfo` per tensor.
         metadata: Receives the `__metadata__` key/value pairs.
     """
-    var p = _HeaderParser(text)
-    p.expect(ord("{"))
-    if p.next_is(ord("}")):
-        return
-    while True:
-        var name = p.parse_string()
-        p.expect(ord(":"))
+    var header = String(from_utf8=text)
+    var doc: Document
+    try:
+        doc = from_json[Document](header)
+    except e:
+        raise Error("safetensors header is not valid JSON: " + String(e))
+    var root = doc.root()
+    if not root.is_object():
+        raise Error("safetensors header is not a JSON object")
+    for entry in root.object():
+        var name = String(entry.key)
         if name == "__metadata__":
-            p.expect(ord("{"))
-            if not p.next_is(ord("}")):
-                while True:
-                    var key = p.parse_string()
-                    p.expect(ord(":"))
-                    metadata[key] = p.parse_string()
-                    if not p.comma_or_end(ord("}")):
-                        break
-        else:
-            var dtype = String()
-            var shape = List[Int]()
-            var offsets = List[Int]()
-            p.expect(ord("{"))
-            if not p.next_is(ord("}")):
-                while True:
-                    var key = p.parse_string()
-                    p.expect(ord(":"))
-                    if key == "dtype":
-                        dtype = p.parse_string()
-                    elif key == "shape":
-                        shape = p.parse_int_list()
-                    elif key == "data_offsets":
-                        offsets = p.parse_int_list()
-                    else:
-                        p.skip_value()
-                    if not p.comma_or_end(ord("}")):
-                        break
-            if dtype.byte_length() == 0 or len(offsets) != 2:
-                raise Error("safetensors tensor '" + name + "' is missing dtype or data_offsets")
-            tensors[name] = TensorInfo(dtype, shape^, data_start + offsets[0], data_start + offsets[1])
-        if not p.comma_or_end(ord("}")):
-            break
-
-@doc_hidden
-struct _HeaderParser[origin: ImmOrigin]:
-    """A minimal JSON reader for the safetensors header, which only holds objects, arrays, strings and integers."""
-
-    var text: Span[UInt8, Self.origin]
-    var pos: Int
-
-    def __init__(out self, text: Span[UInt8, Self.origin]):
-        self.text = text
-        self.pos = 0
-
-    def _at(self, i: Int) -> Int:
-        return Int(self.text[i])
-
-    def _is_space(self, c: Int) -> Bool:
-        return c == ord(" ") or c == ord("\n") or c == ord("\r") or c == ord("\t")
-
-    def _peek(mut self) raises -> Int:
-        while self.pos < len(self.text) and self._is_space(self._at(self.pos)):
-            self.pos += 1
-        if self.pos >= len(self.text):
-            raise Error("safetensors header ends unexpectedly")
-        return self._at(self.pos)
-
-    def expect(mut self, c: Int) raises:
-        """Consume the character `c`, or raise."""
-        if self._peek() != c:
-            raise Error("malformed safetensors header: expected '" + chr(c) + "' at byte " + String(self.pos))
-        self.pos += 1
-
-    def next_is(mut self, c: Int) raises -> Bool:
-        """Consume the character `c` if it is next, and return whether it was."""
-        if self._peek() == c:
-            self.pos += 1
-            return True
-        return False
-
-    def comma_or_end(mut self, end: Int) raises -> Bool:
-        """After a value in an object or array: True on a comma (more to come), False on `end`."""
-        if self.next_is(ord(",")):
-            return True
-        self.expect(end)
-        return False
-
-    def _next_char(mut self) raises -> Int:
-        if self.pos >= len(self.text):
-            raise Error("safetensors header has an unterminated string")
-        var c = self._at(self.pos)
-        self.pos += 1
-        return c
-
-    def parse_string(mut self) raises -> String:
-        """Parse a JSON string, decoding its escapes."""
-        self.expect(ord('"'))
-        var bytes = List[UInt8]()
-        while True:
-            var c = self._next_char()
-            if c == ord('"'):
-                break
-            if c != ord("\\"):
-                bytes.append(UInt8(c))
-                continue
-            var e = self._next_char()
-            if e == ord("n"):
-                bytes.append(UInt8(ord("\n")))
-            elif e == ord("t"):
-                bytes.append(UInt8(ord("\t")))
-            elif e == ord("r"):
-                bytes.append(UInt8(ord("\r")))
-            elif e == ord("b"):
-                bytes.append(8)
-            elif e == ord("f"):
-                bytes.append(12)
-            elif e == ord("u"):
-                var cp = self._parse_hex4()
-                # join a UTF-16 surrogate pair
-                if cp >= 0xD800 and cp < 0xDC00 and self.pos + 6 <= len(self.text) and self._at(self.pos) == ord("\\") and self._at(self.pos + 1) == ord("u"):
-                    self.pos += 2
-                    cp = 0x10000 + ((cp - 0xD800) << 10) + (self._parse_hex4() - 0xDC00)
-                _append_utf8(bytes, cp)
-            else:
-                bytes.append(UInt8(e))  # the escaped character itself: " \ /
-        return String(from_utf8=Span(bytes))
-
-    def _parse_hex4(mut self) raises -> Int:
-        var v = 0
-        for _ in range(4):
-            var c = self._next_char()
-            v *= 16
-            if c >= ord("0") and c <= ord("9"):
-                v += c - ord("0")
-            elif c >= ord("a") and c <= ord("f"):
-                v += c - ord("a") + 10
-            elif c >= ord("A") and c <= ord("F"):
-                v += c - ord("A") + 10
-            else:
-                raise Error("safetensors header has a bad unicode escape")
-        return v
-
-    def parse_int(mut self) raises -> Int:
-        """Parse a non-negative integer."""
-        _ = self._peek()
-        var start = self.pos
-        var v = 0
-        while self.pos < len(self.text):
-            var c = self._at(self.pos)
-            if c < ord("0") or c > ord("9"):
-                break
-            v = v * 10 + (c - ord("0"))
-            self.pos += 1
-        if self.pos == start:
-            raise Error("malformed safetensors header: expected an integer at byte " + String(start))
-        return v
-
-    def parse_int_list(mut self) raises -> List[Int]:
-        """Parse an array of non-negative integers."""
-        var result = List[Int]()
-        self.expect(ord("["))
-        if self.next_is(ord("]")):
-            return result^
-        while True:
-            result.append(self.parse_int())
-            if not self.comma_or_end(ord("]")):
-                break
-        return result^
-
-    def skip_value(mut self) raises:
-        """Skip over any JSON value."""
-        var c = self._peek()
-        if c == ord('"'):
-            _ = self.parse_string()
-        elif c == ord("{") or c == ord("["):
-            var end = ord("}") if c == ord("{") else ord("]")
-            self.pos += 1
-            if self.next_is(end):
-                return
-            while True:
-                if c == ord("{"):
-                    _ = self.parse_string()
-                    self.expect(ord(":"))
-                self.skip_value()
-                if not self.comma_or_end(end):
-                    break
-        else:
-            # a number, true, false or null
-            while self.pos < len(self.text):
-                var d = self._at(self.pos)
-                if d == ord(",") or d == ord("}") or d == ord("]") or self._is_space(d):
-                    break
-                self.pos += 1
-
-@doc_hidden
-def _append_utf8(mut bytes: List[UInt8], cp: Int):
-    """Append the UTF-8 encoding of code point `cp`."""
-    if cp < 0x80:
-        bytes.append(UInt8(cp))
-    elif cp < 0x800:
-        bytes.append(UInt8(0xC0 | (cp >> 6)))
-        bytes.append(UInt8(0x80 | (cp & 0x3F)))
-    elif cp < 0x10000:
-        bytes.append(UInt8(0xE0 | (cp >> 12)))
-        bytes.append(UInt8(0x80 | ((cp >> 6) & 0x3F)))
-        bytes.append(UInt8(0x80 | (cp & 0x3F)))
-    else:
-        bytes.append(UInt8(0xF0 | (cp >> 18)))
-        bytes.append(UInt8(0x80 | ((cp >> 12) & 0x3F)))
-        bytes.append(UInt8(0x80 | ((cp >> 6) & 0x3F)))
-        bytes.append(UInt8(0x80 | (cp & 0x3F)))
+            for item in entry.value.object():
+                metadata[String(item.key)] = item.value.string()
+            continue
+        var fields = entry.value.object()
+        if "dtype" not in fields or "data_offsets" not in fields:
+            raise Error("safetensors tensor '" + name + "' is missing dtype or data_offsets")
+        var shape = List[Int]()
+        if "shape" in fields:
+            for dim in fields["shape"].array():
+                shape.append(Int(dim.int()))
+        var offsets = List[Int]()
+        for off in fields["data_offsets"].array():
+            offsets.append(Int(off.int()))
+        if len(offsets) != 2:
+            raise Error("safetensors tensor '" + name + "' needs two data_offsets")
+        tensors[name] = TensorInfo(fields["dtype"].string(), shape^, data_start + offsets[0], data_start + offsets[1])
