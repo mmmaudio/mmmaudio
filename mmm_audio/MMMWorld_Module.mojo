@@ -3,10 +3,12 @@ import std.time
 from std.collections import Set
 from mmm_audio.Oscillators import OscBuffers
 from mmm_audio.Windows_Module import Windows
-from mmm_audio.Messenger_Module import MessengerManager
+from mmm_audio.Messenger_Module import MessengerManager, WorldIsMessagable
 from mmm_audio.SincInterpolator_Module import SincInterpolator
 from mmm_audio.constants import World
 from std.memory.alloc import unsafe_alloc
+from std.origin import MutUntrackedOrigin
+from std.os import abort
 
 struct Environment(Movable, Copyable):
     var block_size: Int
@@ -17,6 +19,7 @@ struct Environment(Movable, Copyable):
     var mouse_x: Float64
     var mouse_y: Float64
     var block_state: Int
+    var sample_count: Int
     var top_of_block: Bool
     var last_print_time: Float64
     var print_flag: Int
@@ -37,6 +40,7 @@ struct Environment(Movable, Copyable):
         self.mouse_x = 0.0
         self.mouse_y = 0.0
         self.block_state = 0
+        self.sample_count = 0
         self.top_of_block = True
         self.last_print_time = 0.0
         self.print_flag = 0
@@ -48,7 +52,7 @@ struct Environment(Movable, Copyable):
         self.sinc_interpolator = SincInterpolator[4, 14]()
         self.messenger_manager = MessengerManager()
 
-struct MMMWorld(Movable, Copyable):
+struct MMMWorld(Movable, Copyable, WorldIsMessagable):
     """The MMMWorld struct holds global audio processing parameters and state.
 
     In pretty much all usage, don't edit this struct.
@@ -110,6 +114,7 @@ struct MMMWorld(Movable, Copyable):
             print("Environment pointer is not set.")
 
 
+    @always_inline
     def mouse_x(self) -> Float64:
         """Returns the current mouse x position as a value between 0.0 and 1.0.
         
@@ -122,6 +127,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default mouse_x value of 0.0.")
         return 0.0
 
+    @always_inline
     def mouse_y(self) -> Float64:
         """Returns the current mouse y position as a value between 0.0 and 1.0.
         
@@ -134,6 +140,31 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default mouse_y value of 0.0.")
         return 0.0
 
+    def messenger_manager_ptr(self) -> MutPointer[MessengerManager, MutUntrackedOrigin]:
+        """A pointer to the Environment's MessengerManager, for `Messenger` (see `WorldIsMessagable`).
+
+        Returns:
+            A pointer to the MessengerManager.
+        """
+        if not self.environment_ptr:
+            abort("MMMWorld has no Environment, so a Messenger can't be created from it.")
+        return MutPointer[MessengerManager, MutUntrackedOrigin](
+            unsafe_from_address=Int(Pointer(to=self.environment_ptr.value()[].messenger_manager))
+        )
+
+    def top_of_block_ptr(self) -> MutPointer[Bool, MutUntrackedOrigin]:
+        """A pointer to the Environment's top-of-block flag, for `Messenger` (see `WorldIsMessagable`).
+
+        Returns:
+            A pointer to the flag.
+        """
+        if not self.environment_ptr:
+            abort("MMMWorld has no Environment, so a Messenger can't be created from it.")
+        return MutPointer[Bool, MutUntrackedOrigin](
+            unsafe_from_address=Int(Pointer(to=self.environment_ptr.value()[].top_of_block))
+        )
+
+    @always_inline
     def top_of_block(self) -> Bool:
         """Returns true if the current sample is the first sample of the audio block.
         
@@ -146,6 +177,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default top_of_block value of False.")
         return False
     
+    @always_inline
     def block_state(self) -> Int:
         """Returns the block state.
         
@@ -158,6 +190,18 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default block_state value of 0.")
         return 0
 
+    @always_inline
+    def sample_count(self) -> Int:
+        """Returns the number of samples processed since the audio engine started. It increases by 1 every sample, so it can be used to tell whether something already happened during the current sample.
+
+        Returns:
+            The index of the current sample since the audio engine started, or -1 if there is no Environment.
+        """
+        if self.environment_ptr:
+            return self.environment_ptr.value()[].sample_count
+        return -1
+
+    @always_inline
     def num_in_chans(self) -> Int:
         """Returns the number of input channels.
         
@@ -170,6 +214,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default num_in_chans value of 0.")
         return 0
 
+    @always_inline
     def num_out_chans(self) -> Int:
         """Returns the number of output channels.
         
@@ -183,6 +228,7 @@ struct MMMWorld(Movable, Copyable):
         print("Warning: Environment pointer is None. Returning default num_out_chans value of 0.")
         return 0
 
+    @always_inline
     def sound_in(self, chan: Int) -> Float64:
         """Returns the input sample value for a given channel.
 

@@ -13,6 +13,7 @@ struct NessStretchWindow[num_iterations: Int=1](FFTProcessable):
     var low_cut: Int
     var high_cut: Int
     var m_s: List[Float64]
+    var white: SIMDRand[2]
 
     def __init__(out self, world: World, window_size: Int, hop_size: Int, low_cut: Int, high_cut: Int):
         self.world = world
@@ -27,6 +28,7 @@ struct NessStretchWindow[num_iterations: Int=1](FFTProcessable):
         self.low_cut = low_cut
         self.high_cut = high_cut
         self.m_s = [0.0 for _ in range(self.window_size // 2 + 1)]
+        self.white = SIMDRand[2]()
 
     def get_messages(mut self) -> None:
         pass
@@ -38,7 +40,7 @@ struct NessStretchWindow[num_iterations: Int=1](FFTProcessable):
 
         def call_back(mut phases: List[MFloat[2]]) capturing -> None:
             for ref p in phases:
-                p = MFloat[2](rrand(0.0, 2.0 * 3.141592653589793), rrand(0.0, 2.0 * 3.141592653589793))
+                p = self.white.uniform() * two_pi
 
         get_best_coherence[2, Self.num_iterations, call_back](mags, phases, self.previous_mags, self.previous_phases, self.window_size, self.hop_size)
 

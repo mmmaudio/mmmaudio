@@ -209,8 +209,11 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
         if self.hop_counter == 0:
 
             var index: Float64
+            # Loop-invariant; without the local it is re-dereferenced through
+            # the world pointer on every frame of the window.
+            var sample_rate = self.world[].sample_rate
             for i in range(self.window_size):
-                index = phase * buffer.num_frames_f64 + Float64(i) * buffer.sample_rate / self.world[].sample_rate
+                index = phase * buffer.num_frames_f64 + Float64(i) * buffer.sample_rate / sample_rate
                 self.passing_buffer[i] = SpanInterpolator.read[interp=interp, bWrap=bWrap](self.world, buffer.data, index, 0.0) * self.input_attenuation_window[i]
 
             self.process.next_window(self.passing_buffer)

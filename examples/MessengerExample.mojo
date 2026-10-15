@@ -90,6 +90,14 @@ struct MessengerExample(Copyable, Movable):
         if self.m.notify_trig("trig"):
             print("Received trig")
 
+        
+        def recv_floats(vals: List[Float64]) capturing -> None:
+            for val in vals:
+                self.floats.append(val)
+            print("Appended the following floats to self.floats: ", vals, " self.floats is now holding: ", self.floats)
+
+        self.m.address_callback[recv_floats]("callback")
+
         var out = MFloat[2](0.0, 0.0)
         for i in range(2):
             out[i] = self.tones[i].next()

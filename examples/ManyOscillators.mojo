@@ -55,13 +55,44 @@ struct StereoBeatingSines(Movable, Copyable):
 
         return pan2(temp, pan2_loc)  # Pan the temp signal
 
-# THE GRAPH
-# This graph is what MMMAudio will call upon to make sound with (because
-# it is the struct that has the same name as this).
+struct StereoBeatingSines2(Movable, Copyable):
+    var world: World # pointer to the MMMWorld
+    var osc_s: Osc[4, interp=Interp.linear] # first oscillator
+    var osc_freqs: MFloat[4] # frequencies for the two oscillators
+
+    def __init__(out self, world: World, center_freq: Float64):
+        self.world = world
+
+        # create two oscillators. The [2] here is *kind of* like an array
+        # with two elements, but the more accurate way to look at it is a
+        # SIMD operation with a width of 2. For more info on MMMAudio's SIMD 
+        # support, see: https://spluta.github.io/MMMAudio/api/ 
+        # Just FYI, it's not 2 because this is a stereo synth, it's 2 to
+        # create some nice beating patterns. The output is stereo because later
+        # the pan2 function positions the summed oscillators in the stereo field
+
+        self.osc_s = Osc[4,interp=Interp.linear](self.world)
+        self.osc_freqs = MFloat[4](
+            center_freq + rrand(1.0, 5.0),
+            center_freq - rrand(1.0, 5.0),
+            rrand(0.03, 0.1),
+            rrand(0.05, 0.2)
+        )
+
+    @always_inline
+    def next(mut self) -> MFloat[2]:
+        # calling .next on both oscillators gets both of their next samples
+        var temp = self.osc_s.next(self.osc_freqs)
+
+        # modulate the volume with a slow LFO
+        
+        var temp1 = (temp[0] + temp[1]) * (temp[2] * 0.5 + 0.5)
+
+        return pan2(temp1, temp[3])  # Pan the temp signal
 
 struct ManyOscillators(Copyable, Movable):
     var world: World
-    var synths: List[StereoBeatingSines]  # Instances of the StereoBeatingSines synth
+    var synths: List[StereoBeatingSines2]  # Instances of the StereoBeatingSines synth
     var messenger: Messenger
     var num_pairs: Int
 
@@ -69,14 +100,14 @@ struct ManyOscillators(Copyable, Movable):
         self.world = world
 
         # initialize the list of synths
-        self.synths = List[StereoBeatingSines]()
+        self.synths = List[StereoBeatingSines2]()
 
         self.messenger = Messenger(self.world)
         self.num_pairs = 10
 
         # add 10 pairs to the list
         for _ in range(self.num_pairs):
-            self.synths.append(StereoBeatingSines(self.world, exprand(100.0, 1000.0)))
+            self.synths.append(StereoBeatingSines2(self.world, exprand(100.0, 1000.0)))
 
     @always_inline
     def next(mut self) -> MFloat[2]:
@@ -86,7 +117,7 @@ struct ManyOscillators(Copyable, Movable):
                 if self.num_pairs > len(self.synths):
                     # add more
                     for _ in range(self.num_pairs - len(self.synths)):
-                        self.synths.append(StereoBeatingSines(self.world, exprand(100.0, 1000.0)))
+                        self.synths.append(StereoBeatingSines2(self.world, exprand(100.0, 1000.0)))
                 else:
                     # remove some
                     for _ in range(len(self.synths) - self.num_pairs):

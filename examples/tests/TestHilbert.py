@@ -1,5 +1,3 @@
-from cmath import pi
-
 from mmm_python import *
 
 mmm_audio = MMMAudio(128, graph_name="TestHilbert", package_name="examples.tests")

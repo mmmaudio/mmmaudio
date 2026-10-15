@@ -17,6 +17,8 @@
 !mmm_audio/**
 !mmm_python/
 !mmm_python/**
+!PluginExporter/
+!PluginExporter/**
 !resources/
 !resources/**
 !testing_mmm_audio/
@@ -260,3 +262,7 @@ peaks
 
 
 wsl_fixes/
+# Plugin exporter downloads and build output
+PluginExporter/JUCE/
+PluginExporter/clap-juce-extensions/
+PluginExporter/builds/

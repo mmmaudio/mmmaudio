@@ -36,14 +36,11 @@ def main():
     in_port = midi.MidiIn()
     in_port.open_port(ports.index('Oxygen Pro Mini USB MIDI'))
 
+    # send_midi forwards every message to the graph the same way an exported plugin does.
+    # the graph records while note 48 is held down and plays the recording back when it is let go.
     def midi_callback(msg, timestamp, data=None):
-        msg = midi.MidiMessage.parse(msg)
-        print(f"Received {msg=}")
-
-        if type(msg) == midi.NoteOnMessage and msg.note_number == 48:
-            mmm_audio.send_bool("is_recording", True)
-        elif type(msg) == midi.NoteOffMessage and msg.note_number == 48:
-            mmm_audio.send_bool("is_recording", False)
+        print(f"Received {midi.MidiMessage.parse(msg)}")
+        mmm_audio.send_midi(msg)
 
     in_port.set_callback(midi_callback)
 

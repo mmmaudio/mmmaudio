@@ -2,14 +2,13 @@ from mmm_audio import *
 
 # THE SYNTH
 
-
 struct DistanceBasedPanning(Movable, Copyable):
     var world: World  
     var dust: Dust[1] 
     var messenger: Messenger
     var pos: MFloat[2]
     var filt: Reson[1]
-
+    var height: Float64
 
     def __init__(out self, world: World):
         self.world = world
@@ -17,14 +16,16 @@ struct DistanceBasedPanning(Movable, Copyable):
         self.filt = Reson[1](world)
         self.messenger = Messenger(self.world)
         self.pos = [0, 0]
+        self.height = 0
 
     def next(mut self) -> MFloat[8]:
         
         comptime max_simd = 8
 
-        # self.messenger.update("pos", self.pos)
+        self.messenger.update("pos", self.pos)
+        self.messenger.update("height", self.height)
         self.pos[0] = linlin(self.world[].mouse_x(), 0.0, 1.0, -1.0, 1.0)
-        self.pos[1] = linlin(self.world[].mouse_y(), 0.0, 1.0, 1.0, -1.0)
+        self.pos[1] = linlin(self.world[].mouse_y(), 0.0, 1.0, -1.0, 1.0)
         
         
         # 4 speaker setup

@@ -8,16 +8,12 @@ git clone https://github.com/mmmaudio/mmmaudio.git
 
 or [grab the latest release](https://github.com/mmmaudio/mmmaudio/releases).
 
-## 2a. Installing portaudio and hidapi on MacOS (Apple Silicon Only - Mojo Does not and will not work on Intel Macs)
+## 2. Set up the environment with pixi
 
-Use your package manager to install `portaudio` and `hidapi` as system-wide c libraries. 
+*(Apple Silicon only - Mojo does not and will not work on Intel Macs.)*
 
-```shell
-brew install portaudio
-brew install hidapi
-```
-
-## 2b.1. Option 1 - Setup with pixi
+MMMAudio uses [pixi](https://pixi.prefix.dev/latest/installation/) for its
+environment. pixi installs everything MMMAudio needs, including the needed C libraries.
 
 ### 1 Install pixi with homebrew or curl.
 
@@ -35,35 +31,17 @@ This will install a .pixi hidden folder with the pixi virtual environment.
 
 (You can change the version of python inside the pixi.toml file if you need to.)
 
-## 2b.2. Option 2 - Setup using uv
+### 3 Run everything inside that environment
 
-### 1 Install uv:
-
-See [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
-
-### 2 Install the uv virtual environment and MMMAudio dependencies:
-
-In the root MMMAudio directory, type:
+Use `pixi run python ...` for one command, or `pixi shell` to drop into the
+environment for a session. Running MMMAudio from any other interpreter - a
+`uv`/`venv` environment, or the system python - will fail with:
 
 ```
-uv venv --python 3.14
-uv sync
+Exception: could not find libportaudio. ...
 ```
 
-This 1) creates the virtual environment, 2) sync the dependencies, 3) installs the correct pre-release version of Mojo.
-
-## 2b.3. Option 3 - Setup the Python Virtual Environment
-
-### 1 Set up the environment and install the dependencies:
-
-From the MMMAudio directory:
-(I recommend explicitly specifying the Python version here, eg: 'python3.14 -m venv venv')
-```shell
-python -m venv venv 
-source venv/bin/activate
-
-pip install numpy scipy librosa pyautogui torch supriya-midi python-osc matplotlib PySide6 mojo==1.0.0 hidapi pyaudio
-```
+because those environments do not contain the PortAudio library.
 
 ## 3 Edit the .vscode/settings.json file to have the following:
 ```
@@ -80,17 +58,14 @@ pip install numpy scipy librosa pyautogui torch supriya-midi python-osc matplotl
 
 *(This requires you to have the [Python Extension](https://github.com/microsoft/vscode-python#quick-start) installed in your VSCode.)*
 
-go to View->Command Palette->Select Python Interpreter. You need to select the version of Python that was installed by pixi or uv or python virtual environments.
+go to View->Command Palette->Select Python Interpreter. You need to select the version of Python that pixi installed.
 
 This will be at:
 
-`./.pixi/envs/default/python` (for pixi)
+`./.pixi/envs/default/bin/python`
 
-`./.venv/bin/python` (for uv)
-
-`./venv/bin/python` (for python virtual environments)
-
-Don't select the Global python on your system. That won't work.
+Don't select the Global python on your system, or a `.venv`/`venv` you made
+yourself. Those won't work - see step 2.3 above.
 
 If the venv you just installed isn't available, quit and restart VS Code and try to Select Python Interpreter again.
 

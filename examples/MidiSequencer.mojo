@@ -58,16 +58,17 @@ struct TrigSynthVoice(PolyObject):
 
 
 struct MidiSequencer(Movable, Copyable):
-    comptime num_messages = 10
-
     var world: World
-    var current_voice: Int
     var messenger: Messenger
     var num_voices: Int
     var svf: SVF[]
     var filt_lag: Lag[]
     var filt_freq: Float64
-    var bend_mul: Float64 
+    var bend_mul: Float64
+    var notes: List[List[Float64]]
+    var note_ons: List[List[Int]]
+    var ccs: List[List[Int]]
+    var bends: List[List[Int]]
 
     var voices: List[TrigSynthVoice]
     var poly: Poly
@@ -75,7 +76,6 @@ struct MidiSequencer(Movable, Copyable):
     def __init__(out self, world: World, num_voices: Int = 64):
         self.world = world
         self.num_voices = num_voices
-        self.current_voice = 0
 
         self.messenger = Messenger(self.world)
 
@@ -85,30 +85,52 @@ struct MidiSequencer(Movable, Copyable):
         self.filt_lag = Lag(self.world, 0.1)
         self.filt_freq = 1000.0
         self.bend_mul = 1.0
-        self.poly = Poly(world, num_voices, "poly")
+        self.notes = List[List[Float64]]()
+        self.note_ons = List[List[Int]]()
+        self.ccs = List[List[Int]]()
+        self.bends = List[List[Int]]()
+        self.poly = Poly(world, num_voices)
+
+    # each trigger finds and triggers a different free voice
+    def trigger_note(mut self, freq: Float64, amp: Float64):
+        var voice = self.poly.next_trig(self.voices, True)
+        if voice != -1:
+            self.voices[voice].note = [freq, amp]
 
     @always_inline
     def next(mut self) -> MFloat[2]:
         var out = 0.0
 
-        # the callback function sent to the Poly, to be called whenever a new trigger is received from Python.
-        def call_back(mut voice: TrigSynthVoice, mut vals: List[Float64]) capturing -> None:
-            voice.note = [vals[0], vals[1]]
-        # the poly has an internal Messenger that receives messages from Python. these have to be in the form of a List[Float64] or a List[Int]. the callback function receives the list of ints or floats as the second argument, so the PolyObject can be controlled by the message from Python.
-        self.poly.next_mtrig[call_back=call_back](self.voices)
+        # call next_trig every sample so the voices triggered last sample are reset
+        _ = self.poly.next_trig(self.voices, False)
+
+        # the sequencer sends each note as a [freq, amplitude] list with send_floats("notes", ...)
+        if self.messenger.notify_update_all("notes", self.notes):
+            for ref note in self.notes:
+                self.trigger_note(note[0], note[1])
+
+        # MIDI note ons are [note, velocity, channel]. The voices have their own release, so note_off is ignored.
+        if self.messenger.notify_update_all("note_on", self.note_ons):
+            for ref note in self.note_ons:
+                self.trigger_note(midicps(Float64(note[0])), Float64(note[1]) / 127.0)
 
         # add the values of all the voices
         for i in range(len(self.voices)):
             out += self.voices[i].next()
 
+        # the sequencer sets the filter with "filt_freq" and a MIDI keyboard sets it with cc 34
         self.messenger.update("filt_freq", self.filt_freq)
-        if self.messenger.notify_update("bend_mul", self.bend_mul):
-            # if bend_mul changes, update all the voices
+        if self.messenger.notify_update_all("cc", self.ccs):
+            for ref cc in self.ccs:
+                if cc[0] == 34:
+                    self.filt_freq = linexp(Float64(cc[1]), 0.0, 127.0, 100.0, 4000.0)
+
+        # pitch bend is [value, channel], where value is 0 to 16383 and 8192 is no bend. Bends about a semitone either way.
+        if self.messenger.notify_update_all("pitch_bend", self.bends):
+            self.bend_mul = linlin(Float64(self.bends[len(self.bends) - 1][0]), 0.0, 16383.0, 0.9375, 1.0625)
             for i in range(len(self.voices)):
                 self.voices[i].bend_mul = self.bend_mul
 
         out = self.svf.lpf(out, self.filt_lag.next(self.filt_freq), 2.0) * 0.6
 
         return out
-        
-

@@ -12,6 +12,9 @@ struct Record(Movable, Copyable):
     var input_chan: Int
     var messenger: Messenger
     var note_time: Float64
+    var sr: Float64
+    var note_ons: List[List[Int]]
+    var note_offs: List[List[Int]]
 
     def __init__(out self, world: World):
         self.world = world
@@ -25,6 +28,9 @@ struct Record(Movable, Copyable):
         self.input_chan = 0
         self.messenger = Messenger(self.world)
         self.note_time = 0.0
+        self.sr = self.world[].sample_rate
+        self.note_ons = List[List[Int]]()
+        self.note_offs = List[List[Int]]()
 
     def start_recording(mut self):
         self.buffer.write_head = 0
@@ -37,7 +43,7 @@ struct Record(Movable, Copyable):
         self.is_recording = False
         self.is_playing = 1.0
         self.trig = True
-        self.note_time = Float64(self.buffer.write_head-1) / self.world[].sample_rate
+        self.note_time = Float64(self.buffer.write_head-1) / self.sr
         print("Recorded duration:", self.note_time, "seconds")
         print("Recording stopped. Now playing.")
 
@@ -47,11 +53,16 @@ struct Record(Movable, Copyable):
                 print("Input channel out of range, resetting to 0")
                 self.input_chan = 0
 
-        var notified = self.messenger.notify_update("is_recording", self.is_recording)
-        if notified and self.is_recording:
-            self.start_recording()
-        elif notified and not self.is_recording:
-            self.stop_recording()
+        # holding down MIDI note 48 records, and letting go of it plays back what was recorded.
+        # note_on and note_off are [note, velocity, channel] lists, sent by MMMAudio.send_midi or by a plugin's MIDI input.
+        if self.messenger.notify_update_all("note_on", self.note_ons):
+            for ref note in self.note_ons:
+                if note[0] == 48 and not self.is_recording:
+                    self.start_recording()
+        if self.messenger.notify_update_all("note_off", self.note_offs):
+            for ref note in self.note_offs:
+                if note[0] == 48 and self.is_recording:
+                    self.stop_recording()
 
         # this code does the actual recording, placing the next sample into the buffer
         # my audio interface has audio in on channel 9, so I use self.world[].sound_in(8)

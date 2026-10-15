@@ -136,7 +136,7 @@ class NRT():
             filename: The name of the output WAV file.
             duration_seconds: The duration of the output audio in seconds.
             score_path: Optional path to a json score file containing events to process during audio generation.
-            targets: Optional dictionary mapping object names to their corresponding instances for event processing. Usually this will be a dictionary of MMMAudio instances and PolyPal instances.
+            targets: Optional dictionary mapping object names to their corresponding instances for event processing. Usually this will be a dictionary of MMMAudio instances.
             verbose: If True, print progress and event processing information.
 
         """

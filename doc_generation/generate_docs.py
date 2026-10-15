@@ -253,6 +253,8 @@ def process_example_file(python_example_file_path: Path):
         return
 
     mojo_example_file = python_example_file_path.stem + '.mojo'
+    # Path of the example's folder relative to the repo root, e.g. "examples" or "examples/ML_examples"
+    example_rel_dir = python_example_file_path.parent.relative_to(REPO_ROOT).as_posix()
 
     python_file_stem = python_example_file_path.stem  # filename without suffix
     output_md_path = REPO_ROOT / 'doc_generation' / 'docs_md' / 'examples' / f"{python_file_stem}.md"
@@ -297,6 +299,8 @@ def process_example_file(python_example_file_path: Path):
     
     context = {
         'python_file_stem': python_file_stem,
+        'example_rel_dir': example_rel_dir,
+        'example_module': example_rel_dir.replace('/', '.') + '.' + python_file_stem,
         'mojo_file_name': mojo_example_file,
         'example_name': python_file_stem,
         'code': code,
@@ -309,13 +313,19 @@ def process_example_file(python_example_file_path: Path):
     rendered = render_template('example_python_and_mojo_jinja.md', context)
     output_md_path.write_text(rendered, encoding='utf-8')
 
+# Example folders (relative to examples/) to include in the docs, mapped to their nav section title.
+# "" is the top level examples folder, whose pages go directly in the Examples nav.
+EXAMPLE_SUBDIRS = {'': None, 'ML_examples': 'ML Examples'}
+
 def process_examples_dir():
     example_files_src_dir = REPO_ROOT / 'examples'
     if not example_files_src_dir.exists() or not example_files_src_dir.is_dir():
         print(f"Error Examples directory '{example_files_src_dir}' does not exist or is not a directory, skipping examples processing.")
         return
 
-    example_file_paths = list(example_files_src_dir.glob('*.py'))
+    example_file_paths = []
+    for subdir in EXAMPLE_SUBDIRS:
+        example_file_paths += list((example_files_src_dir / subdir).glob('*.py'))
     
     for python_example_file_path in example_file_paths:
         if python_example_file_path.name == '__init__.py':
@@ -335,11 +345,14 @@ def build_examples_nav_entries() -> list[dict[str, str]]:
     if (REPO_ROOT / 'doc_generation' / 'docs_md' / overview_md).exists() or True:
         entries.append({'Overview': str(overview_md)})
 
-    py_files = sorted(p for p in example_dir.glob('*.py') if p.name not in {'__init__.py'})
-    for py in py_files:
-        stem = py.stem  # e.g. many_oscillators
-        md_name = stem + '.md'
-        entries.append({stem: f'examples/{md_name}'})
+    for subdir in EXAMPLE_SUBDIRS:
+        py_files = sorted(p for p in (example_dir / subdir).glob('*.py') if p.name not in {'__init__.py'})
+        # All example pages are generated flat into docs_md/examples, subdirectories only group the nav
+        sub_entries = [{py.stem: f'examples/{py.stem}.md'} for py in py_files]
+        if subdir:
+            entries.append({EXAMPLE_SUBDIRS[subdir]: sub_entries})
+        else:
+            entries += sub_entries
     return entries
 
 def update_examples_nav(config: MkDocsConfig):  # type: ignore

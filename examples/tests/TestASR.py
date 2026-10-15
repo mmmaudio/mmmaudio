@@ -4,7 +4,7 @@ mmm_audio.start_audio()
 
 mmm_audio.send_floats("curves", [4.0, -4.0])  # set the curves to logarithmic attack and exponential decay
 
-# this program is looking for midi note_on and note_off from note 48, so we prepare the keyboard to send messages to mmm_audio:
+# any midi note on opens the envelope's gate and any note off closes it, so we forward the keyboard's messages to mmm_audio:
 if True:
     import supriya_midi as midi
 
@@ -18,12 +18,9 @@ if True:
     in_port = midi.MidiIn()
     in_port.open_port(port_num)
 
+    # send_midi forwards every message to the graph the same way an exported plugin does
     def midi_callback(msg, timestamp, data=None):
-        msg = midi.MidiMessage.parse(msg)
-        print(f"Received {msg=}")
-        if type(msg) == midi.NoteOnMessage:
-            mmm_audio.send_bool("gate", True)
-        elif type(msg) == midi.NoteOffMessage:
-            mmm_audio.send_bool("gate", False)
+        print(f"Received {midi.MidiMessage.parse(msg)}")
+        mmm_audio.send_midi(msg)
 
     in_port.set_callback(midi_callback)
