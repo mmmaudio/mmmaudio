@@ -339,7 +339,6 @@ def linmap(x: MFloat[_], *points: Tuple[type_of(x), type_of(x)]) -> type_of(x):
 def py_to_float64(py_float: PythonObject) raises -> Float64:
     return Float64(py=py_float)
 
-# def max[dtype: DType, //](x: SIMD[dtype], y: SIMD[dtype, x.length], /) -> SIMD[dtype, x.length]
 @always_inline
 def clip[
     dtype: DType, //
@@ -647,6 +646,22 @@ def sanitize(x: MFloat[_]) -> type_of(x):
     var should_zero: MBool[x.length] = too_large | too_small | is_nan
 
     return should_zero.select(0.0, x)
+
+@always_inline
+def clip_finite(x: MFloat[_], limit: Float64, nan_val: Float64 = 0.0) -> type_of(x):
+    """Clips a SIMD float64 vector to [-limit, limit] and replaces NaN with `nan_val`. Infinities clip to +/-limit.
+
+    Unlike `sanitize`, out-of-range values are clamped rather than zeroed, so loud signals don't drop out.
+
+    Args:
+        x: The SIMD float64 vector to clip.
+        limit: The largest magnitude allowed through.
+        nan_val: The value that replaces NaN. Used as given, without clipping.
+
+    Returns:
+        The clipped vector, finite as long as `nan_val` is.
+    """
+    return isnan(x).select(MFloat[x.length](nan_val), clip(x, MFloat[x.length](-limit), MFloat[x.length](limit)))
 
 comptime _GOLDEN64 = 0x9E3779B97F4A7C15
 """The 64-bit golden-ratio odd constant, used to space seeds and lanes apart."""
@@ -1255,6 +1270,25 @@ def Li2[num_chans: SIMDLength](x: MFloat[num_chans]) -> MFloat[num_chans]:
     var q = horner[num_chans, Q](z)
 
     return r + s * y * p / q
+
+@doc_hidden
+def li2_neg_exp[num_chans: SIMDLength](u: MFloat[num_chans]) -> MFloat[num_chans]:
+    """Compute the dilogarithm Li2(-t) for t in [0, 1], given u = ln(1 + t).
+
+    Uses the Landen identity Li2(-t) = -Li2(1 - e^(-u)) - u²/2 and the Bernoulli series of Li2(1 - e^(-u)).
+    With 0 <= u <= ln2 the truncated series is accurate to double precision. Much cheaper than `Li2` for
+    arguments of the form -e^(-2|x|), as used by the antiderivatives of `tanh`. Taking `u` lets callers
+    share it with other terms that need ln(1 + t).
+
+    Args:
+        u: ln(1 + t), with 0 <= u <= ln2.
+
+    Returns:
+        Li2(-t).
+    """
+    var u2 = u * u
+    var series = u * u2 * (1.0 / 36.0 + u2 * (-1.0 / 3600.0 + u2 * (1.0 / 211680.0 + u2 * (-1.0 / 10886400.0 + u2 * (1.0 / 526901760.0 + u2 * (-691.0 / 17000766784000.0 + u2 * (7.0 / 7846046208000.0)))))))
+    return -u - 0.25 * u2 - series
 
 # TODO: add recursion
 def select_files(dir: String, extensions: List[String] = [".wav",".aif"]) -> List[String]:
