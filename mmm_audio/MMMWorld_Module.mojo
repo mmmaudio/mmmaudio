@@ -95,23 +95,26 @@ struct MMMWorld(Movable, Copyable, WorldIsMessagable):
 
     def __init__(out self, sample_rate: Float64,
         environment_ptr: Optional[Pointer[mut=True, Environment, MutUntrackedOrigin]] = None,
+        verbose: Bool = True,
     ):
         """Initializes the MMMWorld struct.
 
         Args:
             sample_rate: The audio sample rate.
             environment_ptr: A pointer to the Environment struct, which holds information about the current audio block and input buffers.
+            verbose: Print the sample rate and whether the Environment is set. Plugins turn this off.
         """
         
         self.sample_rate = sample_rate
         self.sample_dur_seconds = 1.0 / sample_rate
         self.environment_ptr = environment_ptr
 
-        print("MMMWorld initialized with sample rate:", self.sample_rate)
-        if self.environment_ptr != None:
-            print("Environment pointer is set.")
-        else:
-            print("Environment pointer is not set.")
+        if verbose:
+            print("MMMWorld initialized with sample rate:", self.sample_rate)
+            if self.environment_ptr != None:
+                print("Environment pointer is set.")
+            else:
+                print("Environment pointer is not set.")
 
 
     @always_inline
@@ -280,7 +283,8 @@ struct MMMWorld(Movable, Copyable, WorldIsMessagable):
         var new_world = unsafe_alloc[MMMWorld](1) 
         new_world.unsafe_write(MMMWorld(
             sample_rate=self.sample_rate * Float64(times_ov_samp.times), 
-            environment_ptr = self.environment_ptr
+            environment_ptr = self.environment_ptr,
+            verbose = False
         ))
 
         return new_world

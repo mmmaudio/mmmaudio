@@ -8,10 +8,11 @@ The graph is loaded at runtime from its own shared library, exactly as the
 Python engine does (see `mmm_audio/Graph_Module.mojo` and
 `mmm_python/graph_bridge.py`, which builds `<Graph>Graph.hash-*.so`).
 
-Build:
-
-    mojo build PluginExporter/MMMAudioPluginBridge.mojo \\
-        --emit shared-lib -o libMMMAudioPlugin.so -I .
+Build: export_plugin.py builds it (`_build_mojo_libs`), as
+`libMMMAudioPluginBridge.dylib/.so`, against the same precompiled mmm_audio
+package as the graph library, so the two agree on the Environment's layout.
+Don't build it by hand with `mojo build`: a bridge compiled separately from the
+graph can disagree with it on that layout.
 
 Every exported function takes the handle returned by `mmm_plugin_new` first.
 Pointers are passed as plain addresses (`intptr_t` / `void*` on the C side),
@@ -131,7 +132,7 @@ struct MMMAudioPluginBridge(Movable):
         )
 
         self.world = unsafe_alloc[MMMWorld](1)
-        self.world.unsafe_write(MMMWorld(sample_rate, self.environment_ptr))
+        self.world.unsafe_write(MMMWorld(sample_rate, self.environment_ptr, verbose=False))
 
         self.graph = C_GraphHandle(graph_lib, self.world)
 

@@ -5,7 +5,7 @@ graph's Qt GUI script, the GUI's controls become host-automatable parameters and
 a JUCE editor that you can restyle by hand.
 
 The export writes a self-contained JUCE CMake project for each plugin to
-`builds/<name>/`, and usually builds it too.
+`builds/<name>/`, and usually builds it and installs it too.
 
 ## Requirements
 
@@ -24,9 +24,9 @@ Run from the MMMAudio folder:
 
 ```sh
 pixi run python PluginExporter/export_plugin.py \
-    --graph_name SuperSaw --package_name llm \
+    --graph_name FM4 --package_name examples \
     --plugin_type VST3 AU CLAP \
-    --gui_file llm/SuperSaw.py \
+    --gui_file examples/FM4.py \
     --instrument
 ```
 
@@ -35,11 +35,11 @@ Or from Python, also from the MMMAudio folder:
 ```python
 from PluginExporter.export_plugin import export_plugin
 
-export_plugin("SuperSaw", "llm", plugin_type=["VST3", "AU", "CLAP"],
-              gui_file="llm/SuperSaw.py", instrument=True)
+export_plugin("FM4", "examples", plugin_type=["VST3", "AU", "CLAP"],
+              gui_file="examples/FM4.py", instrument=True)
 ```
 
-`examples/PluginExport.py` has more examples.
+`PluginExporter/PluginExporter.py` has more examples.
 
 The finished plugins are left in `builds/<name>/plugins/`. Add `--install` (or
 `install=True`) to also copy them into your plug-in folders, then restart or rescan
@@ -53,7 +53,8 @@ your host.
 | `--gui_file` | The graph's Qt GUI script. Without it the plugin has no parameters and an empty editor. |
 | `--plugin_name` | The name the host shows (default: the graph name). This is also the folder name in `builds/`. |
 | `--instrument` / `--effect` | Instrument (no audio input) or effect. By default this comes from the GUI script: `in_device=None` means instrument. |
-| `--num_in`, `--num_out` | Channel counts. By default from the GUI script and the graph's `next() -> MFloat[N]`. |
+| `--num_in` | An effect's input channels. By default the GUI script's `num_input_channels`, capped at 2 (or 2 without a GUI script); pass it for more. An instrument always has 0. |
+| `--num_out` | Output channels. By default the N in the graph's `next() -> MFloat[N]`, then the GUI script's `num_output_channels`, then 2. |
 | `--resources` | Extra files or folders to put inside the plugin. Files the graph names by relative path, like `"resources/Shiverer.wav"`, are found automatically. |
 | `--install` | Copy the plugins into your user plug-in folders. |
 | `--no_build` | Only write the project, without building it (see below). |
@@ -143,7 +144,7 @@ To use the copies in this folder instead of downloading them, add
 Build. The targets are `<name>_VST3`, `<name>_AU` and `<name>_CLAP`:
 
 ```sh
-cmake --build build --config Release --parallel --target SuperSaw_VST3 SuperSaw_AU SuperSaw_CLAP
+cmake --build build --config Release --parallel --target FM4_VST3 FM4_AU FM4_CLAP
 ```
 
 The plugins appear in `build/<name>_artefacts/Release/`. After building each one,

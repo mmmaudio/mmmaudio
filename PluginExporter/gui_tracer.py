@@ -20,9 +20,11 @@ The output JSON holds:
 
 import json
 import math
+import os
 import re
 import runpy
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -844,23 +846,49 @@ def _tracking_init(self, *a, **k):
 QObjectBase.__init__ = _tracking_init
 
 
+class _ScriptBlocked(BaseException):
+    """Raised out of a script that sits in a sleep loop instead of calling app.exec()."""
+
+
+_sleeps = None   # sleeps left before a running script counts as blocked; None once it has finished
+
+
+def _fake_sleep(_secs=0):
+    # Scripts without a Qt GUI (a MIDI or OSC loop, say) end in `while True: time.sleep(1)`.
+    # Sleeps cost nothing here, and a script still sleeping after many of them is
+    # waiting forever, so it is stopped there and whatever it built so far is used.
+    global _sleeps
+    if _sleeps is None:
+        return
+    _sleeps -= 1
+    if _sleeps < 0:
+        raise _ScriptBlocked
+
+
 def trace(gui_file):
+    global _sleeps
     gui_file = Path(gui_file).resolve()
     install_fakes()
+    time.sleep = _fake_sleep
     sys.path.insert(0, str(gui_file.parent))
     sys.path.insert(0, str(REPO_ROOT))
     sys.argv = [str(gui_file)]
+    _sleeps = 1000
     try:
         runpy.run_path(str(gui_file), run_name="__main__")
-    except SystemExit:
+    except (SystemExit, _ScriptBlocked):
         pass
+    except Exception as e:
+        # A script that isn't a GUI may fail on things the tracer doesn't fake
+        # (opening a MIDI device...). Keep whatever it set up before that.
+        warn(f"the script stopped with {type(e).__name__}: {e}")
+    _sleeps = None
 
     setup_msgs = list(REC.setup)
     b = Builder()
     window = find_window()
     layout = b.widget(window) if window else None
     if layout is None:
-        warn("no window with controls was found")
         layout = {"type": "vbox", "children": []}
     if layout["type"] not in ("vbox", "hbox"):
         layout = {"type": "vbox", "children": [layout]}
@@ -889,3 +917,6 @@ if __name__ == "__main__":
     gui_file, out_file = sys.argv[1], sys.argv[2]
     result = trace(gui_file)
     Path(out_file).write_text(json.dumps(result, indent=2))
+    # Exit even if the script left threads running (a scheduler, a MIDI listener...).
+    sys.stdout.flush()
+    os._exit(0)
