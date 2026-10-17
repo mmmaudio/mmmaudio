@@ -21,14 +21,6 @@ struct StereoBeatingSines(Movable, Copyable):
     def __init__(out self, world: World, center_freq: Float64):
         self.world = world
 
-        # create two oscillators. The [2] here is *kind of* like an array
-        # with two elements, but the more accurate way to look at it is a
-        # SIMD operation with a width of 2. For more info on MMMAudio's SIMD 
-        # support, see: https://spluta.github.io/MMMAudio/api/ 
-        # Just FYI, it's not 2 because this is a stereo synth, it's 2 to
-        # create some nice beating patterns. The output is stereo because later
-        # the pan2 function positions the summed oscillators in the stereo field
-
         self.osc1 = Osc[interp=Interp.linear](self.world)
         self.osc2 = Osc[interp=Interp.linear](self.world)
         
@@ -57,19 +49,11 @@ struct StereoBeatingSines(Movable, Copyable):
 
 struct StereoBeatingSines2(Movable, Copyable):
     var world: World # pointer to the MMMWorld
-    var osc_s: Osc[4, interp=Interp.linear] # first oscillator
-    var osc_freqs: MFloat[4] # frequencies for the two oscillators
+    var osc_s: Osc[4, interp=Interp.linear] # the four oscillators, in one SIMD struct
+    var osc_freqs: MFloat[4] # frequencies for the four oscillators, two we hear and two LFOs
 
     def __init__(out self, world: World, center_freq: Float64):
         self.world = world
-
-        # create two oscillators. The [2] here is *kind of* like an array
-        # with two elements, but the more accurate way to look at it is a
-        # SIMD operation with a width of 2. For more info on MMMAudio's SIMD 
-        # support, see: https://spluta.github.io/MMMAudio/api/ 
-        # Just FYI, it's not 2 because this is a stereo synth, it's 2 to
-        # create some nice beating patterns. The output is stereo because later
-        # the pan2 function positions the summed oscillators in the stereo field
 
         self.osc_s = Osc[4,interp=Interp.linear](self.world)
         self.osc_freqs = MFloat[4](
