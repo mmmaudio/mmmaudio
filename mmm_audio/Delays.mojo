@@ -1,6 +1,6 @@
 from mmm_audio.MMMWorld_Module import Interp
 from mmm_audio.Polyphony import PolyReset
-from mmm_audio.functions import all_lanes_equal, clip
+from mmm_audio.functions import all_lanes_equal, clip, linear_interp, quadratic_interp, cubic_interp, lagrange4
 from mmm_audio.constants import *
 from mmm_audio.MMMWorld_Module import TimesOversampling
 from mmm_audio.Recorder_Module import Recorder
@@ -21,10 +21,19 @@ trait Tapable(Movable, Copyable):
 struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable, PolyReset):
     """A variable delay line with interpolation.
 
+    The shortest delay is 1 sample, 2 samples with `Interp.cubic`, or 2.5 samples with `Interp.lagrange4`. Cubic and lagrange4 read points on the near side of the read position, and those have to be frames that have already been written.
+
     Parameters:
       num_chans: Size of the SIMD vector - defaults to 1.
       interp: The interpolation method to use. See the struct [Interp](MMMWorld.md#struct-interp) for interpolation options.
     """
+
+    # lagrange4() centres its kernel 1.5 frames past the index it is handed, so
+    # the read index is backed off by 1.5 to land on the delay that was asked for.
+    # This puts the shortest delay for lagrange4 at 2.5 samples. Cubic reads one 
+    # frame before its index, so its shortest delay is 2 samples.
+    comptime read_offset: Float64 = 1.5 if Self.interp == Interp.lagrange4 else 0.0
+    comptime min_delay_samps: Float64 = 2.5 if Self.interp == Interp.lagrange4 else (2.0 if Self.interp == Interp.cubic else 1.0)
 
     var world: World
     var max_delay_time: Float64
@@ -91,8 +100,15 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
       Returns:
         A single `Self.num_chans` sized sample read from the delay buffer with no interpolation.
       """
-      var idx = (self.delay_line.write_head + delay_samps) % self.delay_line.buf.num_frames
-      return self.delay_line.buf.data[idx]
+      var num_frames = self.delay_line.buf.num_frames
+      var idx = self.delay_line.write_head + delay_samps
+      # A tap inside the line needs at most one subtraction to wrap, which is much cheaper than an integer divide
+      if 0 <= delay_samps < num_frames:
+        if idx >= num_frames:
+          idx -= num_frames
+      else:
+        idx = idx % num_frames
+      return self.delay_line.buf.data.unsafe_get(idx)
 
     def tap(mut self, var delay_time: Float64) -> MFloat[Self.num_chans]:
       """Taps into the delay line at a fractional delay time with `Self.interp` interpolation. Tap is different from read in that it always returns the full SIMD vector of one point in the delay line.
@@ -119,15 +135,17 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
       comptime if Self.num_chans == 1:
         return self.tap(Int(delay_samps[0]))
       else:
-        var idx = (MInt[1](self.delay_line.write_head) + delay_samps) % MInt[1](self.delay_line.buf.num_frames)
         var a_l_e = all_lanes_equal(delay_samps)
         if a_l_e:
           return self.tap(Int(delay_samps[0]))
         else:
-          var out = MFloat[Self.num_chans](0.0)
-          for chan in range(Self.num_chans):
-            out[chan] = self.delay_line.buf.data[idx[chan]][chan]
-          return out
+          var num_frames = MInt[Self.num_chans](self.delay_line.buf.num_frames)
+          var idx = MInt[Self.num_chans](self.delay_line.write_head) + delay_samps
+          if (delay_samps.lt(0) | delay_samps.ge(num_frames)).reduce_or():
+            idx = idx % num_frames
+          else:
+            idx = self._wrap(idx)
+          return self._gather(idx)
 
     @always_inline
     def read(mut self, var delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
@@ -141,7 +159,10 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
       """
       delay_time = min(delay_time, self.max_delay_time)
       comptime if Self.num_chans == 1:
-        return self.tap(delay_time[0])
+        comptime if Self.interp == Interp.sinc:
+          return self.tap(delay_time[0])
+        else:
+          return self._read_lanes(delay_time)
       else:
         var a_l_e = all_lanes_equal(delay_time)
         if a_l_e:
@@ -259,7 +280,7 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
           The fractional index in the delay buffer.
         """
 
-        var delay_samps = max(delay_time, self.sample_duration) * self.sample_rate
+        var delay_samps = max(delay_time * self.sample_rate, Self.min_delay_samps) - Self.read_offset
         # Because the SpanInterpolator functions always "read" forward,
         # we're writing into the delay line buffer backwards, so therefore,
         # here to go backwards in time we add the delay samples to the write head.
@@ -384,7 +405,6 @@ struct LP_Comb[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapabl
     var world: World
     var delay: Delay[Self.num_chans, Self.interp] # Delay line without automatic feedback
     var one_pole: OnePole[Self.num_chans]
-    var fb: MFloat[Self.num_chans]
 
     def __init__(out self, world: World, max_delay_time: Float64 = 1.0):
       """Initialize the LP_Comb filter.
@@ -397,7 +417,6 @@ struct LP_Comb[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapabl
         self.world = world
         self.delay = Delay[Self.num_chans, Self.interp](self.world, max_delay_time)
         self.one_pole = OnePole[Self.num_chans](self.world)
-        self.fb = MFloat[Self.num_chans](0.0)
 
     def tap(mut self, delay_samps: Int) -> MFloat[Self.num_chans]:
       """Taps into the delay line at an exact sample delay and no interpolation.
@@ -434,10 +453,10 @@ struct LP_Comb[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapabl
         Returns:
           The processed output sample.
         """
-        var fb_in = input + self.fb * clip(feedback, -1.0, 1.0)
-        var out = self.delay.next(fb_in, delay_time)
-
-        self.fb = self.one_pole.lpf(out, lp_freq)  # Low-pass filter the feedback
+        # Read, filter and write back in the same sample, so the loop is exactly delay_time long
+        var out = self.delay.read(delay_time)
+        var fb = self.one_pole.lpf(out, lp_freq)  # Low-pass filter the feedback
+        self.delay.write(input + fb * clip(feedback, -1.0, 1.0))
 
         return out
 
@@ -445,7 +464,6 @@ struct LP_Comb[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapabl
       """Reset the LP_Comb filter to its initial state. This will clear the internal buffer and reset the feedback."""
       self.delay.reset()
       self.one_pole.reset()
-      self.fb = MFloat[Self.num_chans](0.0)
 
 struct Allpass[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable, PolyReset):
     """
@@ -563,7 +581,6 @@ struct FB_Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.lagrange4, AD
     var world: World
     var delay: Delay[Self.num_chans, Self.interp]
     var dc: DCTrap[Self.num_chans]
-    var fb: MFloat[Self.num_chans]
     var tanh_ad: TanhAD[Self.num_chans, Self.ov_samp]
 
     def __init__(out self, world: World, max_delay_time: Float64 = 1.0):
@@ -577,7 +594,6 @@ struct FB_Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.lagrange4, AD
         self.world = world
         self.delay = Delay[Self.num_chans, Self.interp](self.world, max_delay_time)
         self.dc = DCTrap[Self.num_chans](self.world)
-        self.fb = MFloat[Self.num_chans](0.0)
         self.tanh_ad = TanhAD[Self.num_chans, Self.ov_samp](self.world)
 
     def tap(mut self, delay_samps: Int) -> MFloat[Self.num_chans]:
@@ -607,7 +623,6 @@ struct FB_Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.lagrange4, AD
         self.delay.reset()
         self.dc.reset()
         self.tanh_ad.reset()
-        self.fb = MFloat[Self.num_chans](0.0)
 
     def next(mut self, input: MFloat[Self.num_chans], delay_time: MFloat[Self.num_chans], feedback: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """Process one sample or SIMD vector through the feedback delay.
@@ -620,11 +635,12 @@ struct FB_Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.lagrange4, AD
         Returns:
           The processed output sample or SIMD vector.
         """
-        var out = self.delay.next(self.fb, delay_time)  # Get the delayed sample
+        # Read, distort and write back in the same sample, so both the input and the loop are delayed by exactly delay_time
+        var out = self.delay.read(delay_time)  # Get the delayed sample
 
         comptime if Self.ADAA_dist:
-            self.fb = self.dc.next(self.tanh_ad.next((input + out) * feedback))
+            self.delay.write(self.dc.next(self.tanh_ad.next((input + out) * feedback)))
         else:
-          self.fb = self.dc.next(tanh((input + out) * feedback))
+            self.delay.write(self.dc.next(tanh((input + out) * feedback)))
 
         return out  # Return the delayed sample
