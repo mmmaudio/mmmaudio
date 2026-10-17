@@ -147,10 +147,58 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
         if a_l_e:
           return self.tap(delay_time[0])
         else:
-          var out = MFloat[Self.num_chans](0.0)
-          for chan in range(Self.num_chans):
-            out[chan] = self.tap(delay_time[chan])[chan]
-          return out
+          comptime if Self.interp == Interp.sinc:
+            var out = MFloat[Self.num_chans](0.0)
+            for chan in range(Self.num_chans):
+              out[chan] = self.tap(delay_time[chan])[chan]
+            return out
+          else:
+            return self._read_lanes(delay_time)
+
+    @doc_hidden
+    @always_inline
+    def _gather(self, idx: MInt[Self.num_chans]) -> MFloat[Self.num_chans]:
+      """Loads one sample per lane, each lane from its own frame of the delay line. `idx` must already be wrapped."""
+      var ptr = self.delay_line.buf.data.unsafe_ptr().unsafe_bitcast[Float64]()
+      var out = MFloat[Self.num_chans](0.0)
+      comptime for chan in range(Self.num_chans):
+        out[chan] = ptr[unsafe_offset=Int(idx[chan]) * Int(Self.num_chans) + chan]
+      return out
+
+    @doc_hidden
+    @always_inline
+    def _wrap(self, idx: MInt[Self.num_chans]) -> MInt[Self.num_chans]:
+      """Wraps indices that are at most one buffer length out of range, without an integer divide."""
+      var n = MInt[Self.num_chans](self.delay_line.buf.num_frames)
+      var wrapped = idx.ge(n).select(idx - n, idx)
+      return wrapped.lt(0).select(wrapped + n, wrapped)
+
+    @doc_hidden
+    @always_inline
+    def _read_lanes(mut self, delay_time: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+      """Reads every lane at its own delay time. Only called from `read`, which already caps `delay_time` at the line length.
+
+      Gathers each lane's interpolation points and then interpolates all lanes at once This is more efficient than a `tap` per lane would be, where we would interpolate the full vector `num_chans` times and keep one lane of each.
+      """
+      var num_frames = Float64(self.delay_line.buf.num_frames)
+      var delay_samps = max(delay_time * self.sample_rate, MFloat[Self.num_chans](Self.min_delay_samps)) - Self.read_offset
+
+      # read() caps the delay at the line length, so wrapping takes at most one subtraction
+      var f_idx = Float64(self.delay_line.write_head) + delay_samps
+      f_idx = f_idx.ge(num_frames).select(f_idx - num_frames, f_idx)
+      var idx = self._wrap(f_idx.cast[DType.int]())
+      var frac = f_idx - idx.cast[DType.float64]()
+
+      comptime if Self.interp == Interp.none:
+        return self._gather(idx)
+      elif Self.interp == Interp.linear:
+        return linear_interp(self._gather(idx), self._gather(self._wrap(idx + 1)), frac)
+      elif Self.interp == Interp.quad:
+        return quadratic_interp(self._gather(idx), self._gather(self._wrap(idx + 1)), self._gather(self._wrap(idx + 2)), frac)
+      elif Self.interp == Interp.cubic:
+        return cubic_interp(self._gather(self._wrap(idx - 1)), self._gather(idx), self._gather(self._wrap(idx + 1)), self._gather(self._wrap(idx + 2)), frac)
+      else:
+        return lagrange4(self._gather(idx), self._gather(self._wrap(idx + 1)), self._gather(self._wrap(idx + 2)), self._gather(self._wrap(idx + 3)), self._gather(self._wrap(idx + 4)), frac)
 
     @always_inline
     def write(mut self, input: MFloat[Self.num_chans]):
