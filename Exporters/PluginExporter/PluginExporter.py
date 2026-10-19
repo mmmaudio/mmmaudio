@@ -2,8 +2,8 @@
 Build MMMAudio graphs as VST3, CLAP or AU plugins, from Python.
 
 Each `export_plugin` call compiles the graph, generates a JUCE project in
-PluginExporter/builds/<name>/ and builds it, where <name> is plugin_name (by default
-the graph_name). The finished plugins are left in PluginExporter/builds/<name>/plugins/,
+Exporters/PluginExporter/builds/<name>/ and builds it, where <name> is plugin_name (by default
+the graph_name). The finished plugins are left in Exporters/PluginExporter/builds/<name>/plugins/,
 and the call returns their paths.
 
 The first build downloads JUCE (and, for CLAP, clap-juce-extensions) into the
@@ -33,11 +33,11 @@ The folder created in the builds/ directory is a JUCE project with all necessary
 
 Every plugin accepts MIDI and passes it to the graph as "note_on", "note_off",
 "cc", "pitch_bend" and so on, the same messages `MMMAudio.send_midi` sends.
-See PluginExporter/export_plugin.py for the details.
+See Exporters/PluginExporter/export_plugin.py for the details.
 """
-from PluginExporter.export_plugin import export_plugin
+from Exporters.PluginExporter.export_plugin import export_plugin
 
-# ---- export the JUCE project only (into the PluginExporter/builds/ directory), without building the plugin ----
+# ---- export the JUCE project only (into the Exporters/PluginExporter/builds/ directory), without building the plugin ----
 
 export_plugin("FM4", "examples", plugin_type=["Clap"], gui_file="examples/FM4.py", instrument=True, build=False)
 
@@ -69,7 +69,7 @@ export_plugin("BenjolinExample", "examples", plugin_type=["VST3", "AU"], gui_fil
 # MLP_Synth with 2D Slider. It will package the safetensors and the model into the plugin bundle, so it can run without any extra files.
 export_plugin("MLP_Synth2D", "examples.ML_examples", plugin_type=["VST3", "AU", "Clap"], gui_file="examples/ML_examples/MLP_Synth2D.py", install=True, instrument=True)
 
-export_plugin("BenjolinExample", "examples", plugin_type=["VST3", "AU"], gui_file="examples/BenjolinExample.py", install=True)
+export_plugin("PlayExample", "llm", plugin_type=["VST3"], gui_file="llm/PlayExample.py", install=True)
 
 # if you have an 8 channel graph and set num_out to 8, it will build a plugin with 8 outputs. These will run in the DAW as an 8 channel process.
 export_plugin("PanAzExample", "examples", plugin_type=["Clap"], install=True, num_out=8)

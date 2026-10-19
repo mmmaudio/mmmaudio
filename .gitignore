@@ -17,8 +17,8 @@
 !mmm_audio/**
 !mmm_python/
 !mmm_python/**
-!PluginExporter/
-!PluginExporter/**
+!Exporters/
+!Exporters/**
 !resources/
 !resources/**
 !testing_mmm_audio/
@@ -263,6 +263,10 @@ peaks
 
 wsl_fixes/
 # Plugin exporter downloads and build output
-PluginExporter/JUCE/
-PluginExporter/clap-juce-extensions/
-PluginExporter/builds/
+Exporters/PluginExporter/JUCE/
+Exporters/PluginExporter/clap-juce-extensions/
+Exporters/PluginExporter/builds/
+# SuperCollider exporter downloads and build output
+Exporters/SCExporter/supercollider/
+Exporters/SCExporter/builds/
+Exporters/SCExporter/struct_graphs/

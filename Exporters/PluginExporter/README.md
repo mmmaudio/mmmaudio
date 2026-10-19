@@ -23,7 +23,7 @@ folder, which takes a few minutes. Later exports reuse it.
 Run from the MMMAudio folder:
 
 ```sh
-pixi run python PluginExporter/export_plugin.py \
+pixi run python Exporters/PluginExporter/export_plugin.py \
     --graph_name FM4 --package_name examples \
     --plugin_type VST3 AU CLAP \
     --gui_file examples/FM4.py \
@@ -33,13 +33,13 @@ pixi run python PluginExporter/export_plugin.py \
 Or from Python, also from the MMMAudio folder:
 
 ```python
-from PluginExporter.export_plugin import export_plugin
+from Exporters.PluginExporter.export_plugin import export_plugin
 
 export_plugin("FM4", "examples", plugin_type=["VST3", "AU", "CLAP"],
               gui_file="examples/FM4.py", instrument=True)
 ```
 
-`PluginExporter/PluginExporter.py` has more examples.
+`Exporters/PluginExporter/PluginExporter.py` has more examples.
 
 The finished plugins are left in `builds/<name>/plugins/`. Add `--install` (or
 `install=True`) to also copy them into your plug-in folders, then restart or rescan
@@ -48,7 +48,7 @@ your host.
 | Option | What it does |
 |---|---|
 | `--graph_name` | The graph's struct and `.mojo` file name, as for `MMMAudio` (required). |
-| `--package_name` | The folder holding the graph (default `examples`). |
+| `--package_name` | The folder holding the graph (default: the GUI script's `package_name`, else `examples`). |
 | `--plugin_type` | Any of `VST3`, `CLAP`, `AU` (default `VST3`). AU is macOS only. |
 | `--gui_file` | The graph's Qt GUI script. Without it the plugin has no parameters and an empty editor. |
 | `--plugin_name` | The name the host shows (default: the graph name). This is also the folder name in `builds/`. |
