@@ -337,15 +337,17 @@ def _linked_libs(lib):
 
 def _make_relocatable(lib, also=()):
     """Point a copied library's rpath at its own folder (and at the folders in
-    `also`, relative to it), then (macOS) re-sign it.
+    `also`, relative to it), name it after its file, then (macOS) re-sign it.
 
-    Mojo bakes in the absolute path of the pixi environment; with that gone,
-    the bundle only ever loads its own copies.
+    Mojo bakes in the absolute path of the pixi environment, and the graph and
+    bridge are named after their build-cache paths; with those gone, the bundle
+    only ever loads its own copies and carries no paths from this machine.
     """
     if not IS_MAC:
         if shutil.which("patchelf"):
             rpath = ":".join(["$ORIGIN", *(f"$ORIGIN/{d}" for d in also)])
-            subprocess.run(["patchelf", "--set-rpath", rpath, str(lib)], check=False)
+            subprocess.run(["patchelf", "--set-rpath", rpath, "--set-soname", lib.name, str(lib)],
+                           check=False)
         return  # without patchelf, _stage_bundle has already warned
     out = subprocess.run(["otool", "-l", str(lib)], capture_output=True, text=True).stdout
     for rpath in re.findall(r"cmd LC_RPATH\n\s+cmdsize \d+\n\s+path (.+?) \(offset", out):
@@ -354,6 +356,8 @@ def _make_relocatable(lib, also=()):
     for rpath in ["@loader_path", *(f"@loader_path/{d}" for d in also)]:
         subprocess.run(["install_name_tool", "-add_rpath", rpath, str(lib)], check=False,
                        capture_output=True)
+    subprocess.run(["install_name_tool", "-id", f"@rpath/{lib.name}", str(lib)], check=True,
+                   capture_output=True)
     subprocess.run(["codesign", "--force", "--sign", "-", str(lib)], check=True, capture_output=True)
 
 

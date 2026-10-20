@@ -1,9 +1,15 @@
 # SCExporter
 
-Turns an MMMAudio graph into a SuperCollider UGen. The graph's audio inputs become the
-UGen's audio-rate inputs, and the values you would send it from Python with `send_float`,
-`send_int` and `send_bool` (sliders, check boxes and so on) become control-rate inputs.
-Any other message, like a string or a list, is sent to a running Synth with a unit command.
+Turns a MMMAudio graph or struct into a SuperCollider UGen. 
+
+There are key differences between compiling a graph and a struct:
+
+The graph has no arguments in its next function, so audio inputs from Environment.sound_in become the 
+UGen's first argument. Set this number of inputs with `num_in`. 
+
+The graph's parameters (from the GUI script) become control-rate inputs. Messages can also be sent to the graph with the class's send methods, e.g. `FM4.sendString(synth, "key", "text")`. This is most useful for sending strings, like file paths, or lists, which can't be sent as control-rate inputs.
+
+The struct exporter allows you to build a single UGen from a Mojo struct. The key difference is that the struct's next function can have arguments, which become audio-rate inputs to the UGen. The struct's parameters and method parameters can also be set at compile-time, so the UGen can be specialized for a particular use. The struct's Messenger can also be used to receive messages from sclang.
 
 The export writes a CMake project to `builds/Mojo<version>/<Name>/` (e.g.
 `builds/Mojo1.1.0/FM4/`), builds it, and usually installs it too. It uses the same engine interface as the
@@ -75,7 +81,8 @@ layout.
 `export_struct_sc` turns one MMMAudio struct, like `Osc` or `Freeverb`, into a UGen. The
 arguments of the struct's `next` method become the UGen's `.ar` arguments, in the same
 order and with the same defaults, all at audio rate (numbers and control-rate signals are
-made audio rate). What `next` returns is the output.
+made audio rate). What `next` returns is the output. The choice of method can also be 
+specified if not using `next`.
 
 ```python
 from Exporters.SCExporter.export_sc import export_struct_sc
@@ -111,15 +118,10 @@ pixi run python Exporters/SCExporter/export_sc.py --struct Freeverb --install
   `Int` takes one. A `Bool` is true above 0. A one-channel argument given an array expands
   into several UGens, as usual: `MMMOsc.ar([440, 660])`. What the method returns sets the
   outputs: `next_all_basic_waveforms` returns an `MFloat[4]`, so it has 4.
-- A struct from outside `mmm_audio`: `module="examples.export_examples"` (a package) or
-  `module="llm.test_export.QuadRingMod"` (a file). `__init__` arguments without a default:
-  `init_args={"max_delay": "1.0"}`, as Mojo code.
 - A struct with its own `Messenger` reads messages, sent to a running Synth with the class
   methods. `examples/export_examples/WavetableOsc.mojo` loads a wavetable this way:
   `MMMWavetableOsc.sendString(x, "load_wavetable", path)`. The help file lists the
   messages.
-- The export writes a small graph that runs the struct to `struct_graphs/`, and exports
-  that.
 
 ## Using the UGen
 
@@ -162,6 +164,8 @@ export notes the keys it skipped.
 
 ### Messages
 
+This is mostly useful for sending Strings to load file paths, but is an interesting alternate way to send messages to a UGen.
+
 The class sends any message to a running Synth, the same ones `MMMAudio.py` sends:
 
 ```supercollider
@@ -174,34 +178,22 @@ FM4.sendString(x, "key", "~/sounds/a.wav".standardizePath);
 FM4.sendStrings(x, "key", ["a", "b"]);
 ```
 
-These are unit commands: `/u_cmd nodeID ugenIndex "float" "key" 1.5`, and so on for
-`floats`, `int`, `ints`, `bool`, `bools`, `trig`, `trigs`, `string` and `strings`. The
-class finds the UGen's index from the SynthDef, for SynthDefs built in this session or added
-with `.add`. If a SynthDef holds more than one of the same UGen, give each an `id`
-(`FM4.ar(id: \left)`) and pass it along: `FM4.sendFloat(x, "key", 1.5, id: \left)`.
-
-A message under the same name as a control input is overwritten by that input when the
-graph is first built, and whenever the input changes.
+These are sent as unit commands: `/u_cmd nodeID ugenIndex "float" "key" 1.5`, and so on for
+`floats`, `int`, `ints`, `bool`, `bools`, `trig`, `trigs`, `string` and `strings`. If a 
+SynthDef holds more than one of the same UGen, give each an `id` (`FM4.ar(id: \left)`) 
+and pass it along: `FM4.sendFloat(x, "key", 1.5, id: \left)`.
 
 The export lists the messages it couldn't make into inputs (strings, lists, file pickers)
-as notes, and they are repeated at the top of the class file.
-
-### Timing
-
-Building a graph allocates memory and may load files, so each Synth builds its graph on the
-server's non-real-time thread, and outputs silence until it is ready. Freeing it, and the
-send methods, go through the same thread, in order, so a message sent right after
-`Synth(...)` reaches the new graph. A graph that loads a large sound file can take a moment.
-
-Every Synth gets its own graph, built at the server's sample rate and block size.
+and they are repeated at the top of the class file.
 
 ## The project folder
 
 Each export creates `builds/Mojo<version>/<Name>/`, a CMake project. It is built against
-the Mojo runtime libraries in `builds/Mojo<version>/shared_libraries/`, which the exports
-with that Mojo version share:
+the Mojo runtime libraries in `builds/Mojo<version>/shared_libraries/`. All plugins under
+a specific Mojo version, share the same set of shared_libraries.
 
-| Path | What it is |
+Each plugin build directory has the following folders:
+
 |---|---|
 | `src/` | The UGen's C++ (`MMMUGen.cpp`), and `MMMSCSpec.h`, which describes this graph |
 | `sc/` | The class (`Classes/<Name>.sc`) and its help file (`HelpSource/Classes/<Name>.schelp`) |
@@ -217,8 +209,8 @@ cmake --build build --config Release
 cmake --install build --config Release   # into Extensions/MMMAudio/, runtime included
 ```
 
-Without `-DSC_PATH=...`, the configure step downloads SuperCollider's headers. To move the
-project, take `shared_libraries/` along, or point `-DMMM_SHARED_LIBS=...` at it. Changes to the
+Without `-DSC_PATH=...`, the configure step downloads SuperCollider's headers. If you want to move 
+the project, take `shared_libraries/` along, or point `-DMMM_SHARED_LIBS=...` at it. Changes to the
 Mojo graph, the GUI script or files the graph loads need a new export.
 
 ## The extension folder
@@ -272,7 +264,7 @@ version, since SuperCollider can't have two classes with the same name.
 |---|---|
 | `export_sc.py` | The exporter (command line and `export_sc()`) |
 | `sc_template/` | The UGen's C++, copied into every project as `src/` |
-| `SCExporter.py` | Examples |
+| `SCExporter.py` | Examples of how to export graphs and structs from Python |
 | `struct_graphs/` | The graphs `export_struct_sc` writes to run a struct |
 | `supercollider/` | SuperCollider's headers, downloaded on first use |
 | `builds/` | `Mojo<version>/`: one project per exported UGen, and `shared_libraries/`, the Mojo runtime |
