@@ -1,6 +1,6 @@
 # this example will only work with SCExporter
 # it shows how we can use a struct as a wrapper for a UGen, in order to use "send_string" or other messages to load buffers, etc
-# in this case, we have to use the wrapper because MMMAudio can't use SC Buffers directly. we have to use a MMMAudio Buffer and send a message to the wrapper to load the file in MMMAudio.
+# in this case, we have to use the wrapper because MMMAudio can't use SC Buffers directly. we have to use a MMMAudio Buffer and send a message to the wrapper to load the audio file in the MMMAudio instance running inside SuperCollider.
 
 from mmm_audio import *
 

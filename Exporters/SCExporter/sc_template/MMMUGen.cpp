@@ -10,8 +10,12 @@
 // "trig", "trigs", "string" and "strings", each followed by the message name
 // and its values.
 //
-// The Mojo libraries are loaded once, when the server loads this plug-in, from
-// the "ignore" folder next to it (scsynth and sclang skip folders of that name).
+// The Mojo libraries are loaded once, when the server loads this plug-in: the
+// graph and its engine from the "ignore" folder next to it (scsynth and sclang
+// skip folders of that name), and the Mojo runtime, which every UGen built with
+// the same Mojo version shares, from ../shared_libraries. The runtime's file
+// names carry the Mojo version, so UGens built with different versions each
+// load their own.
 //
 // Building the graph allocates memory and may read files, so it happens on the
 // server's non-real-time thread, as do unit commands and freeing the graph.
@@ -69,7 +73,8 @@ struct Bridge {
     std::string graphPath;   // the graph library
     std::string resourceDir; // copies of the files the graph opens by relative path
 
-    // Load the libraries from the "ignore" folder beside this plug-in.
+    // Load the runtime from ../<sharedLibDir>, then the libraries in the
+    // "ignore" folder beside this plug-in.
     bool load() {
         Dl_info info;
         if (!dladdr((void*)&ft, &info) || info.dli_fname == nullptr) {
@@ -77,16 +82,27 @@ struct Bridge {
             return false;
         }
         std::string self = info.dli_fname;
-        std::string dir = self.substr(0, self.find_last_of('/')) + "/ignore";
+        std::string extension = self.substr(0, self.find_last_of('/'));
+        std::string dir = extension + "/ignore";
+        std::string runtimeDir = extension.substr(0, extension.find_last_of('/')) + "/"
+                                 + MMMSC::sharedLibDir;
         graphPath = dir + "/" + MMMSC::graphLib;
         resourceDir = dir + "/resources";
 
-        // On Linux the Mojo runtime is found by SONAME once it is loaded, so
-        // load it globally first. On macOS the libraries' rpaths point at
-        // their own folder, so this is harmless.
-        for (const char* name : MMMSC::runtimeLibs)
-            if (name != nullptr)
-                dlopen((dir + "/" + name).c_str(), RTLD_NOW | RTLD_GLOBAL);
+        // Load the runtime first, so a missing library is reported by name.
+        // Once loaded, it is found by its (versioned) name, and the libraries'
+        // rpaths point at its folder anyway. RTLD_LOCAL keeps one Mojo
+        // version's symbols from standing in for another's.
+        for (const char* name : MMMSC::runtimeLibs) {
+            if (name == nullptr)
+                continue;
+            std::string path = runtimeDir + "/" + name;
+            if (dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL) == nullptr) {
+                Print("%s: could not load the Mojo runtime library %s: %s\n", MMMSC::name, path.c_str(),
+                      dlerror());
+                return false;
+            }
+        }
 
         std::string path = dir + "/" + MMMSC::bridgeLib;
         void* lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);

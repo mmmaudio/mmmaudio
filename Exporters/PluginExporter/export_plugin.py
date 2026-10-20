@@ -335,22 +335,25 @@ def _linked_libs(lib):
     return [line.split()[0] for line in out.splitlines() if "=>" in line]
 
 
-def _make_relocatable(lib):
-    """Point a copied library's rpath at its own folder, then (macOS) re-sign it.
+def _make_relocatable(lib, also=()):
+    """Point a copied library's rpath at its own folder (and at the folders in
+    `also`, relative to it), then (macOS) re-sign it.
 
     Mojo bakes in the absolute path of the pixi environment; with that gone,
     the bundle only ever loads its own copies.
     """
     if not IS_MAC:
         if shutil.which("patchelf"):
-            subprocess.run(["patchelf", "--set-rpath", "$ORIGIN", str(lib)], check=False)
+            rpath = ":".join(["$ORIGIN", *(f"$ORIGIN/{d}" for d in also)])
+            subprocess.run(["patchelf", "--set-rpath", rpath, str(lib)], check=False)
         return  # without patchelf, _stage_bundle has already warned
     out = subprocess.run(["otool", "-l", str(lib)], capture_output=True, text=True).stdout
     for rpath in re.findall(r"cmd LC_RPATH\n\s+cmdsize \d+\n\s+path (.+?) \(offset", out):
         subprocess.run(["install_name_tool", "-delete_rpath", rpath, str(lib)], check=False,
                        capture_output=True)
-    subprocess.run(["install_name_tool", "-add_rpath", "@loader_path", str(lib)], check=False,
-                   capture_output=True)
+    for rpath in ["@loader_path", *(f"@loader_path/{d}" for d in also)]:
+        subprocess.run(["install_name_tool", "-add_rpath", rpath, str(lib)], check=False,
+                       capture_output=True)
     subprocess.run(["codesign", "--force", "--sign", "-", str(lib)], check=True, capture_output=True)
 
 
@@ -708,9 +711,10 @@ def _write_readme(work_dir, *, target, product_name, graph_name, package_name, f
             packages=" \\\n    ".join(textwrap.wrap(LINUX_PACKAGES, 70)))))
 
 
-def _stage_bundle(work_dir, libs, resource_files):
+def _stage_bundle(work_dir, libs, resource_files, rpaths=()):
     """Copy what goes inside each plugin into work_dir/bundle/: the Mojo libraries
-    (made relocatable and signed) and the resources. bundle_plugin.py takes it from there."""
+    (made relocatable and signed) and the resources. bundle_plugin.py takes it from there.
+    `rpaths` are more folders, relative to the libraries, to find their dependencies in."""
     if not IS_MAC and not shutil.which("patchelf"):
         _log("WARNING: patchelf not found, so the bundled Mojo libraries keep pointing at this "
             "pixi environment. The plugin may still load (it preloads the Mojo runtime), but "
@@ -724,7 +728,7 @@ def _stage_bundle(work_dir, libs, resource_files):
         dest = stage / "libs" / name
         shutil.copy2(src, dest)
         os.chmod(dest, 0o755)
-        _make_relocatable(dest)
+        _make_relocatable(dest, rpaths)
     for rel, src in resource_files.items():
         dest = stage / "resources" / rel
         dest.parent.mkdir(parents=True, exist_ok=True)

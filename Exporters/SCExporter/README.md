@@ -5,8 +5,8 @@ UGen's audio-rate inputs, and the values you would send it from Python with `sen
 `send_int` and `send_bool` (sliders, check boxes and so on) become control-rate inputs.
 Any other message, like a string or a list, is sent to a running Synth with a unit command.
 
-The export writes a self-contained CMake project to `builds/<Name>/`, builds it, and
-usually installs it too. It uses the same engine interface as the
+The export writes a CMake project to `builds/Mojo<version>/<Name>/` (e.g.
+`builds/Mojo1.1.0/FM4/`), builds it, and usually installs it too. It uses the same engine interface as the
 [PluginExporter](../PluginExporter/README.md) (`MMMAudioPluginBridge.mojo`).
 
 ## Requirements
@@ -42,21 +42,30 @@ export_sc("FM4", "examples", gui_file="examples/FM4.py", install=True)
 
 `--install` copies the extension into `MMMAudio/` in your user Extensions folder
 (`Platform.userExtensionDir`), creating that folder if it isn't there, so all exported
-UGens are kept together. Then recompile the class library and reboot the server. Without
-`--install`, the finished extension is in `builds/<Name>/extension/<Name>/`; copy that
-folder into your Extensions folder.
+UGens are kept together. `--install_dir` (`install_dir=` in Python) installs into another
+folder instead. Then recompile the class library and reboot the server.
+
+UGens are grouped by the Mojo version they were built with: the install puts the UGen in
+`MMMAudio/Mojo<version>/<Name>/`. The Mojo runtime libraries are the same for every UGen
+built with the same Mojo version, so they share one copy, in
+`MMMAudio/Mojo<version>/shared_libraries/`, which the install creates or updates. See
+[The extension folder](#the-extension-folder). Without `--install`, the finished extension
+is in `builds/Mojo<version>/<Name>/extension/<Name>/` and the runtime in
+`builds/Mojo<version>/shared_libraries/`; copy them into your Extensions folder in that
+layout.
 
 | Option | What it does |
 |---|---|
 | `--graph_name` | The graph's struct and `.mojo` file name, as for `MMMAudio` (required). |
 | `--package_name` | The folder holding the graph (default: the GUI script's `package_name`, else `examples`). |
 | `--gui_file` | The graph's Qt GUI script. Its controls become control-rate inputs. |
-| `--ugen_name` | The UGen's class name (default: the graph name, capitalized). This is also the folder name in `builds/`. |
+| `--ugen_name` | The UGen's class name (default: the graph name, capitalized). This is also the folder name in `builds/Mojo<version>/`. |
 | `--instrument` / `--effect` | No audio inputs, or audio inputs. By default, a graph that never calls `sound_in` is an instrument. |
 | `--num_in` | An effect's audio inputs. By default the GUI script's `num_input_channels`, capped at 2 (or 2 without a GUI script). |
 | `--num_out` | Outputs. By default the N in the graph's `next() -> MFloat[N]`, then the GUI script's `num_output_channels`, then 2. |
 | `--resources` | Extra files or folders to bundle. Files the graph names by relative path, like `"resources/Shiverer.wav"`, are found automatically. |
-| `--install` | Copy the extension into the `MMMAudio` folder of your user Extensions folder (creating it if needed), replacing an earlier copy. |
+| `--install` | Copy the extension into the `MMMAudio` folder of your user Extensions folder (creating it if needed), as `Mojo<version>/<Name>/`, replacing earlier copies (also ones built with other Mojo versions), and the Mojo runtime into `Mojo<version>/shared_libraries/`. |
+| `--install_dir` | Install into this folder instead of `Extensions/MMMAudio` (implies `--install`). |
 | `--no_build` | Only write the project, without building it. |
 | `--sc_path` | A SuperCollider source folder to take the plug-in headers from. |
 | `--config` | `Release` (default) or `Debug`. |
@@ -102,8 +111,13 @@ pixi run python Exporters/SCExporter/export_sc.py --struct Freeverb --install
   `Int` takes one. A `Bool` is true above 0. A one-channel argument given an array expands
   into several UGens, as usual: `MMMOsc.ar([440, 660])`. What the method returns sets the
   outputs: `next_all_basic_waveforms` returns an `MFloat[4]`, so it has 4.
-- A struct from outside `mmm_audio`: `module="llm.test_export.QuadRingMod"`. `__init__`
-  arguments without a default: `init_args={"max_delay": "1.0"}`, as Mojo code.
+- A struct from outside `mmm_audio`: `module="examples.export_examples"` (a package) or
+  `module="llm.test_export.QuadRingMod"` (a file). `__init__` arguments without a default:
+  `init_args={"max_delay": "1.0"}`, as Mojo code.
+- A struct with its own `Messenger` reads messages, sent to a running Synth with the class
+  methods. `examples/export_examples/WavetableOsc.mojo` loads a wavetable this way:
+  `MMMWavetableOsc.sendString(x, "load_wavetable", path)`. The help file lists the
+  messages.
 - The export writes a small graph that runs the struct to `struct_graphs/`, and exports
   that.
 
@@ -183,44 +197,66 @@ Every Synth gets its own graph, built at the server's sample rate and block size
 
 ## The project folder
 
-Each export creates `builds/<Name>/`, a self-contained CMake project:
+Each export creates `builds/Mojo<version>/<Name>/`, a CMake project. It is built against
+the Mojo runtime libraries in `builds/Mojo<version>/shared_libraries/`, which the exports
+with that Mojo version share:
 
 | Path | What it is |
 |---|---|
 | `src/` | The UGen's C++ (`MMMUGen.cpp`), and `MMMSCSpec.h`, which describes this graph |
 | `sc/` | The class (`Classes/<Name>.sc`) and its help file (`HelpSource/Classes/<Name>.schelp`) |
-| `bundle/` | The compiled Mojo libraries, plus files the graph loads |
+| `bundle/` | The compiled Mojo graph and its engine (`libMMMAudioPluginBridge`), plus files the graph loads |
 | `CMakeLists.txt`, `README.md` | The build, and its instructions |
 | `build/`, `extension/` | CMake's build folder, and the finished extension |
 
-Everything is replaced on re-export. To build it yourself, from `builds/<Name>/`:
+Everything is replaced on re-export. To build it yourself, from `builds/Mojo<version>/<Name>/`:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
-cmake --install build --config Release   # into Extensions/MMMAudio/
+cmake --install build --config Release   # into Extensions/MMMAudio/, runtime included
 ```
 
-Without `-DSC_PATH=...`, the configure step downloads SuperCollider's headers. Changes to
-the Mojo graph, the GUI script or files the graph loads need a new export.
+Without `-DSC_PATH=...`, the configure step downloads SuperCollider's headers. To move the
+project, take `shared_libraries/` along, or point `-DMMM_SHARED_LIBS=...` at it. Changes to the
+Mojo graph, the GUI script or files the graph loads need a new export.
 
 ## The extension folder
 
 ```
-FM4/
-  FM4.scx                          the UGen (FM4.so on Linux)
-  Classes/FM4.sc                   its class
-  HelpSource/Classes/FM4.schelp    its help file, with an example
-  ignore/                          the Mojo graph, engine and runtime libraries
-    resources/                     files the graph loads by relative path
+Extensions/MMMAudio/
+  Mojo1.1.0/                           every UGen built with Mojo 1.1.0
+    FM4/
+      FM4.scx                          the UGen (FM4.so on Linux)
+      Classes/FM4.sc                   its class
+      HelpSource/Classes/FM4.schelp    its help file, with an example
+      ignore/                          the Mojo graph and its engine
+        resources/                     files the graph loads by relative path
+    shared_libraries/                  the Mojo runtime they share
+      libKGENCompilerRTShared.1.1.0.dylib   ...and so on
+  Mojo1.2.0.dev2026101905/             UGens built with another Mojo version
+    QuadRingMod/
+    shared_libraries/
 ```
 
-SuperCollider skips folders named `ignore`, so the server doesn't try to load the Mojo
-libraries as plug-ins. The UGen loads them from there when the server starts.
+Each UGen loads the runtime from `../shared_libraries/`, so a UGen and its
+`shared_libraries` folder have to stay in the same `Mojo<version>` folder. The runtime
+libraries' names carry the Mojo version (`libKGENCompilerRTShared.1.1.0.dylib` on macOS,
+`libKGENCompilerRTShared.so.1.1.0` on Linux), so UGens built with different Mojo versions
+can run in one server, each with its own runtime. SuperCollider skips folders named
+`ignore`, so the server doesn't try to load the graph libraries as plug-ins; it only loads
+`.scx` files on macOS and `.so` files on Linux, so the versioned runtime names are safe in
+`shared_libraries`.
+
+A UGen is only installed once: installing it removes any copy built with another Mojo
+version, since SuperCollider can't have two classes with the same name.
 
 ## Troubleshooting
 
-- **`<Name>: could not load ...`** when the server boots: the `ignore` folder is missing or
+- **`<Name>: could not load the Mojo runtime library ...`** when the server boots: the
+  `shared_libraries` folder isn't beside the UGen's folder. Install with `--install`, or
+  copy `builds/Mojo<version>/shared_libraries/` there.
+- **`<Name>: could not load ...`** (anything else): the UGen's `ignore` folder is missing or
   incomplete. Re-export, and copy the whole extension folder.
 - **The UGen outputs silence and the server posts `could not build the MMMAudio graph`**:
   the graph raised an error while being built, often a file it couldn't find. Pass it with
@@ -239,4 +275,4 @@ libraries as plug-ins. The UGen loads them from there when the server starts.
 | `SCExporter.py` | Examples |
 | `struct_graphs/` | The graphs `export_struct_sc` writes to run a struct |
 | `supercollider/` | SuperCollider's headers, downloaded on first use |
-| `builds/` | One project per exported UGen |
+| `builds/` | `Mojo<version>/`: one project per exported UGen, and `shared_libraries/`, the Mojo runtime |

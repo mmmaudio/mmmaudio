@@ -552,6 +552,11 @@ class Builder:
             warn(f"slider '{h.label}' has no callback; skipped")
             return None
         probes = [spec.min, spec.unnormalize(0.37), spec.max]
+        # A value with a fraction tells int() from round(), which agree on the
+        # whole numbers a stepped spec gives. The callback takes any number.
+        frac = math.floor(spec.unnormalize(0.37)) + 0.6
+        if spec.min <= frac <= spec.max:
+            probes.append(frac)
         sends = None
         for v in probes:
             msgs, _, _, err = REC.probe(h.callback, v)
@@ -571,7 +576,10 @@ class Builder:
                 if s["type"] == "float":
                     mapping = "identity" if math.isclose(m["value"], v, rel_tol=1e-6, abs_tol=1e-9) else None
                 elif s["type"] == "int":
-                    mapping = "int" if m["value"] == int(v) else ("round" if m["value"] == round(v) else None)
+                    # Keep the conversions that fit every probe; chosen below.
+                    fits = {f for f, fn in (("int", int), ("round", round)) if m["value"] == fn(v)}
+                    s["fits"] = s.get("fits", fits) & fits
+                    continue
                 else:
                     mapping = "bool"
                 if mapping is None:
@@ -584,6 +592,15 @@ class Builder:
         if not sends:
             warn(f"slider '{h.label}' sends no messages; skipped")
             return None
+        for s in sends:
+            if s["type"] == "int":
+                fits = s.pop("fits")
+                # Where both fit (only whole numbers were probed), round: they agree there.
+                s["map"] = "round" if "round" in fits else "int" if fits else None
+                if s["map"] is None:
+                    warn(f"slider '{h.label}': '{s['key']}' is a function of the slider value "
+                         "that can't be translated; sending the raw value")
+                    s["map"] = "int"
         pid = self.new_id(sends[0]["key"])
         self.handle_ids[id(h)] = pid
         decimals = 0 if all(s["map"] in ("int", "round") for s in sends) else h.display_resolution

@@ -31,27 +31,36 @@ What it does (<Name> below is the UGen's class name, by default graph_name):
   1. Compiles the graph and MMMAudioPluginBridge.mojo into shared libraries
      (as export_plugin.py does).
   2. If `gui_file` is given, translates its controls (Exporters/PluginExporter/gui_tracer.py).
-  3. Writes a CMake project to builds/<Name>/: the UGen's C++ (src/), its
-     sclang class and help file (sc/), and the Mojo libraries and resources
-     (bundle/). With --no_build, the export stops here.
+  3. Writes a CMake project to builds/Mojo<version>/<Name>/: the UGen's C++ (src/),
+     its sclang class and help file (sc/), and the graph's Mojo libraries and
+     resources (bundle/). The Mojo runtime libraries, the same for every UGen
+     built with that Mojo version, go in builds/Mojo<version>/shared_libraries/,
+     renamed with the version (libKGENCompilerRTShared.1.1.0.dylib).
+     With --no_build, the export stops here.
   4. Downloads SuperCollider's plug-in headers into Exporters/SCExporter/supercollider,
      the first time (unless --sc_path names a SuperCollider source folder).
-  5. Builds it. The finished extension folder is builds/<Name>/extension/<Name>/,
-     and --install copies it into the MMMAudio folder of the user Extensions folder.
+  5. Builds it. The finished extension folder is
+     builds/Mojo<version>/<Name>/extension/<Name>/. --install copies it into the
+     MMMAudio folder of the user Extensions folder (or --install_dir), as
+     Mojo<version>/<Name>/, and the runtime into Mojo<version>/shared_libraries/.
 
 The extension folder holds <Name>.scx (.so on Linux), Classes/<Name>.sc, its
 help file (HelpSource/Classes/<Name>.schelp, with an example), and an "ignore"
-folder with the Mojo libraries and the files the graph loads. SuperCollider doesn't look inside folders named "ignore", so it won't
-mistake the Mojo libraries for plug-ins or class files.
+folder with the graph's Mojo libraries and the files the graph loads. The UGen
+loads the Mojo runtime from ../shared_libraries/. SuperCollider doesn't look
+inside folders named "ignore", so it won't mistake the Mojo libraries for
+plug-ins or class files.
 
 Run `export_sc.py --help` to see all of the options.
 """
 
 import argparse
+import filecmp
 import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -64,7 +73,11 @@ if str(REPO_ROOT) not in sys.path:
 from Exporters.PluginExporter import export_plugin as pe  # noqa: E402
 
 TEMPLATE_DIR = HERE / "sc_template"
-BUILDS_DIR = HERE / "builds"
+# Projects go in builds/Mojo<version>/<Name>/, next to builds/Mojo<version>/shared_libraries/,
+# the Mojo runtime libraries all of that version's UGens use. They are installed the same
+# way: <install folder>/Mojo<version>/<Name>/ and <install folder>/Mojo<version>/shared_libraries/.
+BUILDS_ROOT = HERE / "builds"
+SHARED_LIBS = "shared_libraries"
 
 SC_URL = "https://github.com/supercollider/supercollider.git"
 SC_TAG = "Version-3.13.0"
@@ -74,7 +87,10 @@ IS_MAC = pe.IS_MAC
 SCX_EXT = ".scx" if IS_MAC else ".so"
 EXTENSIONS_DIR = Path.home() / ("Library/Application Support/SuperCollider/Extensions" if IS_MAC
                                 else ".local/share/SuperCollider/Extensions")
-# Exported UGens are installed together, in this folder of the user Extensions folder.
+# Exported UGens are installed together, in this folder of the user Extensions folder
+# (unless install_dir says otherwise), grouped by the Mojo version they were built with:
+# MMMAudio/Mojo<version>/<Name>/ for each UGen, and MMMAudio/Mojo<version>/shared_libraries/
+# for the Mojo runtime libraries they share.
 INSTALL_DIR = EXTENSIONS_DIR / "MMMAudio"
 
 # Words sclang won't take as argument names, and the UGen's own arguments.
@@ -85,7 +101,7 @@ RESERVED = {"in", "id", "this", "super", "thisProcess", "thisFunction", "thisFun
 
 def export_sc(graph_name, package_name=None, gui_file=None, ugen_name=None, instrument=None,
               num_in=None, num_out=None, resources=(), install=False, config="Release",
-              build=True, sc_path=None):
+              build=True, sc_path=None, install_dir=None):
     """Build `package_name.graph_name` as a SuperCollider UGen. Returns the
     extension folder (None with build=False).
 
@@ -106,33 +122,42 @@ def export_sc(graph_name, package_name=None, gui_file=None, ugen_name=None, inst
         resources: Extra files or folders to bundle. Files the graph names by
             relative path (like "resources/Shiverer.wav") are found automatically.
         install: Copy the extension into the user Extensions folder's MMMAudio
-            folder (created if it isn't there), replacing an earlier copy.
+            folder (created if it isn't there), replacing an earlier copy, and the
+            Mojo runtime libraries into Mojo<version>/shared_libraries/. The
+            extension goes in Mojo<version>/<Name>/, and copies built with other
+            Mojo versions are removed.
         config: CMake build type, "Release" or "Debug".
         build: Configure and build the project with CMake. The project is
-            always written to builds/<Name>/; with build=False, build it later
-            with the commands in its README.md.
+            always written to builds/Mojo<version>/<Name>/; with build=False, build
+            it later with the commands in its README.md.
         sc_path: A SuperCollider source folder to take the plug-in headers
             from. By default $SC_PATH, else a copy downloaded into Exporters/SCExporter/.
+        install_dir: Install into this folder instead of Extensions/MMMAudio
+            (implies install). It is created if it isn't there.
     """
     return _export(graph_name, package_name, gui_file, ugen_name, instrument, num_in, num_out, resources,
-                   install, config, build, sc_path)
+                   install, config, build, sc_path, install_dir)
 
 
 def _export(graph_name, package_name, gui_file, ugen_name, instrument, num_in, num_out, resources,
-            install, config, build, sc_path, audio_args=None, origin=None, export_command=None,
-            struct_info=None):
+            install, config, build, sc_path, install_dir=None, audio_args=None, origin=None,
+            export_command=None, struct_info=None):
     """export_sc's work. `audio_args` (from export_struct_sc) names the audio inputs:
     [{"name", "channels", "default", "doc"}], in order, and `struct_info` describes
     the struct: {"struct", "method", "params", "method_params"}. `origin` is ("graph"
     or "struct", its dotted path), and `export_command` repeats the export."""
+    install = install or install_dir is not None
+    install_dir = Path(install_dir).expanduser().resolve() if install_dir else INSTALL_DIR
     if install and not build:
-        raise ValueError("install needs a build; drop install or build=False")
+        raise ValueError("install needs a build; drop install (or install_dir) or build=False")
     name = ugen_name or graph_name[:1].upper() + graph_name[1:]
     if not re.fullmatch(r"[A-Z][A-Za-z0-9_]*", name):
         raise ValueError(f"{name!r} can't be a SuperCollider class name: it needs to start with a "
                          "capital letter and have only letters, digits and _ (pass ugen_name)")
 
-    work_dir = BUILDS_DIR / name
+    mojo_dir = f"Mojo{_mojo_version()}"
+    builds_dir = BUILDS_ROOT / mojo_dir
+    work_dir = builds_dir / name
     work_dir.mkdir(parents=True, exist_ok=True)
 
     # ---- what the UGen looks like ----
@@ -179,9 +204,19 @@ def _export(graph_name, package_name, gui_file, ugen_name, instrument, num_in, n
         _log(f"bundling resource {rel}")
     graph_lib_name = f"{graph_name}Graph{pe.LIB_EXT}"
     bridge_lib_name = f"libMMMAudioPluginBridge{pe.LIB_EXT}"
-    stage = pe._stage_bundle(work_dir, {graph_lib_name: graph_lib, bridge_lib_name: bridge_lib, **runtime},
-                             resource_files)
+    # The runtime libraries get names with the Mojo version in them, so that UGens
+    # built with different versions load separate copies into one server.
+    version = mojo_dir[len("Mojo"):]
+    renames = {n: _versioned_name(n, version) for n in runtime}
+    runtime = {renames[n]: path for n, path in runtime.items()}
+    # The UGen's own libraries go in its ignore/ folder, and find the shared runtime
+    # in Mojo<version>/shared_libraries/: ../../shared_libraries from there.
+    stage = pe._stage_bundle(work_dir, {graph_lib_name: graph_lib, bridge_lib_name: bridge_lib},
+                             resource_files, rpaths=[f"../../{SHARED_LIBS}"])
+    for lib in (graph_lib_name, bridge_lib_name):
+        _relink(stage / "libs" / lib, renames)
     (stage / "resources").mkdir(exist_ok=True)
+    _update_libs(runtime, builds_dir / SHARED_LIBS, renames=renames)
 
     # ---- the project ----
     src = work_dir / "src"
@@ -202,12 +237,13 @@ def _export(graph_name, package_name, gui_file, ugen_name, instrument, num_in, n
         _sc_help(name, origin, num_in, num_out, controls, notes, audio_args, struct_info))
 
     (work_dir / "CMakeLists.txt").write_text(CMAKE_TEMPLATE.format(
-        name=name, scx_ext=SCX_EXT, sc_tag=SC_TAG,
+        name=name, scx_ext=SCX_EXT, sc_tag=SC_TAG, mojo_dir=mojo_dir, shared_libs=SHARED_LIBS,
+        runtime_libs=" ".join(f'"{n}"' for n in sorted(runtime)),
         sc_url=f"https://github.com/supercollider/supercollider/archive/refs/tags/{SC_TAG}.tar.gz",
-        install_dir=_home_path(INSTALL_DIR, "$ENV{HOME}")))
+        install_dir=_home_path(install_dir, "$ENV{HOME}")))
     (work_dir / "README.md").write_text(README_TEMPLATE.format(
-        name=name, origin=f"{origin[0]} `{origin[1]}`", config=config,
-        install_dir=_home_path(INSTALL_DIR, "~"),
+        name=name, origin=f"{origin[0]} `{origin[1]}`", config=config, mojo_dir=mojo_dir,
+        shared_libs=SHARED_LIBS, install_dir=_home_path(install_dir, "~"),
         export_command=export_command or _export_command(graph_name, package_name, gui_file, ugen_name,
                                                          instrument, num_in, num_out, resources, config)))
     if not build:
@@ -220,7 +256,7 @@ def _export(graph_name, package_name, gui_file, ugen_name, instrument, num_in, n
     build_dir = pe._build_dir(work_dir)
     # Set every time: CMake keeps a cache variable's first value.
     pe._run([cmake, "-S", work_dir, "-B", build_dir, f"-DCMAKE_BUILD_TYPE={config}", f"-DSC_PATH={headers}",
-             f"-DSC_EXTENSIONS_DIR={INSTALL_DIR}"])
+             f"-DSC_EXTENSIONS_DIR={install_dir}"])
     pe._run([cmake, "--build", build_dir, "--config", config, "--parallel", str(os.cpu_count() or 4)])
 
     built = build_dir / name
@@ -233,13 +269,84 @@ def _export(graph_name, package_name, gui_file, ugen_name, instrument, num_in, n
     _log(f"built {dest}")
 
     if install:
-        inst = INSTALL_DIR / name
+        inst = install_dir / mojo_dir / name
+        # Any other copy of this UGen, built with another Mojo version or installed
+        # before the Mojo<version> folders, would define the same class twice.
+        others = [install_dir / name] + [d / name for d in install_dir.glob("Mojo*") if d.name != mojo_dir]
+        for old in others:
+            if (old / f"{name}{SCX_EXT}").exists():
+                _log(f"removing the earlier copy {old}")
+                shutil.rmtree(old)
         if inst.exists():
             shutil.rmtree(inst)
-        INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+        inst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(dest, inst, symlinks=True)
-        _log(f"installed {inst}; recompile the class library and reboot the server to use it")
+        shared = install_dir / mojo_dir / SHARED_LIBS
+        _update_libs({n: builds_dir / SHARED_LIBS / n for n in runtime}, shared)
+        _log(f"installed {inst} (and the Mojo runtime in {shared}); recompile the class library "
+             "and reboot the server to use it")
     return dest
+
+
+def _versioned_name(lib_name, version):
+    """A runtime library's name with the Mojo version in it:
+    libKGENCompilerRTShared.1.1.0.dylib on macOS, libKGENCompilerRTShared.so.1.1.0
+    on Linux (where scsynth only loads files ending in .so as plug-ins)."""
+    if IS_MAC:
+        stem = lib_name[:-len(".dylib")] if lib_name.endswith(".dylib") else lib_name
+        return f"{stem}.{version}.dylib"
+    return f"{lib_name}.{version}"
+
+
+def _relink(lib, renames, own_name=None):
+    """Point `lib` at the renamed runtime libraries ({old name: new name}), give it
+    the name `own_name` if there is one, and (macOS) re-sign it."""
+    if IS_MAC:
+        args = ["-id", f"@rpath/{own_name}"] if own_name else []
+        for old, new in renames.items():
+            args += ["-change", f"@rpath/{old}", f"@rpath/{new}"]
+        subprocess.run(["install_name_tool", *args, str(lib)], check=True, capture_output=True)
+        subprocess.run(["codesign", "--force", "--sign", "-", str(lib)], check=True, capture_output=True)
+        return
+    if not shutil.which("patchelf"):
+        return  # _stage_bundle has already warned
+    args = ["--set-soname", own_name] if own_name else []
+    for old, new in renames.items():
+        args += ["--replace-needed", old, new]
+    subprocess.run(["patchelf", *args, str(lib)], check=True, capture_output=True)
+
+
+def _mojo_version():
+    """The version of the Mojo compiler the libraries are built with, like "1.1.0"."""
+    mojo = shutil.which("mojo") or shutil.which("mojo", path=str(Path(sys.executable).parent))
+    if mojo is None:
+        raise RuntimeError("can't find mojo; run this in the MMMAudio pixi environment")
+    out = subprocess.run([mojo, "--version"], capture_output=True, text=True).stdout
+    m = re.search(r"Mojo\s+([0-9][\w.+-]*)", out)
+    if not m:
+        raise RuntimeError(f"can't read the Mojo version from `mojo --version`: {out.strip()!r}")
+    return m.group(1)
+
+
+def _update_libs(libs, folder, renames=None):
+    """Copy {name: path} into `folder`, leaving its other files, and the ones that
+    are already the same, alone. A changed file is replaced, not written over,
+    so a server that has the old one loaded keeps running. With `renames`
+    ({original name: new name}), each copy is pointed at its own folder and
+    renamed, along with its links to the others."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for lib_name, src in sorted(libs.items()):
+        dest = folder / lib_name
+        tmp = folder / f".{lib_name}.tmp"
+        shutil.copy2(src, tmp)
+        os.chmod(tmp, 0o755)
+        if renames is not None:
+            pe._make_relocatable(tmp)
+            _relink(tmp, renames, own_name=lib_name)
+        if dest.exists() and filecmp.cmp(tmp, dest, shallow=False):
+            tmp.unlink()
+        else:
+            os.replace(tmp, dest)
 
 
 # --------------------------------------------------------------------------
@@ -253,7 +360,7 @@ STRUCT_PACKAGE = "Exporters.SCExporter.struct_graphs"
 
 def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="next", params=None,
                      method_params=None, init_args=None, install=False, config="Release", build=True,
-                     sc_path=None):
+                     sc_path=None, install_dir=None):
     """Build an MMMAudio struct, like Osc or Freeverb, as a SuperCollider UGen.
     Each argument of the struct's `next` method (or another method of it)
     becomes an audio-rate argument of the UGen's `.ar`, in the same order, and
@@ -278,7 +385,7 @@ def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="ne
         init_args: Mojo expressions for `__init__` arguments that have no
             default, e.g. {"max_delay": "1.0"}. A World argument is given the
             graph's world.
-        install, config, build, sc_path: As for export_sc.
+        install, config, build, sc_path, install_dir: As for export_sc.
 
     An argument's channels come from its type: an MFloat[N], MBool[N] or MInt[N]
     takes N audio inputs, a Float64, Bool or Int one. A Bool is true above 0.
@@ -335,12 +442,16 @@ def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="ne
         return ", ".join(f"{k} = {', '.join(v) if isinstance(v, list) else v}" + ("" if k in given else " (default)")
                          for k, v in vals.items())
     struct_info = {"struct": struct_name, "method": method,
-                   "params": listed(values, params), "method_params": listed(method_values, method_params)}
+                   "params": listed(values, params), "method_params": listed(method_values, method_params),
+                   "messages": _struct_messages(text)}
 
     init = _init_call(text, struct_name, init_args or {})
     imports = "from mmm_audio import *"
     if module != "mmm_audio":
-        imports += f"\nfrom {module} import {struct_name}"
+        # From the file that defines it: a package's module of the same name would
+        # shadow the struct.
+        parts = where.with_suffix("").parts
+        imports += f"\nfrom {'.'.join(parts[:-1] if parts[-1] == '__init__' else parts)} import {struct_name}"
     graph_name = f"{name}Struct"
     STRUCT_GRAPHS_DIR.mkdir(exist_ok=True)
     (STRUCT_GRAPHS_DIR / f"{graph_name}.mojo").write_text(STRUCT_GRAPH_TEMPLATE.format(
@@ -370,8 +481,37 @@ def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="ne
     if config != "Release":
         cmd.append(f"--config {config}")
     return _export(graph_name, STRUCT_PACKAGE, None, name, None, None, num_out, (), install, config,
-                   build, sc_path, audio_args=audio_args, origin=("struct", f"{module}.{struct_name}"),
+                   build, sc_path, install_dir, audio_args=audio_args, origin=("struct", f"{module}.{struct_name}"),
                    export_command=" \\\n    ".join(cmd), struct_info=struct_info)
+
+
+def _struct_messages(text):
+    """The messages the struct reads with its own Messengers, in order:
+    [(key, send method)], like ("load_wavetable", "sendString"). The send method
+    is None when the value's type can't be found."""
+    sends = {"Float64": "sendFloat", "Int": "sendInt", "Bool": "sendBool", "String": "sendString"}
+    fields = dict(re.findall(r"^\s*var\s+(\w+)\s*:\s*([\w\[\], ]+?)\s*$", text, re.M))
+    found = {}
+    for var in re.findall(r"^\s*var\s+(\w+)\s*:\s*Messenger\b", text, re.M):
+        call = rf"self\.{var}\.(\w+)(?:\[([^\]]*)\])?\(\s*\"([^\"]+)\"\s*(?:,\s*(?:self\.)?(\w+))?"
+        for how, brackets, key, value in re.findall(call, text):
+            if how == "notify_trig":
+                send = "sendTrig"
+            elif "callback" in how:
+                # The callback's argument type: def load(name: String) capturing
+                fn = (brackets or "").split(",")[-1].strip()
+                m = re.search(rf"def\s+{re.escape(fn)}\s*\(\s*\w+\s*:\s*([\w\[\]]+)", text) if fn else None
+                type_ = m.group(1) if m else ""
+                type_ = re.sub(r"^List\[(\w+)\]$", r"\1", type_) if how.endswith("_all") else type_
+                send = sends.get(type_)
+            else:
+                type_ = fields.get(value, "").strip()
+                type_ = re.sub(r"^List\[(\w+)\]$", r"\1", type_) if how.endswith("_all") else type_
+                send = sends.get(type_)
+            if send and how.endswith("_all") and send != "sendTrig":
+                send += "s"
+            found.setdefault(key, send)
+    return list(found.items())
 
 
 def _param_values(declared, given, owner, option, example=lambda k: "..."):
@@ -865,6 +1005,8 @@ static constexpr int numOut = {num_out};
 static constexpr const char* bridgeLib = {_cpp_string(bridge_lib_name)};
 static constexpr const char* graphLib = {_cpp_string(graph_lib_name)};
 static constexpr const char* runtimeLibs[] = {{ {runtime} }};
+// The folder, beside this UGen's, that holds runtimeLibs.
+static constexpr const char* sharedLibDir = {_cpp_string(SHARED_LIBS)};
 
 {body}
 
@@ -1023,9 +1165,9 @@ def _sc_value(c):
     return value + ".round" if is_int else value
 
 
-def _sc_struct_example(name, num_out, audio_args):
+def _sc_struct_example(name, num_out, audio_args, messages=()):
     """The help file's example for a struct's UGen: every argument at its default, and a
-    test signal for those without one."""
+    test signal for those without one, then how to send each message the struct reads."""
     signal = "Decay2.ar(Impulse.ar(1), 0.01, 0.3) * PinkNoise.ar"
     ugen_args = [f"{a['name']}: {signal if a['default'] is None else _sc_number(a['default'])}"
                  for a in audio_args]
@@ -1040,8 +1182,22 @@ def _sc_struct_example(name, num_out, audio_args):
                       f"\tvar sig = {call};",
                       f"\tsig * 0.1{out}",
                       "}.play;",
-                      ")", "",
-                      "x.free;"])
+                      ")", ""]
+                     + (["// The messages it reads:"] + [_sc_send_line(name, k, send) for k, send in messages]
+                        + [""] if messages else [])
+                     + ["x.free;"])
+
+
+def _sc_send_line(name, key, send):
+    """An example line sending the message `key` with the class method `send`."""
+    values = {"sendFloat": "0.5", "sendInt": "1", "sendBool": "true", "sendString": '"text"',
+              "sendFloats": "[0.25, 0.5]", "sendInts": "[1, 2]", "sendBools": "[true, false]",
+              "sendStrings": '["a", "b"]'}
+    if send is None:
+        return f'// {name}.sendFloat(x, "{key}", value);  // or sendInt, sendString...: the type it reads'
+    if send == "sendTrig":
+        return f'{name}.sendTrig(x, "{key}");'
+    return f'{name}.{send}(x, "{key}", {values[send]});'
 
 
 def _sc_example(name, num_in, controls):
@@ -1136,8 +1292,12 @@ def _sc_help(name, origin, num_in, num_out, controls, notes, audio_args=None, st
                   else f"{struct} has no parameters."]
         if struct_info["method_params"]:
             params.append(t(f"{method}'s parameters: {struct_info['method_params']}."))
-        lines += [" ".join(params),
-                  "",
+        lines += [" ".join(params)]
+        if struct_info["messages"]:
+            lines += ["", f"It reads these messages: {', '.join(f'code::{k}::' for k, _ in struct_info['messages'])}. "
+                      "Send them to a running Synth with the class methods, like "
+                      "link::#*sendString#sendString::."]
+        lines += ["",
                   "Each Synth builds its own copy on the server's non-real-time thread, and outputs silence "
                   "until it is ready."]
     else:
@@ -1170,7 +1330,9 @@ def _sc_help(name, origin, num_in, num_out, controls, notes, audio_args=None, st
     lines += ["ARGUMENT:: id",
               f"A name for this UGen, for the send methods, when a SynthDef has more than one {name}.",
               f"returns:: An array of {num_out} audio channels." if num_out != 1 else "returns:: An audio channel."]
-    for method, what, value, value_doc in ([] if audio_args is not None else send_methods):
+    # A struct without a Messenger reads no messages, so its UGen's send methods are left out.
+    sends = audio_args is None or bool(struct_info["messages"])
+    for method, what, value, value_doc in (send_methods if sends else []):
         lines += ["", f"METHOD:: {method}",
                   f"Sends {what} to the graph in a running Synth, as MMMAudio.py's code::send_"
                   f"{method[4:].lower()}:: does.",
@@ -1179,15 +1341,14 @@ def _sc_help(name, origin, num_in, num_out, controls, notes, audio_args=None, st
         if value:
             lines += [f"ARGUMENT:: {value}", value_doc]
         lines += ["ARGUMENT:: id", f"The {name}'s code::id::, when the SynthDef has more than one."]
-    if audio_args is None:
+    if sends:
         lines += ["", "METHOD:: ugenIndex",
                   f"The {name}'s index in the Synth's SynthDef, which the send methods address their "
                   "code::/u_cmd:: messages to. It is found for SynthDefs built in this session, or "
                   "loaded from a file with their metadata.",
                   "ARGUMENT:: synth", f"The link::Classes/Synth:: running a SynthDef with a {name}.",
                   "ARGUMENT:: id", f"The {name}'s code::id::."]
-    # A struct reads no messages, so its UGen's send methods are left out.
-    private = ["prFlag", "prSend"] + ([m[0] for m in send_methods] + ["ugenIndex"] if audio_args is not None else [])
+    private = ["prFlag", "prSend"] + ([] if sends else [m[0] for m in send_methods] + ["ugenIndex"])
     lines += ["",
               "PRIVATE:: " + ", ".join(private),
               "",
@@ -1202,7 +1363,7 @@ def _sc_help(name, origin, num_in, num_out, controls, notes, audio_args=None, st
               "",
               "code::",
               _sc_example(name, num_in, controls) if audio_args is None else
-              _sc_struct_example(name, num_out, audio_args),
+              _sc_struct_example(name, num_out, audio_args, struct_info["messages"]),
               "::",
               ""]
     return "\n".join(lines)
@@ -1214,7 +1375,7 @@ def _sc_help(name, origin, num_in, num_out, controls, notes, audio_args=None, st
 
 CMAKE_TEMPLATE = """\
 # Generated by Exporters/SCExporter/export_sc.py - do not edit.
-# Self-contained: everything it needs is in this folder, or downloaded.
+# Everything it needs is in this folder, in ../{shared_libs} (the Mojo runtime), or downloaded.
 cmake_minimum_required(VERSION 3.20)
 project({name} CXX)
 
@@ -1256,11 +1417,18 @@ add_custom_command(TARGET {name} POST_BUILD
     COMMAND "${{CMAKE_COMMAND}}" -E copy_directory "${{CMAKE_CURRENT_SOURCE_DIR}}/bundle/resources" "${{EXTENSION_DIR}}/ignore/resources"
     VERBATIM)
 
-# `cmake --install build` replaces build/{name}/'s copy in the MMMAudio folder of the
-# user Extensions folder, creating that folder if it isn't there.
+# `cmake --install build` replaces build/{name}/'s copy in {mojo_dir}/ in the MMMAudio
+# folder of the user Extensions folder, creating those folders if they aren't there, and
+# puts the Mojo runtime, which all UGens built with this Mojo version share, in
+# {mojo_dir}/{shared_libs}/.
 set(SC_EXTENSIONS_DIR "{install_dir}" CACHE PATH "The folder cmake --install puts the extension in")
-install(CODE "file(REMOVE_RECURSE \\"${{SC_EXTENSIONS_DIR}}/{name}\\")")
-install(DIRECTORY "${{EXTENSION_DIR}}" DESTINATION "${{SC_EXTENSIONS_DIR}}" USE_SOURCE_PERMISSIONS)
+set(MMM_SHARED_LIBS "${{CMAKE_CURRENT_SOURCE_DIR}}/../{shared_libs}" CACHE PATH
+    "The folder holding the Mojo runtime libraries")
+install(CODE "file(REMOVE_RECURSE \\"${{SC_EXTENSIONS_DIR}}/{mojo_dir}/{name}\\")")
+install(DIRECTORY "${{EXTENSION_DIR}}" DESTINATION "${{SC_EXTENSIONS_DIR}}/{mojo_dir}" USE_SOURCE_PERMISSIONS)
+foreach(lib {runtime_libs})
+    install(PROGRAMS "${{MMM_SHARED_LIBS}}/${{lib}}" DESTINATION "${{SC_EXTENSIONS_DIR}}/{mojo_dir}/{shared_libs}")
+endforeach()
 """
 
 README_TEMPLATE = """\
@@ -1268,9 +1436,11 @@ README_TEMPLATE = """\
 
 Generated by `Exporters/SCExporter/export_sc.py`. It is replaced on every export, so don't edit it.
 
-A self-contained CMake project for a SuperCollider UGen running the MMMAudio {origin}.
-You can move or copy this folder anywhere; it doesn't need
-the MMMAudio repository to build. Run the commands below from this folder.
+A CMake project for a SuperCollider UGen running the MMMAudio {origin}, built with
+{mojo_dir}. It uses the Mojo runtime libraries in `../{shared_libs}/`, which every UGen built
+with this Mojo version shares. You can move it, with its parent folder or wherever
+you point `-DMMM_SHARED_LIBS=...` at those libraries; it doesn't need the MMMAudio
+repository to build. Run the commands below from this folder.
 
 Needs CMake 3.20 or newer and a C++17 compiler (on macOS, Xcode's command line tools).
 Inside the MMMAudio repository, `pixi run cmake ...` uses the pixi environment's CMake.
@@ -1294,16 +1464,18 @@ The extension is put together in `build/{name}/`.
 cmake --install build --config {config}
 ```
 
-This copies `build/{name}/` to `{install_dir}/{name}`, replacing any earlier copy
-(configure with `-DSC_EXTENSIONS_DIR=...` to install somewhere else). Then recompile the
-class library and reboot the server.
+This copies `build/{name}/` to `{install_dir}/{mojo_dir}/{name}`, replacing any earlier copy
+there, and the Mojo runtime libraries to `{install_dir}/{mojo_dir}/{shared_libs}/` (configure
+with `-DSC_EXTENSIONS_DIR=...` to install somewhere else). The UGen loads them from there, so
+copy both if you install by hand. Remove any copy of {name} built with another Mojo version.
+Then recompile the class library and reboot the server.
 
 ## What's in here
 
 - `src/`: the UGen's C++. `MMMSCSpec.h` describes this graph's inputs and setup messages.
 - `sc/`: the UGen's sclang class (`Classes/{name}.sc`) and help file
   (`HelpSource/Classes/{name}.schelp`), which has an example.
-- `bundle/`: the compiled Mojo graph and runtime libraries, plus files the graph loads.
+- `bundle/`: the compiled Mojo graph and its engine, plus files the graph loads.
 
 Changes to the Mojo code, the Qt GUI script, or files the graph loads need a new
 export, from the MMMAudio folder:
@@ -1362,9 +1534,11 @@ def main():
     parser.add_argument("--resources", nargs="+", default=[],
                         help="extra files or folders to bundle (files the graph names are found automatically)")
     parser.add_argument("--install", action="store_true", help="copy into the MMMAudio folder of the user Extensions folder")
+    parser.add_argument("--install_dir", help="install into this folder instead (implies --install)")
     parser.add_argument("--config", default="Release", choices=["Release", "Debug"])
     parser.add_argument("--no_build", dest="build", action="store_false",
-                        help="only write the project into builds/<Name>/; build it later with its README's commands")
+                        help="only write the project into builds/Mojo<version>/<Name>/; build it later "
+                             "with its README's commands")
     parser.add_argument("--sc_path", help="a SuperCollider source folder to take the plug-in headers from")
     structs = parser.add_argument_group("with --struct")
     structs.add_argument("--module", default="mmm_audio", help="the Mojo package or module defining it (default: mmm_audio)")
@@ -1384,13 +1558,14 @@ def main():
         export_struct_sc(args.struct, args.module, ugen_name=args.ugen_name, method=args.method,
                          params=pairs(args.params), method_params=pairs(args.method_params),
                          init_args=pairs(args.init_args), install=args.install,
-                         config=args.config, build=args.build, sc_path=args.sc_path)
+                         config=args.config, build=args.build, sc_path=args.sc_path,
+                         install_dir=args.install_dir)
         return
 
     export_sc(args.graph_name, args.package_name, args.gui_file, ugen_name=args.ugen_name,
               instrument=args.instrument, num_in=args.num_in, num_out=args.num_out,
               resources=args.resources, install=args.install, config=args.config, build=args.build,
-              sc_path=args.sc_path)
+              sc_path=args.sc_path, install_dir=args.install_dir)
 
 
 if __name__ == "__main__":
