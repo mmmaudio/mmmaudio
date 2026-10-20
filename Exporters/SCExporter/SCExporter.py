@@ -68,18 +68,11 @@ export_struct_sc("Freeverb")
 # Two channel sinc interpolated sawtooth oscillator, with 2x oversampling. 
 export_struct_sc("Osc", ugen_name="MMMOscSincSaw",params={"num_chans": 2, "interp": "Interp.sinc", "ov_samp": "TimesOversampling.x2"}, method_params={"osc_type": "OscType.saw"}, install=True)
 
-# The method's parameters can be set too, as Mojo code: a saw wave.
-export_struct_sc("Osc", ugen_name="MMMOscSaw", method_params={"osc_type": "OscType.saw"})
-
-# Another method. A parameter pack takes a list:
-# MMMOscNextBasicWaveforms.ar(200, osc_frac: 0.5) is halfway from sine to square.
-export_struct_sc("Osc", method="next_basic_waveforms",
+# Another variable basic waveform oscillator, with 4x oversampling.
+export_struct_sc("Osc", ugen_name="MMMOscBasicWaveforms", method="next_basic_waveforms", params={"ov_samp": "TimesOversampling.x4"},
                  method_params={"osc_types": ["OscType.sine", "OscType.triangle", "OscType.saw", "OscType.square"]})
 
-# next_all_basic_waveforms returns an MFloat[4], so the UGen has 4 outputs.
-export_struct_sc("WavetableOsc", module="examples.export_examples", ugen_name="MMMWavetableOsc", params={"num_chans": 1, "interp": "Interp.sinc", "ov_samp": "TimesOversampling.x2"})
-
-# A struct outside mmm_audio, with oversampling (TimesOversampling.x2, not 2x). It reads
-# messages with its own Messenger: MMMWavetableOsc.sendString(x, "load_wavetable", path)
+# 3D wavetable oscillator that uses a Mojo-side Buffer to load the wavetable.
+# needs to receive a string message with the path to the wavetable file, e.g. MMMWavetableOsc.sendString(x, "load_wavetable", path)
 export_struct_sc("WavetableOsc", module="examples.export_examples", ugen_name="MMMWavetableOsc",
                  params={"num_chans": 1, "interp": "Interp.sinc", "ov_samp": "TimesOversampling.x2"}, install=True)
