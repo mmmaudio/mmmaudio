@@ -1,5 +1,5 @@
 from mmm_audio import *
-from std.testing import assert_equal, assert_almost_equal, assert_true
+from std.testing import assert_equal, assert_almost_equal, assert_true, assert_false
 from std.testing import TestSuite
 from std.math import inf, nan
 from std.pathlib import Path
@@ -177,6 +177,202 @@ def test_fft_frequencies() raises:
     var expected = MFloat[8](0.0, 86.1328125, 172.265625, 258.3984375, 344.53125, 430.6640625, 516.796875, 602.9296875)
     assert_almost_equal(result_simd, expected, "Test: fft_frequencies function failed")
 
+    # The bins are generated a vector at a time with a scalar tail, so check the whole
+    # ramp and not just its head -- the tail is where a partial final vector lands.
+    var binHz = sample_rate / Float64(n_fft)
+    assert_equal(len(result), n_fft // 2 + 1, "Test: fft_frequencies returned the wrong count")
+    for i in range(len(result)):
+        assert_almost_equal(result[i], Float64(i) * binHz,
+            "Test: fft_frequencies wrong at bin " + String(i), atol=1e-9)
+    assert_almost_equal(result[len(result) - 1], sample_rate / 2.0,
+        "Test: fft_frequencies last bin is not Nyquist", atol=1e-9)
+
+    # Counts that are not a whole number of vectors, and a nonzero starting bin
+    for min_bin in [0, 1, 7]:
+        for num_bins in [1, 3, 5, 17, 33]:
+            var partial = RealFFT.fft_frequencies(sample_rate, n_fft, min_bin, num_bins)
+            assert_equal(len(partial), num_bins,
+                "Test: fft_frequencies returned the wrong count for a partial range")
+            for i in range(num_bins):
+                assert_almost_equal(partial[i], Float64(min_bin + i) * binHz,
+                    "Test: fft_frequencies wrong at bin " + String(i)
+                    + " of a partial range starting at " + String(min_bin), atol=1e-9)
+
+def test_fft_against_numpy() raises:
+    """Check the forward and inverse transforms against numpy.fft.rfft / irfft.
+
+    A round trip alone is a weak check here, because the forward and inverse passes share
+    the twiddle tables and some corruptions cancel out between them. Comparing the spectrum
+    itself against numpy pins the forward transform independently.
+    """
+    comptime tol = 1e-9
+
+    try:
+        var np = Python.import_module("numpy")
+        var builtins = Python.import_module("builtins")
+
+        for size in [16, 64, 256, 1024]:
+            var num_bins = size // 2 + 1
+            var fft = RealFFT[1](size)
+            var signal = List[Float64](length=size, fill=0.0)
+            var output = List[Float64](length=size, fill=0.0)
+
+            # A couple of partials plus noise, so every bin carries something
+            for i in range(size):
+                var t = Float64(i) / Float64(size)
+                signal[i] = (
+                    sin(2.0 * pi * 3.0 * t)
+                    + 0.5 * cos(2.0 * pi * 5.0 * t)
+                    + 0.25 * random_float64(-1.0, 1.0)
+                )
+
+            var py_signal = builtins.list()
+            for i in range(size):
+                py_signal.append(signal[i])
+            var spectrum = np.fft.rfft(np.array(py_signal))
+            var expected_mags = np.abs(spectrum).tolist()
+            var expected_phases = np.angle(spectrum).tolist()
+
+            fft.fft(signal)
+
+            for k in range(num_bins):
+                var want_mag = Float64(py=expected_mags[k])
+                assert_almost_equal(fft.mags[k], want_mag,
+                    "Test: fft magnitude disagrees with numpy at size " + String(size)
+                    + " bin " + String(k), atol=tol)
+
+                # Phase is meaningless where there is no magnitude to carry it
+                if want_mag > 1e-6:
+                    var want_phase = Float64(py=expected_phases[k])
+                    var diff = abs(fft.phases[k] - want_phase)
+                    if diff > pi:
+                        diff = 2.0 * pi - diff   # the wrap at +-pi is not a disagreement
+                    assert_true(diff < tol,
+                        "Test: fft phase disagrees with numpy at size " + String(size)
+                        + " bin " + String(k) + " by " + String(diff))
+
+            # And the inverse against numpy.fft.irfft, driven from the same spectrum
+            var recovered = np.fft.irfft(spectrum, n=size).tolist()
+            fft.ifft(output)
+            for i in range(size):
+                assert_almost_equal(output[i], Float64(py=recovered[i]),
+                    "Test: ifft disagrees with numpy at size " + String(size)
+                    + " sample " + String(i), atol=tol)
+
+        # Stereo: the lanes must stay independent, each matching its own numpy transform
+        comptime N = 256
+        var fft2 = RealFFT[2](N)
+        var stereo = List[MFloat[2]](length=N, fill=MFloat[2](0.0))
+        var left = builtins.list()
+        var right = builtins.list()
+        for i in range(N):
+            var t = Float64(i) / Float64(N)
+            var l = sin(2.0 * pi * 3.0 * t) + 0.25 * random_float64(-1.0, 1.0)
+            var r = cos(2.0 * pi * 11.0 * t) + 0.25 * random_float64(-1.0, 1.0)
+            stereo[i] = MFloat[2](l, r)
+            left.append(l)
+            right.append(r)
+
+        var left_mags = np.abs(np.fft.rfft(np.array(left))).tolist()
+        var right_mags = np.abs(np.fft.rfft(np.array(right))).tolist()
+
+        fft2.fft(stereo)
+        for k in range(N // 2 + 1):
+            assert_almost_equal(fft2.mags[k][0], Float64(py=left_mags[k]),
+                "Test: stereo fft left channel disagrees with numpy at bin " + String(k),
+                atol=tol)
+            assert_almost_equal(fft2.mags[k][1], Float64(py=right_mags[k]),
+                "Test: stereo fft right channel disagrees with numpy at bin " + String(k),
+                atol=tol)
+
+        var stereo_out = List[MFloat[2]](length=N, fill=MFloat[2](0.0))
+        fft2.ifft(stereo_out)
+        for i in range(N):
+            assert_almost_equal(stereo_out[i], stereo[i],
+                "Test: stereo fft round trip did not reconstruct sample " + String(i),
+                atol=tol)
+
+    except err:
+        assert_true(False, "Error comparing FFT results with numpy: " + String(err))
+
+def test_adsr_env() raises:
+    """ADSREnv has to hit each breakpoint at the right time and level.
+
+    ASREnv has no decay stage, so this checks the thing that distinguishes them: the fall
+    from full down to the sustain level while the gate is still open.
+    """
+    var e = unsafe_alloc[Environment](1)
+    e.unsafe_write(Environment())
+    var world = unsafe_alloc[MMMWorld](1)
+    world.unsafe_write(MMMWorld(48000.0, e))
+
+    comptime tol = 1e-6
+    var env = ADSREnv(world)
+
+    def advance(mut env: ADSREnv, samples: Int, gate: Bool) capturing -> Float64:
+        var v = 0.0
+        for _ in range(samples):
+            v = env.next(0.1, 0.2, 0.5, 0.4, gate)
+        return v
+
+    # attack: 0.1s from 0 to 1, so halfway up at 0.05s
+    assert_almost_equal(advance(env, 2400, True), 0.5,
+        "Test: ADSREnv attack is not halfway at half the attack time", atol=tol)
+    assert_almost_equal(advance(env, 2400, True), 1.0,
+        "Test: ADSREnv did not reach full at the end of the attack", atol=tol)
+
+    # decay: 0.2s from 1 down to the sustain level of 0.5
+    assert_almost_equal(advance(env, 4800, True), 0.75,
+        "Test: ADSREnv decay is not halfway at half the decay time", atol=tol)
+    assert_almost_equal(advance(env, 4800, True), 0.5,
+        "Test: ADSREnv did not settle at the sustain level", atol=tol)
+
+    # sustain holds for as long as the gate is open
+    assert_almost_equal(advance(env, 48000, True), 0.5,
+        "Test: ADSREnv did not hold at the sustain level", atol=tol)
+    assert_true(env.is_active, "Test: ADSREnv should be active while gated")
+
+    # release: 0.4s from the sustain level to zero
+    assert_almost_equal(advance(env, 9600, False), 0.25,
+        "Test: ADSREnv release is not halfway at half the release time", atol=tol)
+    _ = advance(env, 9605, False)
+    assert_almost_equal(env.value, 0.0,
+        "Test: ADSREnv did not reach zero at the end of the release", atol=tol)
+    assert_false(env.is_active, "Test: ADSREnv should go inactive once released")
+
+    # curve shapes the segment as phase to the power of the curve, endpoints unmoved
+    var shaped = ADSREnv(world)
+    def advance_curved(mut env: ADSREnv, samples: Int, curve: Float64) capturing -> Float64:
+        var v = 0.0
+        for _ in range(samples):
+            v = env.next(0.1, 0.2, 0.5, 0.4, True, MFloat[2](curve, curve))
+        return v
+    assert_almost_equal(advance_curved(shaped, 1200, 2.0), 0.0625,
+        "Test: ADSREnv curve did not shape the attack", atol=tol)
+    assert_almost_equal(advance_curved(shaped, 3600, 2.0), 1.0,
+        "Test: ADSREnv curve moved the end of the attack", atol=tol)
+
+    # retriggering part way through a release resumes from the current value
+    var again = ADSREnv(world)
+    _ = advance(again, 48000, True)
+    var released = advance(again, 4800, False)
+    var retriggered = again.next(0.1, 0.2, 0.5, 0.4, True)
+    assert_true(abs(retriggered - released) < 0.01,
+        "Test: ADSREnv jumped on retrigger instead of resuming from its current value")
+
+    # zero length segments must arrive immediately rather than divide by zero
+    var instant = ADSREnv(world)
+    var v = 0.0
+    for _ in range(4):
+        v = instant.next(0.0, 0.0, 0.3, 0.0, True)
+    assert_almost_equal(v, 0.3,
+        "Test: ADSREnv with zero attack and decay did not land on the sustain level", atol=tol)
+
+    # reset clears a recycled voice
+    instant.reset()
+    assert_almost_equal(instant.value, 0.0, "Test: ADSREnv reset did not clear the value", atol=tol)
+    assert_false(instant.is_active, "Test: ADSREnv reset did not clear is_active")
+
 def test_dct()  raises:
     var dct = DCT(4,3)
     var input_vals = List[Float64]([1.0, 2.0, 3.0, 4.0])
@@ -291,7 +487,8 @@ def compare_long_lists[chunk_size: Int = 64](a: List[Float64], b: List[Float64],
 
 def pca_test(whiten: Bool) raises:
 
-    var joblib = Python.import_module("joblib")
+    Python.add_to_path(".")
+    var data_python = Python.import_module("mmm_python.ML.Data_Python")
     var np = Python.import_module("numpy")
 
     # dataset
@@ -303,8 +500,8 @@ def pca_test(whiten: Bool) raises:
     pca_py.fit(dataset)
 
     # write
-    var pca_py_tmp_path = "tmp_pca.joblib"
-    joblib.dump(pca_py, pca_py_tmp_path)
+    var pca_py_tmp_path = "tmp_pca.safetensors"
+    data_python.save_pca(pca_py, pca_py_tmp_path)
 
     # read with mojo
     var pca_mojo = PCA(pca_py_tmp_path)
@@ -341,7 +538,8 @@ def test_pca() raises:
     pca_test(whiten=True)
     
 def test_standard_scaler() raises:
-    var joblib = Python.import_module("joblib")
+    Python.add_to_path(".")
+    var data_python = Python.import_module("mmm_python.ML.Data_Python")
     var np = Python.import_module("numpy")
     var sklearn = Python.import_module("sklearn")
 
@@ -354,8 +552,8 @@ def test_standard_scaler() raises:
     scaler_sklearn.fit(dataset)
 
     # write
-    var scaler_tmp_path = "tmp_standard_scaler.joblib"
-    joblib.dump(scaler_sklearn, scaler_tmp_path)
+    var scaler_tmp_path = "tmp_standard_scaler.safetensors"
+    data_python.save_standard_scaler(scaler_sklearn, scaler_tmp_path)
 
     # read with mojo
     var scaler_mojo = StandardScaler(scaler_tmp_path)

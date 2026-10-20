@@ -12,6 +12,7 @@ in_port.set_callback(callback)
 
 # find your midi devices
 ports = s_m.list_ports()
+print(f"Available MIDI ports: {ports}")
 port_num = ports.index('Oxygen Pro Mini USB MIDI')
 
 if in_port.get_ports():

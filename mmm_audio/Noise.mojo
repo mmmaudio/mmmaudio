@@ -1,7 +1,97 @@
-from std.math import log2, floor, pi
+from std.math import log2, floor, pi, iota
+from std.random import random_float64, random_ui64
 from mmm_audio.constants import *
-from mmm_audio.functions import *
+from mmm_audio.functions import _splitmix64, _GOLDEN64, rrand, exprand, clip
 from mmm_audio.BooleanTests import RisingBoolDetector
+
+struct SIMDRand[N: SIMDLength = 1](Copyable, Movable):
+    """A xorshift64 generator that advances every SIMD lane in one step.
+
+    `std.random` has no vector generator: `random_float64` and friends return one scalar per
+    call and cost about 23ns each, so filling an N lane vector from them costs N calls. This
+    keeps one independent xorshift64 stream per lane in a single SIMD register, so a whole
+    vector costs roughly 1.7ns however wide it is.
+
+    Unlike [rrand](#rrand) it carries state, so it has to be owned by whatever is generating
+    the samples. That is the point: no call into the global generator per sample.
+
+    The generator is fine for audio noise and better than the LCGs common in DSP code, but
+    xorshift64 does fail parts of BigCrush. Use `std.random` where randomness quality is
+    load bearing, such as dither for mastering.
+
+    Parameters:
+        N: Number of SIMD lanes, one independent stream each.
+    """
+
+    var state: SIMD[DType.uint64, Self.N]
+    """One xorshift64 state word per lane. Never zero, which is the generator's fixed point."""
+
+    def __init__(out self):
+        """Seed from the global generator, so separate instances decorrelate.
+
+        Seeding goes through `std.random`, so `seed()` still makes a run reproducible.
+        """
+        self = Self(random_ui64(0, 0xFFFFFFFFFFFFFFFF))
+
+    def __init__(out self, seed: UInt64):
+        """Seed deterministically from one 64-bit value.
+
+        Args:
+            seed: The base seed. Lanes are spaced apart from it and mixed, so nearby seeds
+                do not produce related streams.
+        """
+        var s = _splitmix64(
+            SIMD[DType.uint64, Self.N](seed) + iota[DType.uint64, Self.N]() * _GOLDEN64
+        )
+        # xorshift64 is stuck at zero forever, so no lane may start there
+        self.state = s.eq(0).select(SIMD[DType.uint64, Self.N](_GOLDEN64), s)
+
+    @always_inline
+    def bits(mut self) -> SIMD[DType.uint64, Self.N]:
+        """Advance every lane one xorshift64 step.
+
+        Returns:
+            A vector of uniformly distributed 64-bit values.
+        """
+        var x = self.state
+        x ^= x << 13
+        x ^= x >> 7
+        x ^= x << 17
+        self.state = x
+        return x
+
+    @always_inline
+    def uniform(mut self) -> MFloat[Self.N]:
+        """Draw a vector of uniform values in [0, 1). Inclusive of 0.0, exclusive of 1.0.
+
+        Returns:
+            One value per lane.
+        """
+        # The top 52 bits become the mantissa of a double that already reads 1.0
+        return MFloat[Self.N](from_bits=(self.bits() >> 12) | 0x3FF0000000000000) - 1.0
+
+    @always_inline
+    def bipolar(mut self) -> MFloat[Self.N]:
+        """Draw a vector of uniform values in [-1, 1), the usual range for audio noise. Inclusive of -1.0, exclusive of 1.0.
+
+        Returns:
+            One value per lane.
+        """
+        # Same trick against an exponent that reads 2.0, giving [2, 4) before the shift down
+        return MFloat[Self.N](from_bits=(self.bits() >> 12) | 0x4000000000000000) - 3.0
+
+    @always_inline
+    def range(mut self, min: MFloat[Self.N], max: MFloat[Self.N]) -> MFloat[Self.N]:
+        """Draw a vector of uniform values in [min, max). Inclusive of min, exclusive of max.
+
+        Args:
+            min: The lower bound, per lane.
+            max: The upper bound, per lane.
+
+        Returns:
+            One value per lane.
+        """
+        return min + (max - min) * self.uniform()
 
 struct WhiteNoise[num_chans: SIMDLength = 1](Copyable, Movable):
     """Generate white noise samples.
@@ -9,11 +99,14 @@ struct WhiteNoise[num_chans: SIMDLength = 1](Copyable, Movable):
     Parameters:
         num_chans: Number of SIMD channels.
     """
-    def __init__(out self):
-        """Initialize the WhiteNoise struct."""
-        pass  # No initialization needed for white noise
+    var rng: SIMDRand[Self.num_chans]
+    """The generator's own state, so a sample costs no call into the global generator."""
 
-    def next(self, gain: MFloat[Self.num_chans] = MFloat[Self.num_chans](1.0)) -> MFloat[Self.num_chans]:
+    def __init__(out self):
+        """Initialize the WhiteNoise struct, seeding it from the global generator."""
+        self.rng = SIMDRand[Self.num_chans]()
+
+    def next(mut self, gain: MFloat[Self.num_chans] = MFloat[Self.num_chans](1.0)) -> MFloat[Self.num_chans]:
         """Generate the next white noise sample.
 
         Args:
@@ -22,8 +115,8 @@ struct WhiteNoise[num_chans: SIMDLength = 1](Copyable, Movable):
         Returns:
             A random value between -gain and gain.
         """
-        # Generate random value between -1 and 1, then scale by gain
-        return rrand(MFloat[Self.num_chans](-1.0), MFloat[Self.num_chans](1.0)) * gain
+
+        return self.rng.bipolar() * gain
 
 struct PinkNoise[num_chans: SIMDLength = 1](Copyable, Movable):
     """Generate pink noise samples.

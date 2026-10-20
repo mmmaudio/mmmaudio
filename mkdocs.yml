@@ -64,6 +64,7 @@ nav:
       - Filters: api/Filters.md
       - MLP Mojo: api/MLP.md
       - MLP PyTorch: api/MLP_Python.md
+      - MLP Trainer GUI: api/MLP_Trainer.md
       - Noise: api/Noise.md
       - Onset Detection: api/OnsetDetection.md
       - Osc: api/Oscillators.md

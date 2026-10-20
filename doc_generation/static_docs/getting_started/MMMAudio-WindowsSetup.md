@@ -1,6 +1,8 @@
 # Getting Started with MMMAudio on Windows and WSL 2.0
 
-Mojo does not currently run natively on Windows machines and requires the use of Windows Subsystem for Linux (WSL2). You should also download Visual Studio Code for Windows. You will also need to install the WSL extension in  VSCode before starting.
+Mojo does not currently run natively on Windows machines and requires the use of Windows Subsystem for Linux (WSL2). Modular has announced a Windows version, but it is not yet in alpha.
+
+You should also download Visual Studio Code for Windows. You will also need to install the WSL extension in  VSCode before starting.
 
 
 In a windows terminal, install Ubuntu-26.04 using WSL2. Ubuntu-26.04 comes preinstalled with Python 3.14.4 and git.
@@ -23,8 +25,6 @@ Then install pre-requisites (You will be prompted to give your linux password ag
 
 ```
 sudo apt update
-sudo apt install libportaudio2 portaudio19-dev
-sudo apt install libhidapi-hidraw0 libhidapi-dev
 sudo apt install pulseaudio
 sudo apt install g++
 sudo apt install pkgconf
@@ -79,12 +79,7 @@ code .
 
 Once in VSCode, install both the Mojo and Python extensions. It is important to do this *after* opening VSCode from WSL as the extensions installed on the Windows VSCode install will not carry over. 
 
-Then create a new python environment and install the required python packages with pip. You can also look in [MMMAudio-LinuxSetup](MMMAudio-LinuxSetup.md) to see how to install with uv (which has version tracking for all dependencies).
+Look in [MMMAudio-LinuxSetup](MMMAudio-LinuxSetup.md) to see how to install all dependencies with pixi, which pins every dependency and supplies the portaudio and hidapi C libraries itself.
 
-```
-python3 -m venv venv 
-source venv/bin/activate
 
-pip install numpy scipy librosa pyautogui torch supriya-midi python-osc python-rtmidi matplotlib PySide6 mojo==1.0.0 hidapi pyaudio
-```
 

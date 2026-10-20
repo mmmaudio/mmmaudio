@@ -4,6 +4,7 @@ from std.memory import bitcast
 from std.sys import argv
 from std.math import sin
 from mmm_audio.constants import MFloat
+from mmm_audio.functions import resolve_resource_path
 
 struct WavHeader(Movable, Copyable):
     """Struct containing WAV file header information."""
@@ -279,7 +280,7 @@ def read_wav_header(file_name: String) raises -> WavHeader:
         Error: If the file is missing required WAV header data.
     """
     var file_data: List[UInt8]
-    with open(file_name, "r") as f:
+    with open(resolve_resource_path(file_name), "r") as f:
         file_data = f.read_bytes(-1)
 
     var file_len = len(file_data)
@@ -351,7 +352,7 @@ def read_wav_samples(file_name: String, header: WavHeader, num_wavetables: Int =
     var data_offset = header.data_offset
     
     var file_data: List[UInt8]
-    with open(file_name, "r") as f:
+    with open(resolve_resource_path(file_name), "r") as f:
         file_data = f.read_bytes()
     
     # Validate format
@@ -444,7 +445,7 @@ def read_wav_SIMDs[num_channels: Int](file_name: String, header: WavHeader, num_
     var is_float = audio_format == 3
 
     var file_data: List[UInt8]
-    with open(file_name, "r") as f:
+    with open(resolve_resource_path(file_name), "r") as f:
         file_data = f.read_bytes()
     
     if not is_pcm and not is_float:

@@ -1,9 +1,14 @@
 """
-A sequenced polyphonic synthesizer controlled via a MIDI keyboard.
+A sequenced polyphonic synthesizer.
+
+Every note is sent to the single message name "notes". The Messenger pools all of the notes sent during an
+audio block, and the MidiSequencer graph receives them as a List[List[Float64]] with notify_update_all,
+triggering one voice for each.
 
 This example demonstrates a couple different concepts:
-- How to Pseq and Pxrand from mmm_python.Patterns to create sequences of notes and other parameters.
+- How to use Pseq and Pxrand from mmm_python.Patterns to create sequences of notes and other parameters.
 - How to create a coroutine to schedule note triggers using the MMMAudio scheduler.
+- How to send several messages to the same name in one block without losing any of them.
 
 """
 if True:
@@ -13,15 +18,12 @@ if True:
     mmm_audio = MMMAudio(128, graph_name="MidiSequencer", package_name="examples")
     mmm_audio.start_audio()
 
-    from mmm_python.Patterns import Pseq, Pxrand
     import numpy as np
     import asyncio
-    from mmm_python.functions import midicps, linexp
 
     global scheduler
     scheduler = Scheduler()
 
-    poly_pal = PolyPal(mmm_audio, "poly", 64)
     filter_seq = Pseq([linexp(i/100, 0, 1, 100, 5000) for i in range(0, 101)] + [linexp(i/100, 0, 1, 4999, 101) for i in range(0, 101)])
     mmm_audio.send_float("filt_freq", filter_seq.next()) # update filter frequency before each note
 
@@ -36,7 +38,7 @@ async def trig_synth(wait):
     fund = midicps(fund_seq.next())
     while True:
         mmm_audio.send_float("filt_freq", filter_seq.next()) # update filter frequency before each note
-        poly_pal.send_floats([fund * mult_seq.next(), 100 / 127.0])  # note freq and velocity scaled 0 to 1
+        mmm_audio.send_floats("notes", [fund * mult_seq.next(), 100 / 127.0])  # note freq and velocity scaled 0 to 1
         await asyncio.sleep(wait)
         
         i = (i + 1) % count_to

@@ -53,10 +53,10 @@ def main():
         # send the default value to the graph
         mmm_audio.send_float(name, default)
 
-    add_handle("osc0_freq", 0.2, 4000.0, 0.125, 100)
-    add_handle("osc1_freq", 0.2, 4000.0, 0.125, 10)
-    add_handle("osc2_freq", 0.2, 4000.0, 0.125, 10)
-    add_handle("osc3_freq", 0.2, 4000.0, 0.125, 10)
+    add_handle("osc0_freq", 0.2, 4000.0, 4.0, 10)
+    add_handle("osc1_freq", 0.2, 4000.0, 4.0, 10)
+    add_handle("osc2_freq", 0.2, 4000.0, 4.0, 10)
+    add_handle("osc3_freq", 0.2, 4000.0, 4.0, 10)
 
     add_handle("osc0_mula", 0, 3000.0, 1, 0)
     add_handle("osc0_mulb", 0, 3000.0, 1, 0)

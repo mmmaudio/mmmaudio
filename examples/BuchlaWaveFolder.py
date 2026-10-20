@@ -15,5 +15,10 @@ mmm_audio = MMMAudio(128, graph_name="BuchlaWaveFolder_AD", package_name="exampl
 # mmm_audio = MMMAudio(128, graph_name="BuchlaWaveFolder", package_name="examples")
 mmm_audio.start_audio() 
 
+# change the order of the antiderivative to 1 or 2 to hear the difference in the output waveform...
+# shouldn't be too different.
+mmm_audio.send_int("order", 1) # set the order of the antiderivative to 1
+mmm_audio.send_int("order", 2) # set the order of the antiderivative to 2
+
 mmm_audio.stop_audio()
 mmm_audio.plot(4000)

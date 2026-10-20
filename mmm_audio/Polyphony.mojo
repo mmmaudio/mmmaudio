@@ -94,6 +94,7 @@ struct Poly(Movable, Copyable):
     var world: World
     var string_dict: Dict[String, Int]
     var int_dict: Dict[Int, Int]
+    var last_reset_sample: Int
 
     def __init__(out self, world: World, num_voices: Int, namespace: Optional[String] = None):
         """Initialize the Poly.
@@ -109,6 +110,7 @@ struct Poly(Movable, Copyable):
         self.active_dict = Dict[Int, Int]()
         self.string_dict = Dict[String, Int]()
         self.int_dict = Dict[Int, Int]()
+        self.last_reset_sample = -1
         self.m = Messenger(world, namespace)
         self.world = world
 
@@ -251,6 +253,46 @@ struct Poly(Movable, Copyable):
                     _ = self._close_gate(poly_objects, Int(i))
         return -1
 
+    def next_gate[T: PolyObject](mut self, mut poly_objects: List[T], key: Int, gate: Bool) -> Int:
+        """Opens or closes the gate of the voice playing `key`. Designed for note on/note off messages, such as a List of [note, velocity] lists received with `Messenger.notify_update_all`, and can be called once for each message in a sample.
+
+        When `gate` is True, looks for a free voice, opens its gate and remembers that it is playing `key`. When `gate` is False, closes the gate of the voice playing `key` and forgets it.
+
+        Parameters:
+            T: The PolyObject type stored in `poly_objects`.
+
+        Args:
+            poly_objects: A list of structs conforming to the PolyObject trait. This function calls the set_gate function of the voice that is opened or closed.
+            key: Identifies the note, usually the MIDI note number. The note off for a note has to use the same key as its note on.
+            gate: True for a note on, False for a note off.
+
+        Returns:
+            The index of the voice whose gate was opened or closed, or -1 if there was no free voice (note on) or no voice playing `key` (note off).
+        """
+        self._reset[audio_control = 0](poly_objects)
+        if gate:
+            return self._find_voice_and_open_gate(poly_objects, True, key)
+        return self._close_gate(poly_objects, key)
+
+    def next_gate[T: PolyObject](mut self, mut poly_objects: List[T], key: String, gate: Bool) -> Int:
+        """Opens or closes the gate of the voice playing `key`. The same as the Int version of `next_gate`, but with a String key, for notes that aren't identified by an Int (such as microtonal MIDI notes like 60.1173).
+
+        Parameters:
+            T: The PolyObject type stored in `poly_objects`.
+
+        Args:
+            poly_objects: A list of structs conforming to the PolyObject trait. This function calls the set_gate function of the voice that is opened or closed.
+            key: Identifies the note. The note off for a note has to use the same key as its note on.
+            gate: True for a note on, False for a note off.
+
+        Returns:
+            The index of the voice whose gate was opened or closed, or -1 if there was no free voice (note on) or no voice playing `key` (note off).
+        """
+        self._reset[audio_control = 0](poly_objects)
+        if gate:
+            return self._find_voice_and_open_gate(poly_objects, True, key)
+        return self._close_gate(poly_objects, key)
+
     def next_mgate[
         T: PolyObject,
         call_back: def (mut poly_object: T, mut vals: List[Int]) capturing -> None
@@ -315,8 +357,16 @@ struct Poly(Movable, Copyable):
     @doc_hidden
     def _reset[T: PolyObject, audio_control: Int](mut self, mut poly_objects: List[T]):
         """Must be called before any subsequent calls to find_voice_and_trigger or _find_voice_and_open_gate. This function resets the triggered state of all voices at the beginning of each block or every sample, depending on the only_top_of_block parameter.
+
+        With audio_control == 0 the reset only happens on the first call each sample, so next_trig and next_gate can be called several times in one sample (for example, once for each message received in a block) without undoing the voices triggered by the earlier calls.
         """
         comptime if audio_control == 0:
+            var sample = self.world[].sample_count()
+            # sample is -1 when there is no Environment, in which case reset every call
+            if sample >= 0:
+                if sample == self.last_reset_sample:
+                    return
+                self.last_reset_sample = sample
             for i in range(len(poly_objects)):
                 self.active_list[i] = poly_objects[i].check_active()
                 poly_objects[i].set_trigger(False)

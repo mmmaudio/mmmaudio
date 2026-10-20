@@ -4,7 +4,7 @@ You can load your own wavetable files by sending a string message to the "load_f
 
 MMM_Audio can load commercial .wav files, designed for Vital or Serum, as wavetables. The wavetable should be a single channel audio file made up of one or more cycles of a waveform, each a power of 2 in length. The wavetable will be looped to create the oscillator waveform.
 
-Also demonstrates how to use the PVoiceAllocator class to manage multiple voices for polyphonic MIDI input.
+Also demonstrates how to forward MIDI to the graph with send_midi and let a Poly in the graph manage the voices.
 """
 
 from mmm_python import *
@@ -34,46 +34,11 @@ if True:
     in_port = midi.MidiIn()
     in_port.open_port(port_num)
 
-    voice_allocator = PVoiceAllocator(8)
-
-def note_on(msg):
-    voice = voice_allocator.get_free_voice(msg.note_number)
-    if voice == -1:
-        print("No free voice available")
-    else:
-        voice_msg = "voice_" + str(voice)
-        print(f"Note On: {msg.note_number} Velocity: {msg.velocity} Voice: {voice}")
-        mmm_audio.send_float(voice_msg +".freq", midicps(msg.note_number))  # note freq and velocity scaled 0 to 1
-        mmm_audio.send_bool(voice_msg +".gate", True)  # note freq and velocity scaled 0 to 1
-
-def note_off(msg):
-    found, voice = voice_allocator.release_voice(msg.note_number)
-    if found:
-        voice_msg = "voice_" + str(voice)
-        print(f"Note Off: {msg.note_number} Voice: {voice}")
-        mmm_audio.send_bool(voice_msg +".gate", False)  # note freq and velocity scaled 0 to 1
-
-def cc(msg):
-    print(f"Control Change: {msg.controller_number} Value: {msg.controller_value}")
-    # Example: map CC 1 to wubb_rate of all voices
-    if msg.controller_number == 1:
-        wubb_rate = linexp(msg.controller_value, 0, 127, 0.1, 10.0)
-        for i in range(8):
-            voice_msg = "voice_" + str(i)
-            mmm_audio.send_float(voice_msg +".wubb_rate", wubb_rate)
-    if msg.controller_number == 33:
-        mmm_audio.send_float("filter_cutoff", linexp(msg.controller_value, 0, 127, 20.0, 20000.0))
-    if msg.controller_number == 34:
-        mmm_audio.send_float("filter_resonance", linexp(msg.controller_value, 0, 127, 0.1, 1.0))
-
+# send_midi forwards every message to the graph the same way an exported plugin does:
+# note ons go to "note_on", note offs to "note_off", ccs to "cc", etc.
+# the graph allocates the voices and maps cc 1 to the wubb rate, cc 33 to the filter cutoff and cc 34 to the filter resonance.
 def midi_callback(msg, timestamp, data=None):
-    msg = midi.MidiMessage.parse(msg)
-    print(f"Received {msg=}")
-    if type(msg) == midi.NoteOnMessage:
-        note_on(msg)
-    if type(msg) == midi.NoteOffMessage:
-        note_off(msg)
-    if type(msg) == midi.ControllerChangeMessage:
-        cc(msg)
+    print(f"Received {midi.MidiMessage.parse(msg)}")
+    mmm_audio.send_midi(msg)
 
 in_port.set_callback(midi_callback)

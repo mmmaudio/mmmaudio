@@ -18,15 +18,14 @@ from mmm_python import *
 import json
 
 def main():
-    mmm_audio = MMMAudio(64, num_output_channels = 2, graph_name="WavetableOscSIMD", package_name="examples")
-    poly_pal = PolyPal(mmm_audio, "poly", 16) 
-
-    # in this case we use poly_pal.send_floats AND mmm_audio.send_float, so we need to pass both of them as targets to the NRT.save_to_wav function 
+    mmm_audio = MMMAudio(16, num_output_channels = 2, graph_name="WavetableOsc", package_name="examples")
+    # the score uses mmm_audio.send_ints for the notes (sent to "note_on" and "note_off" as [note, velocity, channel], the same as send_midi) and mmm_audio.send_float for the filter, so mmm_audio is the only target
     targets = {
-        "poly_pal": poly_pal,
         "mmm_audio": mmm_audio,
     }
 
+    # if the tmp directory doesn't exist, create it
+    Path("tmp").mkdir(parents=True, exist_ok=True)
     NRT.save_to_wav(mmm_audio, "tmp/bach.wav", duration_seconds=60, score_path="resources/bach2.json", targets=targets, verbose=False)
 
 if __name__ == "__main__":

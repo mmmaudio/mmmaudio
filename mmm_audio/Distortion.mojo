@@ -1,11 +1,12 @@
 from mmm_audio.Oversampling import Downsampler, Upsampler
+from mmm_audio.Buffer_Module import SIMDBuffer, Buffer
 from mmm_audio.Polyphony import PolyReset
 from mmm_audio.constants import *
 from mmm_audio.BooleanTests import RisingBoolDetector
 from mmm_audio.MMMWorld_Module import TimesOversampling
 from std.math import tanh, floor, pi, exp, log, cosh
 from mmm_audio.MMMWorld_Module import Interp
-from mmm_audio.functions import all_lanes_equal, clip, sign
+from mmm_audio.functions import all_lanes_equal, clip, clip_finite, sign, li2_neg_exp
 
 
 def bitcrusher[num_chans: SIMDLength](in_samp: MFloat[num_chans], bits: Int) -> MFloat[num_chans]:
@@ -73,14 +74,11 @@ struct Latch[num_chans: SIMDLength = 1](Copyable, Movable):
 #     def next_AD2[num_chans: SIMDLength](mut self, input: MFloat[num_chans]) -> MFloat[num_chans]:
 #         ...
 
-# [TODO] implement 2nd order ADAA versions of hard clip, soft clip, tanh
-# [TODO] implement a parameter in the .next functions to choose between none, and 1st and 2nd order ADAA
-
 struct SoftClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOversampling.none, degree: Int = 3](Copyable, Movable):
     """
     Anti-Derivative Anti-aliasing soft-clipping function.
     
-    This struct provides first order anti-aliased `soft clip` function using the Anti-Derivative Anti-aliasing (ADAA) with optional Downsampler. See [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html) for more details on how this works.
+    This struct provides a first or second order anti-aliased `soft clip` function using the Anti-Derivative Anti-aliasing (ADAA) with optional Downsampler. See [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html) for more details on how this works.
     
     Parameters:
         num_chans: The number of channels for SIMD operations.
@@ -88,17 +86,28 @@ struct SoftClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
         degree: The degree of the soft clipping polynomial (must be odd).
     """
     var x1: MFloat[Self.num_chans]
+    var x2: MFloat[Self.num_chans]
+    var ad2_x1: MFloat[Self.num_chans]
+    var d2: MFloat[Self.num_chans]
+    var ad2_valid: Bool  # False when ad2_x1/d2 are stale (start, reset, or after 1st-order calls)
     var downsampler: Downsampler[Self.num_chans, Self.ov_samp]
     var upsampler: Upsampler[Self.num_chans, Self.ov_samp]
     var D: Float64
     var norm_factor: Float64
     var inv_norm_factor: Float64
     comptime TOL = 1.0e-5
+    comptime TOL2 = 1.0e-3
+    comptime MAX_IN: Float64 = 50.0  # beyond the knee the curve is flat, so clamping is inaudible and keeps the 2nd-order ADAA differences well-conditioned
     var G1: Float64
+    var G2: Float64
     var initialized: Bool
 
     def __init__(out self, world: World):
         self.x1 = MFloat[Self.num_chans](0.0)
+        self.x2 = MFloat[Self.num_chans](0.0)
+        self.ad2_x1 = MFloat[Self.num_chans](0.0)
+        self.d2 = MFloat[Self.num_chans](0.0)
+        self.ad2_valid = False
         if Self.ov_samp.times > 2:
             print("SoftClipAD: ov_samp greater than x2 not supported yet. It will not sound good.")
         self.downsampler = Downsampler[Self.num_chans, self.ov_samp](world)
@@ -107,6 +116,7 @@ struct SoftClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
         self.norm_factor = (self.D - 1) / self.D
         self.inv_norm_factor = 1.0 / self.norm_factor
         self.G1 = 1.0 / (2.0 * (self.norm_factor * self.norm_factor)) - 1.0 / ((self.norm_factor * self.norm_factor) * self.D * (self.D + 1))
+        self.G2 = 1.0 / (6.0 * (self.norm_factor * self.norm_factor * self.norm_factor)) - 1.0 / ((self.norm_factor * self.norm_factor * self.norm_factor) * self.D * (self.D + 1) * (self.D + 2))
         self.initialized = False
 
     @doc_hidden
@@ -136,6 +146,60 @@ struct SoftClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
 
     @doc_hidden
     @always_inline
+    def _next_AD2(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Second antiderivative: x³/6 - x^(n+2) / (n*(n+1)*(n+2))"""
+        var mask: MBool[Self.num_chans] = abs(x*self.norm_factor).gt(1.0)
+
+        var outA = ((x * x / 2.0) + self.G2 + (self.inv_norm_factor * self.inv_norm_factor / 2.0) - self.G1 * self.inv_norm_factor) * sign(x) + x * (self.G1 - self.inv_norm_factor)
+
+        var out = ((self.norm_factor * (x * x * x) / 6.0) - (pow(self.norm_factor, self.D) * pow(x, self.D + 2) / (self.D * (self.D + 1.0) * (self.D + 2.0)))) * self.inv_norm_factor
+
+        return mask.select(outA, out)
+
+    @doc_hidden
+    @always_inline
+    def _next2(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """
+        Computes the second-order anti-aliased SoftClip. The output is delayed by one sample.
+
+        Args:
+            x: The input sample.
+
+        Returns:
+            The anti-aliased clipped signal.
+        """
+        if not self.ad2_valid:
+            # 1st-order calls only track x1 and x2, so rebuild the 2nd-order state before using it
+            self.ad2_x1 = self._next_AD2(self.x1)
+            self.d2 = abs(self.x1 - self.x2).lt(Self.TOL2).select(
+                self._next_AD1((self.x1 + self.x2) * 0.5),
+                (self.ad2_x1 - self._next_AD2(self.x2)) / (self.x1 - self.x2)
+            )
+            self.ad2_valid = True
+
+        var ad2_x0 = self._next_AD2(x)
+        var d1 = abs(x - self.x1).lt(Self.TOL2).select(
+            self._next_AD1((x + self.x1) * 0.5),
+            (ad2_x0 - self.ad2_x1) / (x - self.x1)
+        )
+
+        var x_bar = (x + self.x2) * 0.5
+        var delta = x_bar - self.x1
+        var fallback = abs(delta).lt(Self.TOL2).select(
+            self._next_norm((x_bar + self.x1) * 0.5),
+            (2.0 / delta) * (self._next_AD1(x_bar) + (self.ad2_x1 - self._next_AD2(x_bar)) / delta)
+        )
+
+        var out = abs(x - self.x2).lt(Self.TOL2).select(fallback, (2.0 / (x - self.x2)) * (d1 - self.d2))
+
+        self.d2 = d1
+        self.x2 = self.x1
+        self.x1 = x
+        self.ad2_x1 = ad2_x0
+        return out
+
+    @doc_hidden
+    @always_inline
     def _next1(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """
         Computes the first-order anti-aliased SoftClip.
@@ -149,18 +213,36 @@ struct SoftClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
         var mask = abs(x - self.x1).lt(self.TOL)
 
         var out = mask.select(self._next_norm((x + self.x1) * 0.5), (self._next_AD1(x) - self._next_AD1(self.x1)) / (x - self.x1))
+        self.x2 = self.x1
         self.x1 = x
+        self.ad2_valid = False
         return out
+
+    @doc_hidden
+    @always_inline
+    def _process[ADAA_Order: Int](mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        comptime if ADAA_Order == 1:
+            return self._next1(x)
+        else:
+            return self._next2(x)
 
     def reset(mut self):
         """Reset the internal state of the SoftClipAD."""
         self.initialized = False
+        self.x1 = MFloat[Self.num_chans](0.0)
+        self.x2 = MFloat[Self.num_chans](0.0)
+        self.ad2_x1 = MFloat[Self.num_chans](0.0)
+        self.d2 = MFloat[Self.num_chans](0.0)
+        self.ad2_valid = False
 
     @always_inline
-    def next(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
-        """First-order anti-aliased `hard_clip`.
+    def next[ADAA_Order: Int = 1](mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Anti-aliased `soft_clip`.
 
-        Computes the first-order anti-aliased `hard_clip` of `x`. If the ov_samp is greater than 0, oversampling is applied to the processing.
+        Computes the first or second order anti-aliased `soft_clip` of `x`. If the ov_samp is greater than 0, oversampling is applied to the processing.
+
+        Parameters:
+            ADAA_Order: The order of the anti-derivative anti-aliasing (1 or 2). Second order aliases less, costs more, and delays the output by one sample.
 
         Args:
             x: The input sample.
@@ -168,20 +250,22 @@ struct SoftClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
         Returns:
             The anti-aliased `soft_clip` of `x`.
         """
+        comptime assert ADAA_Order == 1 or ADAA_Order == 2, "SoftClipAD: ADAA_Order must be 1 or 2."
+        var xs = clip_finite(x, Self.MAX_IN)
         # if not self.initialized:
         #     self.x1 = x
         #     self.initialized = True
         #     return self._next_norm(x)
 
         comptime if Self.ov_samp == TimesOversampling.none:
-            return self._next1(x)
+            return self._process[ADAA_Order](xs)
         else:
             var x2: MFloat[Self.num_chans]
             var y: MFloat[Self.num_chans]
             comptime for i in range(Self.ov_samp.times):
                 # upsample the input
-                x2 = self.upsampler.next(x, i)
-                y = self._next1(x2)
+                x2 = self.upsampler.next(xs, i)
+                y = self._process[ADAA_Order](x2)
                 self.downsampler.add_sample(y)
             return self.downsampler.get_sample()
 
@@ -209,7 +293,7 @@ struct HardClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
     """
     Anti-Derivative Anti-aliasing hard-clipping function.
     
-    This struct provides a first order anti-aliased version of the `hard_clip` function using the Anti-Derivative Anti-aliasing (ADAA) with optional Downsampler. See [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html) for more details on how this works.
+    This struct provides a first or second order anti-aliased version of the `hard_clip` function using the Anti-Derivative Anti-aliasing (ADAA) with optional Downsampler. See [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html) for more details on how this works.
     
     Parameters:
         num_chans: The number of channels for SIMD operations.
@@ -217,9 +301,14 @@ struct HardClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
     """
     var x1: MFloat[Self.num_chans]
     var x2: MFloat[Self.num_chans]
+    var ad2_x1: MFloat[Self.num_chans]
+    var d2: MFloat[Self.num_chans]
+    var ad2_valid: Bool  # False when ad2_x1/d2 are stale (start, reset, or after 1st-order calls)
     var downsampler: Downsampler[Self.num_chans, Self.ov_samp]
     var upsampler: Upsampler[Self.num_chans, Self.ov_samp]
     comptime TOL = 1.0e-5
+    comptime TOL2 = 1.0e-3
+    comptime MAX_IN: Float64 = 50.0  # beyond the knee the curve is flat, so clamping is inaudible and keeps the 2nd-order ADAA differences well-conditioned
     var initialized: Bool
 
     def __init__(out self, world: World):
@@ -230,6 +319,9 @@ struct HardClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
         """
         self.x1 = MFloat[Self.num_chans](0.0)
         self.x2 = MFloat[Self.num_chans](0.0)
+        self.ad2_x1 = MFloat[Self.num_chans](0.0)
+        self.d2 = MFloat[Self.num_chans](0.0)
+        self.ad2_valid = False
         self.downsampler = Downsampler[Self.num_chans, Self.ov_samp](world)
         self.upsampler = Upsampler[Self.num_chans, Self.ov_samp](world)
         self.initialized = False
@@ -255,44 +347,81 @@ struct HardClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
 
     @doc_hidden
     @always_inline
-    def _calcD(mut self, x0: MFloat[Self.num_chans], x1: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def _next2(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """
+        Computes the second-order anti-aliased `hard_clip`. The output is delayed by one sample.
 
-        var mask: MBool[Self.num_chans] = abs(x0 - x1).lt(self.TOL)
+        Args:
+            x: The input sample.
 
-        return mask.select(
-            self._next_AD1((x0 + x1) * 0.5),
-            (self._next_AD2(x0) - self._next_AD2(x0) - self._next_AD2(x1)) / (x0 - x1)
+        Returns:
+            The anti-aliased clipped signal.
+        """
+        if not self.ad2_valid:
+            # 1st-order calls only track x1 and x2, so rebuild the 2nd-order state before using it
+            self.ad2_x1 = self._next_AD2(self.x1)
+            self.d2 = abs(self.x1 - self.x2).lt(Self.TOL2).select(
+                self._next_AD1((self.x1 + self.x2) * 0.5),
+                (self.ad2_x1 - self._next_AD2(self.x2)) / (self.x1 - self.x2)
+            )
+            self.ad2_valid = True
+
+        var ad2_x0 = self._next_AD2(x)
+        var d1 = abs(x - self.x1).lt(Self.TOL2).select(
+            self._next_AD1((x + self.x1) * 0.5),
+            (ad2_x0 - self.ad2_x1) / (x - self.x1)
         )
 
-    @doc_hidden
-    @always_inline
-    def _fallback(mut self, x0: MFloat[Self.num_chans], x2: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
-        var x_bar = (x0 + x2) * 0.5
-        var delta = x_bar - x0
-
-        var mask: MBool[Self.num_chans] = abs(delta).lt(self.TOL)  # Changed to abs(delta)
-        return mask.select(
-            self._next_norm((x_bar + x0) * 0.5),
-            (2.0 / delta) * (self._next_AD1(x_bar) + (self._next_AD2(x0) - self._next_AD2(x_bar)) / delta)
+        var x_bar = (x + self.x2) * 0.5
+        var delta = x_bar - self.x1
+        var fallback = abs(delta).lt(Self.TOL2).select(
+            self._next_norm((x_bar + self.x1) * 0.5),
+            (2.0 / delta) * (self._next_AD1(x_bar) + (self.ad2_x1 - self._next_AD2(x_bar)) / delta)
         )
+
+        var out = abs(x - self.x2).lt(Self.TOL2).select(fallback, (2.0 / (x - self.x2)) * (d1 - self.d2))
+
+        self.d2 = d1
+        self.x2 = self.x1
+        self.x1 = x
+        self.ad2_x1 = ad2_x0
+        return out
 
     @doc_hidden
     @always_inline
     def _next1(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         var mask: MBool[Self.num_chans] = abs(x - self.x1).lt(self.TOL)
         var out = mask.select(self._next_norm((x + self.x1) * 0.5), (self._next_AD1(x) - self._next_AD1(self.x1)) / (x - self.x1))
+        self.x2 = self.x1
         self.x1 = x
+        self.ad2_valid = False
         return out
+
+    @doc_hidden
+    @always_inline
+    def _process[ADAA_Order: Int](mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        comptime if ADAA_Order == 1:
+            return self._next1(x)
+        else:
+            return self._next2(x)
 
     def reset(mut self):
         """Reset the internal state of the HardClipAD."""
         self.initialized = False
+        self.x1 = MFloat[Self.num_chans](0.0)
+        self.x2 = MFloat[Self.num_chans](0.0)
+        self.ad2_x1 = MFloat[Self.num_chans](0.0)
+        self.d2 = MFloat[Self.num_chans](0.0)
+        self.ad2_valid = False
 
     @always_inline
-    def next(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
-        """First-order anti-aliased `hard_clip`.
+    def next[ADAA_Order: Int = 1](mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Anti-aliased `hard_clip`.
 
-        Computes the first-order anti-aliased `hard_clip` of `x`. If the ov_samp is greater than 0, oversampling is applied to the processing.
+        Computes the first or second order anti-aliased `hard_clip` of `x`. If the ov_samp is greater than 0, oversampling is applied to the processing.
+
+        Parameters:
+            ADAA_Order: The order of the anti-derivative anti-aliasing (1 or 2). Second order aliases less, costs more, and delays the output by one sample.
 
         Args:
             x: The input sample.
@@ -300,22 +429,24 @@ struct HardClipAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesO
         Returns:
             The anti-aliased `hard_clip` of `x`.
         """
+        comptime assert ADAA_Order == 1 or ADAA_Order == 2, "HardClipAD: ADAA_Order must be 1 or 2."
+        var xs = clip_finite(x, Self.MAX_IN)
         comptime if Self.ov_samp == TimesOversampling.none:
-            return self._next1(x)
+            return self._process[ADAA_Order](xs)
         else:
             var x2: MFloat[Self.num_chans]
             var y: MFloat[Self.num_chans]
             comptime for i in range(Self.ov_samp.times):
                 # upsample the input
-                x2 = self.upsampler.next(x, i)
-                y = self._next1(x2)
+                x2 = self.upsampler.next(xs, i)
+                y = self._process[ADAA_Order](x2)
                 self.downsampler.add_sample(y)
             return self.downsampler.get_sample()
 
 struct TanhAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOversampling.none](Copyable, Movable, PolyReset):
-    """Anti-Derivative Anti-aliasing first order tanh function.
+    """Anti-Derivative Anti-aliasing tanh function.
     
-    This struct provides a first order anti-aliased version of the `tanh` function using the Anti-Derivative Anti-aliasing (ADAA) method with optional Downsampler. See [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html) for more details on how this works.
+    This struct provides a first or second order anti-aliased version of the `tanh` function using the Anti-Derivative Anti-aliasing (ADAA) method with optional Downsampler. See [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html) for more details on how this works.
 
     Parameters:
         num_chans: The number of channels for SIMD operations.
@@ -323,7 +454,15 @@ struct TanhAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOvers
     """
 
     var x1: MFloat[Self.num_chans]
+    var x2: MFloat[Self.num_chans]
+    var ad2_x1: MFloat[Self.num_chans]
+    var d2: MFloat[Self.num_chans]
+    var ad2_valid: Bool  # False when ad2_x1/d2 are stale (start, reset, or after 1st-order calls)
     comptime TOL = 1.0e-5
+    comptime TOL2 = 1.0e-3
+    comptime MAX_IN: Float64 = 50.0  # tanh is flat to double precision beyond ~20, so clamping is inaudible and keeps the 2nd-order ADAA differences well-conditioned
+    comptime LN2 = 0.6931471805599453
+    comptime PI2_24 = pi * pi / 24.0
     var downsampler: Downsampler[Self.num_chans, Self.ov_samp]
     var upsampler: Upsampler[Self.num_chans, Self.ov_samp]
     var initialized: Bool
@@ -335,6 +474,10 @@ struct TanhAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOvers
             world: A pointer to the MMMWorld.
         """
         self.x1 = MFloat[Self.num_chans](0.0)
+        self.x2 = MFloat[Self.num_chans](0.0)
+        self.ad2_x1 = MFloat[Self.num_chans](0.0)
+        self.d2 = MFloat[Self.num_chans](0.0)
+        self.ad2_valid = False
         self.downsampler = Downsampler[Self.num_chans, Self.ov_samp](world)
         self.upsampler = Upsampler[Self.num_chans, Self.ov_samp](world)
         self.initialized = False
@@ -344,9 +487,63 @@ struct TanhAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOvers
         return tanh(x)
 
     @doc_hidden
-    def _next_AD1(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+    def _log_term(self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """ln(1 + e^(-2|x|)), shared by both antiderivatives."""
+        return log(1.0 + exp(-2.0 * abs(x)))
+
+    @doc_hidden
+    def _next_AD1(self, x: MFloat[Self.num_chans], u: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """First antiderivative: |x| + ln(1 + e^(-2|x|)) - ln2, with u = `_log_term(x)`."""
+        return abs(x) + u - Self.LN2
+
+    @doc_hidden
+    def _next_AD2(self, x: MFloat[Self.num_chans], u: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Second antiderivative: sign(x) * (x²/2 - |x|ln2 + Li2(-e^(-2|x|))/2 + π²/24), with u = `_log_term(x)`."""
         var ax = abs(x)
-        return ax + log(1.0 + exp(-2.0 * ax)) - 0.6931471805599453
+        return sign(x) * (0.5 * ax * ax - Self.LN2 * ax + 0.5 * li2_neg_exp(u) + Self.PI2_24)
+
+    @doc_hidden
+    def _next2(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """
+        Computes the second-order anti-aliased `tanh` of `x`. The output is delayed by one sample.
+
+        Args:
+            x: The input sample.
+
+        Returns:
+            The anti-aliased `tanh` of `x`.
+        """
+        if not self.ad2_valid:
+            # 1st-order calls only track x1 and x2, so rebuild the 2nd-order state before using it
+            self.ad2_x1 = self._next_AD2(self.x1, self._log_term(self.x1))
+            self.d2 = abs(self.x1 - self.x2).lt(Self.TOL2).select(
+                self._next_AD1((self.x1 + self.x2) * 0.5, self._log_term((self.x1 + self.x2) * 0.5)),
+                (self.ad2_x1 - self._next_AD2(self.x2, self._log_term(self.x2))) / (self.x1 - self.x2)
+            )
+            self.ad2_valid = True
+
+        var ad2_x0 = self._next_AD2(x, self._log_term(x))
+        var x_mid = (x + self.x1) * 0.5
+        var d1 = abs(x - self.x1).lt(Self.TOL2).select(
+            self._next_AD1(x_mid, self._log_term(x_mid)),
+            (ad2_x0 - self.ad2_x1) / (x - self.x1)
+        )
+
+        var x_bar = (x + self.x2) * 0.5
+        var delta = x_bar - self.x1
+        var u_bar = self._log_term(x_bar) # this calculation of 
+        var fallback = abs(delta).lt(Self.TOL2).select(
+            self._next_norm((x_bar + self.x1) * 0.5),
+            (2.0 / delta) * (self._next_AD1(x_bar, u_bar) + (self.ad2_x1 - self._next_AD2(x_bar, u_bar)) / delta)
+        )
+
+        var out = abs(x - self.x2).lt(Self.TOL2).select(fallback, (2.0 / (x - self.x2)) * (d1 - self.d2))
+
+        self.d2 = d1
+        self.x2 = self.x1
+        self.x1 = x
+        self.ad2_x1 = ad2_x0
+        return out
 
     def _next1(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
         """
@@ -362,21 +559,39 @@ struct TanhAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOvers
         """
         var mask: MBool[Self.num_chans] = abs(x - self. x1).lt(self.TOL)
 
-        var out = mask.select(self._next_norm((x + self.x1) * 0.5), (self._next_AD1(x) - self._next_AD1(self.x1)) / (x - self.x1))
+        var out = mask.select(self._next_norm((x + self.x1) * 0.5), (self._next_AD1(x, self._log_term(x)) - self._next_AD1(self.x1, self._log_term(self.x1))) / (x - self.x1))
+        self.x2 = self.x1
         self.x1 = x
+        self.ad2_valid = False
         return out
     
+    @doc_hidden
+    @always_inline
+    def _process[ADAA_Order: Int](mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        comptime if ADAA_Order == 1:
+            return self._next1(x)
+        else:
+            return self._next2(x)
+
     def reset(mut self):
         """Reset the internal state of the TanhAD."""
         self.initialized = False
+        self.x1 = MFloat[Self.num_chans](0.0)
+        self.x2 = MFloat[Self.num_chans](0.0)
+        self.ad2_x1 = MFloat[Self.num_chans](0.0)
+        self.d2 = MFloat[Self.num_chans](0.0)
+        self.ad2_valid = False
         self.downsampler.reset()
         self.upsampler.reset()
 
     @always_inline
-    def next(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
-        """First-order anti-aliased `tanh`.
+    def next[ADAA_Order: Int = 1](mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Anti-aliased `tanh`.
 
-        Computes the first-order anti-aliased `tanh` of `x` using the ADAA method. If the os_index is greater than 0, oversampling is applied to the processing.
+        Computes the first or second order anti-aliased `tanh` of `x` using the ADAA method. If the os_index is greater than 0, oversampling is applied to the processing.
+
+        Parameters:
+            ADAA_Order: The order of the anti-derivative anti-aliasing (1 or 2). Second order aliases less, costs more, and delays the output by one sample.
 
         Args:
             x: The input sample.
@@ -384,16 +599,18 @@ struct TanhAD[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOvers
         Returns:
             The anti-aliased `tanh` of `x`.
         """
+        comptime assert ADAA_Order == 1 or ADAA_Order == 2, "TanhAD: ADAA_Order must be 1 or 2."
+        var xs = clip_finite(x, Self.MAX_IN)
 
         comptime if Self.ov_samp == TimesOversampling.none:
-            return self._next1(x)
+            return self._process[ADAA_Order](xs)
         else:
             var x2: MFloat[Self.num_chans]
             var y: MFloat[Self.num_chans]
             comptime for i in range(Self.ov_samp.times):
                 # upsample the input
-                x2 = self.upsampler.next(x, i)
-                y = self._next1(x2)
+                x2 = self.upsampler.next(xs, i)
+                y = self._process[ADAA_Order](x2)
                 self.downsampler.add_sample(y)
             return self.downsampler.get_sample()
 
@@ -464,19 +681,15 @@ struct BuchlaCell[num_chans: SIMDLength = 1](Copyable, Movable):
         var mask: MBool[Self.num_chans] = abs(x).gt(self.thresh)
         return mask.select(0.5 * self.G * (x * x) - self.B * x * sign(x) - self.Bp, MFloat[Self.num_chans](0.0))
 
-    # def func_AD2(self, x: Float64) -> Float64:
-    #     var sgn = sign(x)
-    #     if abs(x) > self.thresh:
-    #         return (Self.one_sixth * self.G * (x * x * x) 
-    #                 - 0.5 * self.B * (x * x) * sgn 
-    #                 - self.Bp * x 
-    #                 - self.Bpp * sgn)
-    #     return 0.0
+    def func_AD2(self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        var sgn = sign(x)
+        var mask: MBool[Self.num_chans] = abs(x).gt(self.thresh)
+        return mask.select(Self.one_sixth * self.G * (x * x * x) - 0.5 * self.B * (x * x) * sgn - self.Bp * x - self.Bpp * sgn, MFloat[Self.num_chans](0.0))
 
 struct BuchlaWavefolder[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOversampling.x2](Copyable, Movable):
     """Buchla 259 style Wavefolder.
     
-    Buchla 259 style wavefolder implementation with Anti-Derivative Anti-aliasing (ADAA) and Downsampler. Derived from Virual Analog Buchla 259e Wavefolderby Esqueda, etc. The ADAA technique is based on [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html).
+    Buchla 259 style wavefolder implementation with first or second order Anti-Derivative Anti-aliasing (ADAA) and Downsampler. Derived from Virual Analog Buchla 259e Wavefolderby Esqueda, etc. The ADAA technique is based on [Practical Considerations for Antiderivative Anti-aliasing (Chowdhury)](https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html).
     
     Parameters:
         num_chans: The number of channels for SIMD operations.
@@ -486,7 +699,14 @@ struct BuchlaWavefolder[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = 
     comptime x_mix: Float64 = 5.0
     var cells: List[BuchlaCell[Self.num_chans]]
     comptime TOL: Float64 = 1.0e-5
+    comptime TOL2: Float64 = 1.0e-3
+    comptime MAX_IN: Float64 = 40.0  # documented input range; keeps the 2nd-order ADAA differences well-conditioned
     var x1: MFloat[Self.num_chans]
+    var x2: MFloat[Self.num_chans]
+    var ad2_x1: MFloat[Self.num_chans]
+    var d2: MFloat[Self.num_chans]
+    var ad2_valid: Bool  # False when ad2_x1/d2 are stale (start, reset, or after 1st-order calls)
+    var prev_amp: Float64
     var world: World
     var downsampler: Downsampler[Self.num_chans, Self.ov_samp]
     var upsampler: Upsampler[Self.num_chans, Self.ov_samp]
@@ -499,6 +719,11 @@ struct BuchlaWavefolder[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = 
         """
         self.world = world
         self.x1 = MFloat[Self.num_chans](0.0)
+        self.x2 = MFloat[Self.num_chans](0.0)
+        self.ad2_x1 = MFloat[Self.num_chans](0.0)
+        self.d2 = MFloat[Self.num_chans](0.0)
+        self.ad2_valid = False
+        self.prev_amp = -1.0  # forces the stored antiderivatives to be rebuilt on the first sample
         # Initialize folder cells
         self.cells = List[BuchlaCell[Self.num_chans]]()
         self.cells.append(BuchlaCell[Self.num_chans](0.8333, 0.5, 0.6, -12.0))
@@ -525,12 +750,62 @@ struct BuchlaWavefolder[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = 
             y += self.cells[i].mix * self.cells[i].func_AD(x2)
         return y / (amp * amp)
 
-    # def _wave_func_AD2(self, x: Float64, amp: Float64) -> Float64:
-    #     x2 = x * amp
-    #     var y: Float64 = (Self.x_mix / 6.0) * (x2 * x2 * x2)
-    #     for i in range(len(self.cells)):
-    #         y += self.cells[i].mix * self.cells[i].func_AD2(x2)
-    #     return y
+    @doc_hidden
+    def _next_AD2(self, x: MFloat[Self.num_chans], amp: Float64) -> MFloat[Self.num_chans]:
+        var x2 = x * amp
+        var y: MFloat[Self.num_chans] = (Self.x_mix / 6.0) * (x2 * x2 * x2)
+        for i in range(len(self.cells)):
+            y += self.cells[i].mix * self.cells[i].func_AD2(x2)
+        return y / (amp * amp * amp)
+
+    @doc_hidden
+    @always_inline
+    def _next2(mut self, x: MFloat[Self.num_chans], amp: Float64) -> MFloat[Self.num_chans]:
+        """
+        Computes the second-order anti-aliased BuchlaWavefolder. The output is delayed by one sample.
+
+        Args:
+            x: The input sample.
+            amp: The amplitude/gain control.
+
+        Returns:
+            The anti-aliased folded signal.
+        """
+        var safe_amp = max(amp, 1e-6)
+
+        # amp changes the transfer function, so antiderivatives stored under the old amp no longer match.
+        # Rebuild them under the new amp so both sides of each difference come from the same curve.
+        # 1st-order calls only track x1 and x2, so the 2nd-order state is stale after them too.
+        if safe_amp != self.prev_amp or not self.ad2_valid:
+            self.ad2_x1 = self._next_AD2(self.x1, safe_amp)
+            self.d2 = abs(self.x1 - self.x2).lt(Self.TOL2).select(
+                self._next_AD1((self.x1 + self.x2) * 0.5, safe_amp),
+                (self.ad2_x1 - self._next_AD2(self.x2, safe_amp)) / (self.x1 - self.x2)
+            )
+            self.prev_amp = safe_amp
+            self.ad2_valid = True
+
+        var ad2_x0 = self._next_AD2(x, safe_amp)
+        var d1 = abs(x - self.x1).lt(Self.TOL2).select(
+            self._next_AD1((x + self.x1) * 0.5, safe_amp),
+            (ad2_x0 - self.ad2_x1) / (x - self.x1)
+        )
+
+        var x_bar = (x + self.x2) * 0.5
+        var delta = x_bar - self.x1
+        var fallback = abs(delta).lt(Self.TOL2).select(
+            self._next_norm((x_bar + self.x1) * 0.5, safe_amp),
+            (2.0 / delta) * (self._next_AD1(x_bar, safe_amp) + (self.ad2_x1 - self._next_AD2(x_bar, safe_amp)) / delta)
+        )
+
+        var out = abs(x - self.x2).lt(Self.TOL2).select(fallback, (2.0 / (x - self.x2)) * (d1 - self.d2))
+
+        self.d2 = d1
+        self.x2 = self.x1
+        self.x1 = x
+        self.ad2_x1 = ad2_x0
+        return out
+
     @doc_hidden
     @always_inline
     def _next1(mut self, x: MFloat[Self.num_chans], amp: Float64) -> MFloat[Self.num_chans]:
@@ -551,30 +826,193 @@ struct BuchlaWavefolder[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = 
             self._next_norm((x + self.x1) * 0.5, safe_amp), 
             (self._next_AD1(x, safe_amp) - self._next_AD1(self.x1, safe_amp)) / (x - self.x1)
         )
+        self.x2 = self.x1
         self.x1 = x
+        self.ad2_valid = False
         return out
 
+    @doc_hidden
     @always_inline
-    def next(mut self, x: MFloat[Self.num_chans], amp: Float64) -> MFloat[Self.num_chans]:
-        """First-order anti-aliased BuchlaWavefolder.
+    def _process[ADAA_Order: Int](mut self, x: MFloat[Self.num_chans], amp: Float64) -> MFloat[Self.num_chans]:
+        comptime if ADAA_Order == 1:
+            return self._next1(x, amp)
+        else:
+            return self._next2(x, amp)
 
-        Computes the first-order anti-aliased BuchlaWavefolder. If the ov_samp is greater than 0, oversampling is applied to the processing.
+    @always_inline
+    def next[ADAA_Order: Int = 1](mut self, x: MFloat[Self.num_chans], amp: Float64) -> MFloat[Self.num_chans]:
+        """Anti-aliased BuchlaWavefolder.
+
+        Computes the first or second order anti-aliased BuchlaWavefolder. If the ov_samp is greater than 0, oversampling is applied to the processing.
+
+        Parameters:
+            ADAA_Order: The order of the anti-derivative anti-aliasing (1 or 2). Second order aliases less, costs more, and delays the output by one sample.
 
         Args:
             x: The input sample.
             amp: The amplitude/gain control.
 
         Returns:
-            The anti-aliased `hard_clip` of `x`.
+            The anti-aliased folded signal.
         """
+        comptime assert ADAA_Order == 1 or ADAA_Order == 2, "BuchlaWavefolder: ADAA_Order must be 1 or 2."
+        var xs = clip_finite(x, Self.MAX_IN)
         comptime if Self.ov_samp == TimesOversampling.none:
-            return self._next1(x, amp)
+            return self._process[ADAA_Order](xs, amp)
         else:
             var x2: MFloat[Self.num_chans]
             var y: MFloat[Self.num_chans]
             comptime for i in range(Self.ov_samp.times):
                 # upsample the input
-                x2 = self.upsampler.next(x, i)
-                y = self._next1(x2, amp)
+                x2 = self.upsampler.next(xs, i)
+                y = self._process[ADAA_Order](x2, amp)
+                self.downsampler.add_sample(y)
+            return self.downsampler.get_sample()
+
+struct WaveShaper[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, times_ov: TimesOversampling = TimesOversampling.none](Copyable, Movable):
+    """A waveshaper that reads its transfer function out of a buffer.
+
+    The input is treated as a position along the table: -1 reads the first
+    frame, 1 reads the last one, and anything outside that range is clipped
+    rather than wrapped. Tables built by SuperCollider's `Signal.chebyFill`
+    (and the Mojo `cheby_fill`) are laid out exactly this way, with x running
+    from -1 to 1 across all `num_frames` frames.
+
+    A buffer with more than one channel holds more than one transfer function,
+    and `dist_frac` crossfades between them.
+
+    Parameters:
+        num_chans: The number of channels for SIMD operations.
+        interp: The interpolation method to use when reading the table.
+        times_ov: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
+    """
+    var world: World
+    var upsampler: Upsampler[Self.num_chans, Self.times_ov]
+    var downsampler: Downsampler[Self.num_chans, Self.times_ov]
+
+    def __init__(out self, world: World):
+        """Initialize the WaveShaper.
+
+        Args:
+            world: A pointer to the MMMWorld.
+        """
+        comptime assert Self.interp != Interp.sinc, (
+            "WaveShaper does not support Interp.sinc. Use Interp.cubic for a smooth curve, and times_ov for anti-aliasing."
+        )
+
+        self.world = world
+        self.upsampler = Upsampler[Self.num_chans, Self.times_ov](world)
+        self.downsampler = Downsampler[Self.num_chans, Self.times_ov](world)
+
+    @doc_hidden
+    @always_inline
+    def _phase(self, input: MFloat[Self.num_chans], num_frames: Int, num_frames_f64: Float64) -> MFloat[Self.num_chans]:
+        """Turn an input sample into the phase that reads the matching frame.
+
+        Scales the input from -1 to 1 into a frame index, and backs it off by 1.5 frames if using lagrange4 interpolation.
+        """
+        var scale: Float64 = Float64(num_frames - 1) / num_frames_f64 if num_frames > 1 else 0.0
+        var f_idx = (0.5 + 0.5 * clip(input, -1.0, 1.0)) * scale
+
+        # lagrange4() centres its kernel at fd = 1.5 + frac, so it reads 1.5
+        # frames above the index it is handed. Back that out, holding at 0 so
+        # the fractional part never goes negative.
+        comptime if Self.interp == Interp.lagrange4:
+            f_idx = max(f_idx - 1.5 / num_frames_f64, 0.0)
+
+        return f_idx
+
+    @doc_hidden
+    @always_inline
+    def _read[simd_chans: SIMDLength](mut self, input: MFloat[Self.num_chans], buffer: SIMDBuffer[simd_chans], dist_frac: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Read one sample per channel out of a SIMDBuffer table."""
+        if buffer.num_frames == 0:
+            return MFloat[Self.num_chans](0.0)
+
+        var phase = self._phase(input, buffer.num_frames, buffer.num_frames_f64)
+
+        # Where dist_frac lands between the buffer's tables.
+        comptime max_chan = Int(simd_chans) - 1
+        var chan_fl = Float64(max_chan) * clip(dist_frac, 0.0, 1.0)
+
+        var out = MFloat[Self.num_chans](0.0)
+        comptime for out_chan in range(Self.num_chans):
+            var sample = buffer.at_phase[Self.interp, False, 0, True](self.world, phase[out_chan])
+            var chan0 = clip(Int(chan_fl[out_chan]), 0, max_chan)
+            var chan1 = clip(chan0 + 1, 0, max_chan)
+            var frac = chan_fl[out_chan] - Float64(chan0)
+            out[out_chan] = sample[chan0] * (1.0 - frac) + sample[chan1] * frac
+
+        return out
+
+    @doc_hidden
+    @always_inline
+    def _read(mut self, input: MFloat[Self.num_chans], buffer: Buffer, dist_frac: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
+        """Read one sample per channel out of a Buffer table."""
+        if buffer.num_frames == 0 or buffer.num_chans == 0:
+            return MFloat[Self.num_chans](0.0)
+
+        var phase = self._phase(input, buffer.num_frames, buffer.num_frames_f64)
+
+        var max_chan = Int(buffer.num_chans) - 1
+        var chan_fl = Float64(max_chan) * clip(dist_frac, 0.0, 1.0)
+
+        var out = MFloat[Self.num_chans](0.0)
+        comptime for out_chan in range(Self.num_chans):
+            var chan0 = clip(Int(chan_fl[out_chan]), 0, max_chan)
+            var chan1 = clip(chan0 + 1, 0, max_chan)
+            var frac = chan_fl[out_chan] - Float64(chan0)
+            var sample0 = buffer.at_phase[Self.interp, False, 0, True](self.world, chan0, phase[out_chan])
+            var sample1 = buffer.at_phase[Self.interp, False, 0, True](self.world, chan1, phase[out_chan])
+            out[out_chan] = sample0[0] * (1.0 - frac) + sample1[0] * frac
+
+        return out
+
+    @always_inline
+    def next[simd_chans: SIMDLength](mut self, input: MFloat[Self.num_chans], buffer: SIMDBuffer[simd_chans], dist_frac: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.0)) -> MFloat[Self.num_chans]:
+        """Waveshape the input sample with a transfer function held in a SIMDBuffer.
+
+        Parameters:
+            simd_chans: Number of transfer functions stored in the buffer, one per channel.
+
+        Args:
+            input: The input sample. Values outside -1 to 1 are clipped.
+            buffer: The SIMDBuffer holding the transfer function(s).
+            dist_frac: A value between 0 and 1 that picks a transfer function from the buffer's channels, interpolating between neighbours. 0 is the first channel, 1 is the last.
+
+        Returns:
+            The waveshaped output sample.
+        """
+        comptime if Self.times_ov == TimesOversampling.none:
+            return self._read(input, buffer, dist_frac)
+        else:
+            var x2: MFloat[Self.num_chans]
+            var y: MFloat[Self.num_chans]
+            comptime for i in range(Self.times_ov.times):
+                x2 = self.upsampler.next(input, i)
+                y = self._read(x2, buffer, dist_frac)
+                self.downsampler.add_sample(y)
+            return self.downsampler.get_sample()
+
+    @always_inline
+    def next(mut self, input: MFloat[Self.num_chans], buffer: Buffer, dist_frac: MFloat[Self.num_chans] = MFloat[Self.num_chans](0.0)) -> MFloat[Self.num_chans]:
+        """Waveshape the input sample with a transfer function held in a Buffer.
+
+        Args:
+            input: The input sample. Values outside -1 to 1 are clipped.
+            buffer: The Buffer holding the transfer function(s).
+            dist_frac: A value between 0 and 1 that picks a transfer function from the buffer's channels, interpolating between neighbours. 0 is the first channel, 1 is the last.
+
+        Returns:
+            The waveshaped output sample.
+        """
+        comptime if Self.times_ov == TimesOversampling.none:
+            return self._read(input, buffer, dist_frac)
+        else:
+            var x2: MFloat[Self.num_chans]
+            var y: MFloat[Self.num_chans]
+            comptime for i in range(Self.times_ov.times):
+                x2 = self.upsampler.next(input, i)
+                y = self._read(x2, buffer, dist_frac)
                 self.downsampler.add_sample(y)
             return self.downsampler.get_sample()
