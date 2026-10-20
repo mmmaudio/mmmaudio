@@ -22,9 +22,9 @@ def main():
             "path": "resources/Shiverer.wav",
             # "path": "/Users/ted/Desktop/all_flucoma.wav",
             # threshold for spectral flux onset detection, lower is more sensitive, higher is less sensitive
-            "thresh":2.0,
+            "threshold":0.025,
             # minimum length of slices in seconds
-            "min_slice_len":0.1,
+            "debounce":0.05,
             # window size and hop size used for all analyses
             "window_size":1024,
             "hop_size":512,
