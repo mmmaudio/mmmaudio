@@ -598,6 +598,7 @@ struct MMMAudioBridge(Movable, Writable):
 
     @staticmethod
     def next(py_selfA: PythonObject, in_buffer: PythonObject, out_buffer: PythonObject) raises -> PythonObject:
+        """Offline rendering of the graph, for Non-real-time rendering."""
 
         var py_self = py_selfA.downcast_value_ptr[Self]()
 
