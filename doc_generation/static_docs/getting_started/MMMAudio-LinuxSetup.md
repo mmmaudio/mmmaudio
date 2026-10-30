@@ -41,44 +41,57 @@ In the root MMMAudio directory, type:
 ```shell
 pixi install
 ```
+or
+```shell
+pixi shell
+```
 
-This will install a .pixi hidden folder with the pixi virtual environment.
+This will install a .pixi hidden folder with the pixi virtual environment or update the environment if it is already there.
 
 (You can change the version of python inside the pixi.toml file if you need to.)
 
-### 3 Run everything inside that environment
+## 3 Install Python and Mojo VSCode Extensions
 
-Use `pixi run python ...` for one command, or `pixi shell` to drop into the
-environment for a session. 
+Click on the Extensions icon on the left hand side of VS Code and install the Python and Mojo extensions.
 
-## 3 VS Code settings
+# You are done setting up MMMAudio - below are some tips for troubleshooting
 
-The repo includes a `.vscode/settings.json` with the settings MMMAudio needs, so there is nothing to edit. It points VS Code at the pixi Python, keeps "Run Selection" sending code to a regular terminal REPL, and sets `PYTHON_BASIC_REPL=1` in VS Code's terminals (see 6c below).
+## A Running Python inside the pixi environment
+
+Sometimes you will want to run the Python version with the MMMAudio settings from the command-line. You can do this by running:
+```shell
+`pixi run python ...`
+```
+for running just one command, or 
+```shell
+`pixi shell` 
+```
+ to drop into the pixi environment for a session.
+
+Running MMMAudio from any other interpreter - a `uv`/`venv` environment, or the system python - will fail.
+
+## B VS Code settings
+
+The repo includes a `.vscode/settings.json` with the settings MMMAudio needs, so you should not have to change any VS Code settings.
 
 If you made your own `.vscode/settings.json` before it was included in the repo, `git pull` will stop with "untracked working tree files would be overwritten". Delete or move your copy and pull again.
 
-## 4 Select Your Python Interpreter
+## C Checking Your Python Interpreter
 
-*(This requires you to have the [Python Extension](https://github.com/microsoft/vscode-python#quick-start) installed in your VSCode.)*
-
-go to View->Command Palette->Select Python Interpreter. You need to select the version of Python that pixi installed.
-
-This will be at:
+The included `.vscode/settings.json` selects the pixi Python automatically, so normally there is nothing to do here. Open a Python file and check that the interpreter shown in the bottom right of the status bar is:
 
 `./.pixi/envs/default/bin/python`
+
+If it shows something else (for example, because you picked a different interpreter for this folder before the settings were included), go to View->Command Palette->Select Python Interpreter and choose the pixi Python above.
 
 Don't select the Global python on your system, or a `.venv`/`venv` you made
 yourself. Those won't work.
 
-If the venv you just installed isn't available, quit and restart VS Code and try to Select Python Interpreter again.
+If the pixi Python isn't listed, quit and restart VS Code and try to Select Python Interpreter again.
 
-## 5 Install Python and Mojo VSCode Extensions
+## D VSCode issues - Microsoft giveth, Microsoft taketh away
 
-Click on the Extensions icon on the left hand side of VS Code and install the Python and Mojo extensions.
+VSCode is amazing, but most of the issues users encounter are caused by VSCode's Python inconsistencies.
 
-## 6 VSCode issues - Microsoft giveth, Microsoft taketh away
-
-VSCode is amazing, but most of the issues users encounter are caused by VSCode's Python inconsistancies. 
-#### a) See 3 above on proper vscode settings for Python. 
-#### b) We have found that setting Settings -> Auto Activation Type to `shellStartup` works better than the default `command` setting.
-#### c) If code sent with shift-return fails with `IndentationError: unexpected indent` or arrives garbled, the cause is the new interactive prompt in Python 3.13+, which auto-indents after lines ending in `:` and adds indentation on top of the code VS Code sends. The included settings fix this by setting `PYTHON_BASIC_REPL=1`, which switches back to the classic prompt. Close any open terminals after pulling so new ones pick up the setting. If you run Python in a terminal outside VS Code, run `export PYTHON_BASIC_REPL=1` first.
+- **a)** See B above on the included VS Code settings for Python.
+- **b)** If code sent with shift-return fails with `IndentationError: unexpected indent` or arrives garbled, the cause is the new interactive prompt in Python 3.13+, which auto-indents after lines ending in `:` and adds indentation on top of the code VS Code sends. The included settings fix this by setting `PYTHON_BASIC_REPL=1`, which switches back to the classic prompt. Close any open terminals after pulling so new ones pick up the setting. If you run Python in a terminal outside VS Code, run `export PYTHON_BASIC_REPL=1` first.
