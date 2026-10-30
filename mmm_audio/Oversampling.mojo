@@ -28,7 +28,7 @@ struct OversamplingFilter(Equatable, ImplicitlyCopyable):
 
     Use the IIR for an insert, such as a distortion or an oscillator on its own. There, a delay that varies by about 70 µs above 10 kHz is inaudible, and the low latency matters, especially inside a feedback loop.
 
-    Use the FIR when the oversampled signal is combined with a copy that was not oversampled: parallel (wet/dry) distortion, multiband splits,  compression, or anything that is later summed with the dry signal. Delay the dry path by `get_latency()` and the two line up at every frequency. With the IIR no single delay lines up at all frequencies, so mixing causes slight comb filtering in the treble. The FIR is also the choice when something after it depends on exact peak values, such as a clipper or true-peak limiter, or for null tests. Its drawbacks are the latency and pre-ringing: being symmetric, its impulse response rings slightly before a sharp transient as well as after it.
+    Use the FIR when the oversampled signal is combined with a copy that was not oversampled: parallel (wet/dry) distortion, multiband splits, parallel compression, or anything that is later summed with the dry signal. Delay the dry path by `get_latency()` and the two line up at every frequency. With the IIR no single delay lines up at all frequencies, so mixing causes slight comb filtering in the treble. The FIR is also the choice when something after it depends on exact peak values, such as a clipper or true-peak limiter, or for null tests. Its drawbacks are the latency and pre-ringing: being symmetric, its impulse response rings slightly before a sharp transient as well as after it.
     """
     var value: Int
 
