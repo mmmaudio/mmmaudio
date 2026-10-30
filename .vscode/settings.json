@@ -1,0 +1,10 @@
+{
+    "search.useIgnoreFiles": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python",
+    "python.terminal.activateEnvironment": false,
+    "python.REPL.sendToNativeREPL": false,
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "terminal.integrated.env.osx": { "PYTHON_BASIC_REPL": "1" },
+    "terminal.integrated.env.linux": { "PYTHON_BASIC_REPL": "1" },
+    "terminal.integrated.env.windows": { "PYTHON_BASIC_REPL": "1" }
+}

@@ -51,16 +51,11 @@ This will install a .pixi hidden folder with the pixi virtual environment.
 Use `pixi run python ...` for one command, or `pixi shell` to drop into the
 environment for a session. 
 
-## 3 Edit the .vscode/settings.json file to have the following:
-```
-{
-    "search.useIgnoreFiles": true, 
-    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python", 
-    "python.terminal.activateEnvironment": false,
-    "python.REPL.sendToNativeREPL": false,
-    "python-envs.defaultEnvManager": "ms-python.python:system"
-}
-```
+## 3 VS Code settings
+
+The repo includes a `.vscode/settings.json` with the settings MMMAudio needs, so there is nothing to edit. It points VS Code at the pixi Python, keeps "Run Selection" sending code to a regular terminal REPL, and sets `PYTHON_BASIC_REPL=1` in VS Code's terminals (see 6c below).
+
+If you made your own `.vscode/settings.json` before it was included in the repo, `git pull` will stop with "untracked working tree files would be overwritten". Delete or move your copy and pull again.
 
 ## 4 Select Your Python Interpreter
 
@@ -84,6 +79,6 @@ Click on the Extensions icon on the left hand side of VS Code and install the Py
 ## 6 VSCode issues - Microsoft giveth, Microsoft taketh away
 
 VSCode is amazing, but most of the issues users encounter are caused by VSCode's Python inconsistancies. 
-#### a) See 2.3 above on proper vscode settings for Python. 
+#### a) See 3 above on proper vscode settings for Python. 
 #### b) We have found that setting Settings -> Auto Activation Type to `shellStartup` works better than the default `command` setting.
-#### c) This one will drive me to drink: Some versions of VSCode on SOME machines will send garbled Python code to the terminal if a code chunk is too long. I guess you just need to chunk your code up into smaller defs or put big defs into other files and import them?
+#### c) If code sent with shift-return fails with `IndentationError: unexpected indent` or arrives garbled, the cause is the new interactive prompt in Python 3.13+, which auto-indents after lines ending in `:` and adds indentation on top of the code VS Code sends. The included settings fix this by setting `PYTHON_BASIC_REPL=1`, which switches back to the classic prompt. Close any open terminals after pulling so new ones pick up the setting. If you run Python in a terminal outside VS Code, run `export PYTHON_BASIC_REPL=1` first.
