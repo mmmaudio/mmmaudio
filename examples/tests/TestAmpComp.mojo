@@ -7,6 +7,7 @@ struct TestAmpComp(Movable, Copyable):
     var buffer: SIMDBuffer[2]
     var amp: Amplitude[2]
     var compress: Compressor[2]
+    var par_compress: ParallelCompressor[2]
     var m: Messenger
 
     var thresh: MFloat[1]
@@ -14,6 +15,7 @@ struct TestAmpComp(Movable, Copyable):
     var attack: MFloat[1]
     var release: MFloat[1]
     var knee_width: MFloat[1]
+    var which_out: MInt[1]
 
     var play_buf: Play
     def __init__(out self, world: World):
@@ -23,6 +25,7 @@ struct TestAmpComp(Movable, Copyable):
         self.play_buf = Play(self.world)
         self.amp = Amplitude[2](world, 0.01, 0.1)
         self.compress = Compressor[2](world)
+        self.par_compress = ParallelCompressor[2](world)
         self.m = Messenger(world)
 
         self.thresh = -20.0
@@ -30,6 +33,7 @@ struct TestAmpComp(Movable, Copyable):
         self.attack = 0.01
         self.release = 0.1
         self.knee_width = 0.0
+        self.which_out = 0
 
     def next(mut self) -> MFloat[num_chans+2]:
 
@@ -38,9 +42,14 @@ struct TestAmpComp(Movable, Copyable):
         self.m.update("attack", self.attack) 
         self.m.update("release", self.release) 
         self.m.update("knee_width", self.knee_width)
+        self.m.update("which_out", self.which_out)
 
         var sig = self.play_buf.next[num_chans=num_chans](self.buffer, 1.0, True)
         var amp = self.amp.next(sig)
-        var out = self.compress.next(sig, self.thresh, self.ratio, self.attack, self.release, self.knee_width)
+        var out = MFloat[num_chans](0.0)
+        if self.which_out == 0:
+            out = self.compress.next(sig, self.thresh, self.ratio, self.attack, self.release, self.knee_width)
+        elif self.which_out == 1:
+            out = self.par_compress.next(sig, self.thresh, self.ratio, self.attack, self.release, self.knee_width)
 
         return MFloat[num_chans+2](out[0], out[1], self.compress.sidechain, amp[0])

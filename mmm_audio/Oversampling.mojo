@@ -8,27 +8,27 @@ from std.math import pi, sin, cos, tan, sqrt, log, ceil
 struct OversamplingFilter(Equatable, ImplicitlyCopyable):
     """The anti-aliasing filter used by the [Upsampler](Oversampling.md#struct-upsampler) and [Downsampler](Oversampling.md#struct-downsampler).
 
-    Both are half-band filters run as a cascade of 2x stages, passing everything up to 20 kHz (at 48 kHz, 0.4167 of the sample rate) and rejecting aliases by more than 100 dB. They differ in how they delay the signal.
+    Both the IIR and FIR variants are half-band filters run as a cascade of 2x stages, passing everything up to 0.4167 of the sample rate (20 kHz at 48 kHz, 40 kHz at 96 kHz), but never less than 20 kHz, and rejecting aliases by more than 100 dB. Below 48 kHz the 20 kHz floor narrows the transition band, so the filters get longer: at 44.1 kHz the IIR uses one more coefficient in its first stage and the FIR's latency rises to about 40 samples at x2. They differ in how they delay the signal.
 
     | Filter                  | Notes                                                                 |
     | ----------------------- | --------------------------------------------------------------------- |
     | OversamplingFilter.iir  | Polyphase allpass IIR (default). Very cheap, with only a few samples of latency, but each frequency is delayed by a different amount. |
     | OversamplingFilter.fir  | Linear-phase FIR. Every frequency is delayed by the same amount, but it costs more CPU and has much more latency. |
 
-    The FIR delays every frequency by the same time, so the shape of the waveform is kept exactly and the whole signal simply arrives later. Since the delay is constant, the phase shift grows in proportion to frequency, hence "linear phase". The IIR delays high frequencies more than low ones. At x2 it delays 1.8 samples at low frequencies, 2.2 at 10 kHz and 5.3 at 20 kHz, so partials shift slightly against each other, mostly in the top octave.
+    The FIR is a "linear phase" filter and thus delays every frequency by the same time, so the shape of the waveform is kept exactly and the whole signal simply arrives later. Since the delay is constant, the phase shift grows in proportion to frequency, hence "linear phase". The IIR delays high frequencies more than low ones. At x2 the Upsampler delays 1.8 samples at low frequencies, 2.2 at 10 kHz and 5.3 at 20 kHz, so partials shift slightly against each other, mostly in the top octave.
 
-    Delay in base-rate samples, one direction (the Upsampler and the Downsampler each add this):
+    Delay in base-rate samples at 48 kHz and above, Upsampler / Downsampler (a round trip adds both). The Downsampler's is shorter by (times - 1) / times, because each output is taken at the newest sample of its block:
 
     | Factor | IIR, low frequencies | IIR, 20 kHz | FIR, all frequencies |
     | ------ | -------------------- | ----------- | -------------------- |
-    | x2     | 1.8                  | 5.3         | 22.5                 |
-    | x4     | 2.4                  | 5.9         | 25.75                |
-    | x8     | 2.6                  | 6.1         | 27.1                 |
-    | x16    | 2.7                  | 6.2         | 27.7                 |
+    | x2     | 1.8 / 1.3            | 5.3 / 4.8   | 22.5 / 22            |
+    | x4     | 2.4 / 1.6            | 5.9 / 5.2   | 25.75 / 25           |
+    | x8     | 2.6 / 1.7            | 6.1 / 5.2   | 27.125 / 26.25       |
+    | x16    | 2.7 / 1.7            | 6.2 / 5.3   | 27.6875 / 26.75      |
 
     Use the IIR for an insert, such as a distortion or an oscillator on its own. There, a delay that varies by about 70 µs above 10 kHz is inaudible, and the low latency matters, especially inside a feedback loop.
 
-    Use the FIR when the oversampled signal is combined with a copy that was not oversampled: parallel (wet/dry) distortion, multiband splits, or anything that is later summed with the dry signal. Delay the dry path by `get_latency()` and the two line up at every frequency. With the IIR no single delay lines up at all frequencies, so mixing causes slight comb filtering in the treble. The FIR is also the choice when something after it depends on exact peak values, such as a clipper or true-peak limiter, or for null tests. Its drawbacks are the latency and pre-ringing: being symmetric, its impulse response rings slightly before a sharp transient as well as after it.
+    Use the FIR when the oversampled signal is combined with a copy that was not oversampled: parallel (wet/dry) distortion, multiband splits,  compression, or anything that is later summed with the dry signal. Delay the dry path by `get_latency()` and the two line up at every frequency. With the IIR no single delay lines up at all frequencies, so mixing causes slight comb filtering in the treble. The FIR is also the choice when something after it depends on exact peak values, such as a clipper or true-peak limiter, or for null tests. Its drawbacks are the latency and pre-ringing: being symmetric, its impulse response rings slightly before a sharp transient as well as after it.
     """
     var value: Int
 
@@ -43,8 +43,6 @@ struct OversamplingFilter(Equatable, ImplicitlyCopyable):
     def __ne__(self, other: Self) -> Bool:
         return not (self == other)
 
-comptime _OS_PASSBAND = 20.0 / 48.0
-"""Top of the passband as a fraction of the base sample rate (20 kHz at 48 kHz)."""
 comptime _OS_ATTENUATION = 100.0
 """Stopband attenuation of each half-band stage in dB."""
 comptime _OS_FIR_ATTENUATION = 115.0
@@ -61,8 +59,7 @@ struct Downsampler[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = Times
 
     var buffer: Array[MFloat[Self.num_chans], Self.ov_samp.times]  # Buffer for oversampled values
     var counter: Int
-    var stages: List[HalfbandStage[Self.num_chans, Self.filter_type]]
-    """One 2x stage per doubling. `stages[0]` runs between the base rate and 2x, the last one at the highest rate."""
+    var filter: HalfbandFilter[Self.num_chans, Self.ov_samp, Self.filter_type]
 
     def __init__(out self, world: World):
         """Initialize the Downsampler struct.
@@ -72,7 +69,7 @@ struct Downsampler[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = Times
         """
         self.buffer = Array[MFloat[Self.num_chans], Self.ov_samp.times](fill=MFloat[Self.num_chans](0.0))
         self.counter = 0
-        self.stages = _make_stages[Self.num_chans, Self.filter_type](Self.ov_samp.times)
+        self.filter = HalfbandFilter[Self.num_chans, Self.ov_samp, Self.filter_type](world[].sample_rate)
 
     @always_inline
     def add_sample(mut self, sample: MFloat[Self.num_chans]):
@@ -91,31 +88,22 @@ struct Downsampler[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = Times
         Returns:
             The downsampled output sample.
         """
-        comptime if Self.ov_samp.times > 1:
-            # halve the buffer in place, from the highest-rate stage down to the base rate;
-            # unrolled at compile time, since the stage count and block sizes are known
-            comptime n_stages = _n_stages(Self.ov_samp.times)
-            comptime for k in range(n_stages):
-                comptime s = n_stages - 1 - k
-                comptime n = Self.ov_samp.times >> (k + 1)
-                comptime for j in range(n):
-                    self.buffer[j] = self.stages[s].down(self.buffer[2 * j], self.buffer[2 * j + 1])
         self.counter = 0
-        return self.buffer[0]
+        return self.filter.down(self.buffer)
 
     def get_latency(self) -> Float64:
         """How far the output lags the input with the FIR filter, the same at every frequency. Delay a dry signal by this much to line it up with the oversampled one. Only available with `OversamplingFilter.fir`, since the IIR's delay depends on frequency (see [OversamplingFilter](Oversampling.md#struct-oversamplingfilter)).
 
         Returns:
-            The delay in samples at the base sample rate. It can be fractional (e.g. 25.75 at x4).
+            The delay in samples at the base sample rate. It can be fractional (e.g. 25 at x4).
         """
-        comptime assert Self.filter_type == OversamplingFilter.fir, "Downsampler.get_latency() is only available with OversamplingFilter.fir"
-        return _fir_latency(self.stages)
+        # each output is taken at the newest sample of its block, which sits (times - 1) / times
+        # of a base sample after the block's start, so it lags the filter by that much less
+        return self.filter.get_latency() - Float64(Self.ov_samp.times - 1) / Float64(Self.ov_samp.times)
 
     def reset(mut self):
         """Reset the internal state of the downsampler."""
-        for ref stage in self.stages:
-            stage.reset()
+        self.filter.reset()
         self.counter = 0
 
 struct Upsampler[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOversampling.x2, filter_type: OversamplingFilter = OversamplingFilter.iir](Movable, Copyable, PolyReset):
@@ -127,19 +115,16 @@ struct Upsampler[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOv
         filter_type: An [OversamplingFilter](Oversampling.md#struct-oversamplingfilter) to choose the low-latency IIR (default) or linear-phase FIR filter.
     """
     var buffer: Array[MFloat[Self.num_chans], Self.ov_samp.times]
-    var scratch: Array[MFloat[Self.num_chans], Self.ov_samp.times]
-    var stages: List[HalfbandStage[Self.num_chans, Self.filter_type]]
-    """One 2x stage per doubling. `stages[0]` runs between the base rate and 2x, the last one at the highest rate."""
+    var filter: HalfbandFilter[Self.num_chans, Self.ov_samp, Self.filter_type]
 
     def __init__(out self, world: World):
         """Initialize the Upsampler.
 
         Args:
-            world: Pointer to the MMMWorld instance.
+            world: Pointer to the MMMWorld instance. VERY IMPORTANT to use the main world, not the oversampled subworld, since the filters are designed from its sample rate.
         """
         self.buffer = Array[MFloat[Self.num_chans], Self.ov_samp.times](fill=MFloat[Self.num_chans](0.0))
-        self.scratch = Array[MFloat[Self.num_chans], Self.ov_samp.times](fill=MFloat[Self.num_chans](0.0))
-        self.stages = _make_stages[Self.num_chans, Self.filter_type](Self.ov_samp.times)
+        self.filter = HalfbandFilter[Self.num_chans, Self.ov_samp, Self.filter_type](world[].sample_rate)
 
     @always_inline
     def next(mut self, input: MFloat[Self.num_chans], i: Int) -> MFloat[Self.num_chans]:
@@ -155,30 +140,7 @@ struct Upsampler[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOv
         comptime if Self.ov_samp.times == 1:
             return input
         if i == 0:
-            # each stage doubles the block and must see its input in time order, so stages
-            # alternate between `scratch` and `buffer`, arranged so the last one writes `buffer`;
-            # unrolled at compile time, since the stage count and block sizes are known
-            comptime n_stages = _n_stages(Self.ov_samp.times)
-            var out0 = MFloat[Self.num_chans](0.0)
-            var out1 = MFloat[Self.num_chans](0.0)
-            comptime for s in range(n_stages):
-                comptime n = 1 << s
-                comptime to_buffer = (n_stages - 1 - s) % 2 == 0
-                comptime for j in range(n):
-                    var x: MFloat[Self.num_chans]
-                    comptime if s == 0:
-                        x = input
-                    elif to_buffer:
-                        x = self.scratch[j]
-                    else:
-                        x = self.buffer[j]
-                    self.stages[s].up(x, out0, out1)
-                    comptime if to_buffer:
-                        self.buffer[2 * j] = out0
-                        self.buffer[2 * j + 1] = out1
-                    else:
-                        self.scratch[2 * j] = out0
-                        self.scratch[2 * j + 1] = out1
+            self.filter.up(input, self.buffer)
         return self.buffer[i]
 
     def get_latency(self) -> Float64:
@@ -187,22 +149,119 @@ struct Upsampler[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOv
         Returns:
             The delay in samples at the base sample rate. It can be fractional (e.g. 25.75 at x4).
         """
-        comptime assert Self.filter_type == OversamplingFilter.fir, "Upsampler.get_latency() is only available with OversamplingFilter.fir"
-        return _fir_latency(self.stages)
+        return self.filter.get_latency()
 
     def reset(mut self):
         """Reset the internal state of the upsampler."""
+        self.filter.reset()
+
+struct HalfbandFilter[num_chans: SIMDLength = 1, ov_samp: TimesOversampling = TimesOversampling.x2, filter_type: OversamplingFilter = OversamplingFilter.iir](Movable, Copyable):
+    """A cascade of [HalfbandStage](Oversampling.md#struct-halfbandstage)s, one per doubling, that converts between the base rate and `ov_samp.times` times the base rate a block at a time. Used by the [Upsampler](Oversampling.md#struct-upsampler) and [Downsampler](Oversampling.md#struct-downsampler); an instance should be used for only one direction, since the stages hold filter state.
+
+    Later stages in the filter run at a higher rate and thus have fewer coefficients.
+
+    Parameters:
+        num_chans: Number of channels processed in parallel.
+        ov_samp: A [TimesOversampling](MMMWorld.md#struct-timesoversampling) struct to indicate times oversampling.
+        filter_type: An [OversamplingFilter](Oversampling.md#struct-oversamplingfilter) to choose IIR or FIR.
+    """
+    var stages: List[HalfbandStage[Self.num_chans, Self.filter_type]]
+    """One 2x stage per doubling. `stages[0]` runs between the base rate and 2x, the last one at the highest rate."""
+    var scratch: Array[MFloat[Self.num_chans], Self.ov_samp.times]
+    """Intermediate block for `up()`, so each stage reads its input in time order."""
+
+    def __init__(out self, sample_rate: Float64):
+        """Design one half-band stage per doubling up to `ov_samp.times`.
+
+        Args:
+            sample_rate: The base sample rate in Hz. The passband is 0.4167 of it, but at least 20 kHz (see [OversamplingFilter](Oversampling.md#struct-oversamplingfilter)).
+        """
+        self.stages = List[HalfbandStage[Self.num_chans, Self.filter_type]]()
+        self.scratch = Array[MFloat[Self.num_chans], Self.ov_samp.times](fill=MFloat[Self.num_chans](0.0))
+        # top of the passband as a fraction of the base rate: 0.4167 of it (20 kHz at 48 kHz), at least 20 kHz,
+        # but capped at 20 kHz at 44.1 kHz so lower rates don't push the band toward Nyquist
+        var base_passband = min(max(20000.0 / sample_rate, 20.0 / 48.0), 20.0 / 44.1)
+        var n = 2
+        while n <= Self.ov_samp.times:
+            # passband edge, normalized to this stage's high rate
+            var passband = base_passband / Float64(n)
+            self.stages.append(HalfbandStage[Self.num_chans, Self.filter_type](0.5 - 2.0 * passband))
+            n *= 2
+
+    @always_inline
+    def up(mut self, input: MFloat[Self.num_chans], mut block: Array[MFloat[Self.num_chans], Self.ov_samp.times]):
+        """Upsample one base-rate sample into a block of `ov_samp.times` high-rate samples, running the stages from the base rate upward.
+
+        Args:
+            input: The base-rate input sample.
+            block: Receives the high-rate samples, in time order.
+        """
+        comptime if Self.ov_samp.times == 1:
+            block[0] = input
+            return
+        # each stage doubles the block and must see its input in time order, so stages
+        # alternate between `scratch` and `block`, arranged so the last one writes `block`;
+        # unrolled at compile time, since the stage count and block sizes are known
+        comptime n_stages = _n_stages(Self.ov_samp.times)
+        var out0 = MFloat[Self.num_chans](0.0)
+        var out1 = MFloat[Self.num_chans](0.0)
+        comptime for s in range(n_stages):
+            comptime n = 1 << s
+            comptime to_block = (n_stages - 1 - s) % 2 == 0
+            comptime for j in range(n):
+                var x: MFloat[Self.num_chans]
+                comptime if s == 0:
+                    x = input
+                elif to_block:
+                    x = self.scratch[j]
+                else:
+                    x = block[j]
+                self.stages[s].up(x, out0, out1)
+                comptime if to_block:
+                    block[2 * j] = out0
+                    block[2 * j + 1] = out1
+                else:
+                    self.scratch[2 * j] = out0
+                    self.scratch[2 * j + 1] = out1
+
+    @always_inline
+    def down(mut self, mut block: Array[MFloat[Self.num_chans], Self.ov_samp.times]) -> MFloat[Self.num_chans]:
+        """Downsample a block of `ov_samp.times` high-rate samples into one base-rate sample, running the stages from the highest rate down. The block is overwritten.
+
+        Args:
+            block: The high-rate samples, in time order.
+
+        Returns:
+            The base-rate output sample.
+        """
+        # halve the block in place, from the highest-rate stage down to the base rate;
+        # unrolled at compile time, since the stage count and block sizes are known
+        comptime n_stages = _n_stages(Self.ov_samp.times)
+        comptime for k in range(n_stages):
+            comptime s = n_stages - 1 - k
+            comptime n = Self.ov_samp.times >> (k + 1)
+            comptime for j in range(n):
+                block[j] = self.stages[s].down(block[2 * j], block[2 * j + 1])
+        return block[0]
+
+    def get_latency(self) -> Float64:
+        """Total delay of the FIR cascade, the same at every frequency. Only available with `OversamplingFilter.fir`.
+
+        Returns:
+            The delay in samples at the base sample rate. Stage `s` runs at `2^(s + 1)` times the base rate, so its delay counts for that much less.
+        """
+        comptime assert Self.filter_type == OversamplingFilter.fir, "get_latency() is only available with OversamplingFilter.fir"
+        var total: Float64 = 0.0
+        var rate: Float64 = 2.0
+        for s in range(len(self.stages)):
+            total += self.stages[s].get_latency() / rate
+            rate *= 2.0
+        return total
+
+    def reset(mut self):
+        """Clear the filter state of every stage."""
         for ref stage in self.stages:
             stage.reset()
-
-def _fir_latency[num_chans: SIMDLength, filter_type: OversamplingFilter](stages: List[HalfbandStage[num_chans, filter_type]]) -> Float64:
-    """Total delay of a cascade of FIR stages in base-rate samples. Stage `s` runs at `2^(s + 1)` times the base rate, so its delay counts for that much less."""
-    var total: Float64 = 0.0
-    var rate: Float64 = 2.0
-    for s in range(len(stages)):
-        total += stages[s].get_latency() / rate
-        rate *= 2.0
-    return total
 
 def _n_stages(times: Int) -> Int:
     """Number of 2x stages for an oversampling factor (log2 of `times`)."""
@@ -213,19 +272,8 @@ def _n_stages(times: Int) -> Int:
         n += 1
     return n
 
-def _make_stages[num_chans: SIMDLength, filter_type: OversamplingFilter](times: Int) -> List[HalfbandStage[num_chans, filter_type]]:
-    """One half-band stage per doubling up to `times`. Each later stage runs at a higher rate, so only needs to keep aliases out of the base passband and gets a wider transition band."""
-    var stages = List[HalfbandStage[num_chans, filter_type]]()
-    var n = 2
-    while n <= times:
-        # passband edge, normalized to this stage's high rate
-        var passband = _OS_PASSBAND / Float64(n)
-        stages.append(HalfbandStage[num_chans, filter_type](0.5 - 2.0 * passband))
-        n *= 2
-    return stages^
-
 struct HalfbandStage[num_chans: SIMDLength = 1, filter_type: OversamplingFilter = OversamplingFilter.iir](Movable, Copyable):
-    """One 2x up- or downsampling stage of a half-band low-pass filter, cutting off at a quarter of the high rate. Used by the [Upsampler](Oversampling.md#struct-upsampler) and [Downsampler](Oversampling.md#struct-downsampler); an instance should be used for only one direction.
+    """One 2x up- or downsampling stage of a half-band low-pass filter, cutting off at a quarter of the high rate. Chained by a [HalfbandFilter](Oversampling.md#struct-halfbandfilter); an instance should be used for only one direction.
 
     The IIR version is two parallel chains of first-order allpass sections (de Soras' HIIR design), each running at the low rate. The FIR version is a Kaiser-windowed linear-phase half-band whose every other tap is zero, run polyphase so only the nonzero taps are computed.
 
@@ -449,144 +497,3 @@ def _hiir_acc_den(q: Float64, order: Int, c: Float64) -> Float64:
         if abs(term) <= 1e-100:
             break
     return acc
-
-struct OS_LPF[num_chans: SIMDLength = 1](Movable, Copyable):
-    """A simple 2nd-order low-pass filter for oversampling applications. Does not allow changing cutoff frequency on the fly to avoid that calculation each sample.
-    
-    Parameters:
-        num_chans: Number of channels for the filter.
-    """
-    var sample_rate: Float64
-    var b0: Float64
-    var b1: Float64
-    var b2: Float64
-    var a1: Float64
-    var a2: Float64
-    var z1: MFloat[Self.num_chans]
-    var z2: MFloat[Self.num_chans]
-    comptime INV_SQRT2 = 0.7071067811865475
-
-    def __init__(out self, sample_rate: Float64):
-        """Initialize the oversampling low-pass filter.
-
-        Args:
-            sample_rate: The sample rate in Hz.
-        """
-
-        print("Warning OS_LPF is deprecated and will be removed in a future version.")
-        self.sample_rate = sample_rate
-        self.b0 = 1.0
-        self.b1 = 0.0
-        self.b2 = 0.0
-        self.a1 = 0.0
-        self.a2 = 0.0
-        self.z1 = MFloat[Self.num_chans](0.0)
-        self.z2 = MFloat[Self.num_chans](0.0)
-
-    def set_sample_rate(mut self, sr: Float64):
-        """Set the sample rate for the filter.
-
-        Args:
-            sr: The sample rate in Hz.
-        """
-        self.sample_rate = sr
-
-    def set_cutoff(mut self, fc: Float64):
-        """Set the cutoff frequency for the low-pass filter.
-
-        Args:
-            fc: The cutoff frequency in Hz.
-        """
-        var w0 = 2.0 * pi * fc / self.sample_rate
-        var cw = cos(w0)
-        var sw = sin(w0)
-        var Q = self.INV_SQRT2
-        var alpha = sw / (2.0 * Q)
-
-        var b0 = (1.0 - cw) * 0.5
-        var b1 = 1.0 - cw
-        var b2 = (1.0 - cw) * 0.5
-        var a0 = 1.0 + alpha
-        var a1 = -2.0 * cw
-        var a2 = 1.0 - alpha
-
-        # normalize so a0 = 1 (unity DC preserved)
-        b0 /= a0
-        b1 /= a0
-        b2 /= a0
-        a1 /= a0
-        a2 /= a0
-
-        self.b0 = b0
-        self.b1 = b1
-        self.b2 = b2
-        self.a1 = a1
-        self.a2 = a2
-
-    @always_inline
-    def next(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
-        """Process one sample through the 2nd-order low-pass filter.
-        
-        Args:
-            x: The input signal to process.
-
-        Returns:
-            The filtered output sample.
-        """
-        var y = self.b0 * x + self.z1
-        self.z1 = self.b1 * x - self.a1 * y + self.z2
-        self.z2 = self.b2 * x - self.a2 * y
-        return y
-
-    def reset(mut self):
-        """Reset the internal state of the low-pass filter."""
-        self.z1 = MFloat[Self.num_chans](0.0)
-        self.z2 = MFloat[Self.num_chans](0.0)
-
-struct OS_LPF4[num_chans: SIMDLength = 1](Movable, Copyable):
-    """A 4th-order low-pass filter for oversampling applications, implemented as two cascaded 2nd-order sections.
-    
-    Parameters:
-        num_chans: Number of channels for the filter with fixed cutoff frequency.
-    """
-    var os_lpf1: OS_LPF[Self.num_chans]
-    var os_lpf2: OS_LPF[Self.num_chans]
-
-    def __init__(out self, sample_rate: Float64):
-        """Initialize the 4th order oversampling low-pass filter.
-
-        Args:
-            sample_rate: The sample rate in Hz.
-        """
-        print("Warning OS_LPF4 is deprecated and will be removed in a future version.")
-        
-        self.os_lpf1 = OS_LPF[Self.num_chans](sample_rate)
-        self.os_lpf2 = OS_LPF[Self.num_chans](sample_rate)
-
-    def set_sample_rate(mut self, sr: Float64):
-        self.os_lpf1.set_sample_rate(sr)
-        self.os_lpf2.set_sample_rate(sr)
-    
-    def set_cutoff(mut self, fc: Float64):
-        self.os_lpf1.set_cutoff(fc)
-        self.os_lpf2.set_cutoff(fc)
-
-    @always_inline
-    def next(mut self, x: MFloat[Self.num_chans]) -> MFloat[Self.num_chans]:
-        """Process one sample through the 4th-order low-pass filter with fixed cutoff frequency.
-        
-        Args:
-            x: The input signal to process.
-
-        Returns:
-            The filtered output sample.
-        """
-        
-        var y = self.os_lpf1.next(x)
-        y = self.os_lpf2.next(y)
-        return y
-
-    def reset(mut self):
-        """Reset the internal state of the 4th-order low-pass filter."""
-        self.os_lpf1.reset()
-        self.os_lpf2.reset()
