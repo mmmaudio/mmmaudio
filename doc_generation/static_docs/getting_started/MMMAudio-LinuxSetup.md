@@ -72,9 +72,9 @@ Running MMMAudio from any other interpreter - a `uv`/`venv` environment, or the 
 
 ## B VS Code settings
 
-The repo includes a `.vscode/settings.json` with the settings MMMAudio needs, so you should not have to change any VS Code settings.
+The repo now includes a `.vscode/settings.json` with the settings MMMAudio needs, so you should not have to change any VS Code settings.
 
-If you made your own `.vscode/settings.json` before it was included in the repo, `git pull` will stop with "untracked working tree files would be overwritten". Delete or move your copy and pull again.
+If you made your own `.vscode/settings.json` before it was included in the repo, `git pull` will stop with "untracked working tree files would be overwritten". Either run `git stash` to reset any changes you have made to the repo or delete or move your copy of `.vscode/settings.json` and pull again.
 
 ## C Checking Your Python Interpreter
 

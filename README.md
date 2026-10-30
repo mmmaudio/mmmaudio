@@ -23,6 +23,12 @@ Its design foregrounds four strengths that we feel set it apart from existing Co
 
 [See the Getting Started guide](https://mmmaudio.github.io/mmmaudio/getting_started/).
 
+## A Note for Users who are updating MMMAudio with `git pull`
+
+The repo now includes a `.vscode/settings.json` with all the settings MMMAudio needs.
+
+If you made your own `.vscode/settings.json` before it was included in the repo, `git pull` will stop with "untracked working tree files would be overwritten". Either run `git stash` to reset any changes you have made to the repo or delete or move your copy of `.vscode/settings.json` and pull again.
+
 ## Documentation
 
 A link to the online documentation is found here: [https://mmmaudio.github.io/mmmaudio/](https://mmmaudio.github.io/mmmaudio/)
