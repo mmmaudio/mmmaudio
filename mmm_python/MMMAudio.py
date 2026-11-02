@@ -452,7 +452,7 @@ class MMMAudio:
     # =========================================================================
     
     
-    def register_response_callback(self, key: str, callback, data_flag: str):
+    def register_response_callback(self, key: str, callback):
         """
         Register a callback function when Python receives a message from Mojo on a specific address. 
         
@@ -464,13 +464,8 @@ class MMMAudio:
         
         """
         
-        self.response_callbacks[key] = [callback, data_flag]
+        self.response_callbacks[key] = callback
         
-        self.response_key_flags = [[], []]
-                        
-        for key in list(self.response_callbacks):
-            self.response_key_flags[0].append(key)
-            self.response_key_flags[1].append(self.response_callbacks[key][1])
     
     def deregister_response_callback(self, key: str):
         """
@@ -478,18 +473,12 @@ class MMMAudio:
         """
         self.response_callbacks.pop(key, None)
         
-        self.response_key_flags = [[], []]
-                
-        for key in list(self.response_callbacks):
-            self.response_key_flags[0].append(key)
-            self.response_key_flags[1].append(self.response_callbacks[key][1])
-    
     def poll_incoming_msgs(self, keys: list):
         """
         Poll Mojo for outgoing messages. If a callback function is registered to a specific key, run that callback function for the incoming data.
         """
         
-        self.command_queue.put((AudioCommand.POLL_MSGS, (self.response_key_flags[0], self.response_key_flags[1])))
+        self.command_queue.put((AudioCommand.POLL_MSGS, (keys,)))
         
         try:
             response = self.response_queue.get(timeout=30.0)
@@ -499,7 +488,7 @@ class MMMAudio:
                 
                 if vals:
                     
-                    self.response_callbacks[key][0](vals)
+                    self.response_callbacks[key](vals)
                 
         except Exception as e:
             print("Something went wrong")
@@ -835,18 +824,18 @@ class MMMAudio:
 
             
             def handle_poll_incoming_msgs(args):
-                keys, flags = args
-                
-                
+                keys = args[0]
                 
                 mmm_audio_bridge.get_out_messages()
                 
+                msgs = {}
+                for key in keys:
+                    msgs[key] = []
+                mmm_audio_bridge.receive_messages(msgs)
                 
-                for i, key in enumerate(keys):
-                    msg = []
-                    mmm_audio_bridge.receive_messages(key, msg, flags[i])
+                for key in msgs:
                     
-                    response_queue.put(("MSG_RECEIVED", (key, msg)))
+                    response_queue.put(("MSG_RECEIVED", (key, msgs[key])))
                     
                 mmm_audio_bridge.clear_out_msgs()
             

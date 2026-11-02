@@ -711,30 +711,119 @@ struct MMMAudioBridge(Movable, Writable):
     
 
     @staticmethod
-    def query_msgs_by_key(py_selfA: PythonObject, key: PythonObject, container: PythonObject, data_flag: PythonObject) raises -> PythonObject:
+    def query_msgs_by_key(py_selfA: PythonObject, container: PythonObject) raises -> PythonObject:
         """
         Query all messenger manager pools by key. Early return when key matched.
         """
-        var flag = String(py=data_flag)
+        var py_self = py_selfA.downcast_value_ptr[Self]()
         
-        if flag == "int":
-            _ = py_selfA.query_int_msgs(key, container)
-        elif flag == "ints": 
-            _ = py_selfA.query_ints_msgs(key, container)
-        elif flag == "float":
-            _ = py_selfA.query_float_msgs(key, container)
-        elif flag == "floats":
-            _ = py_selfA.query_floats_msgs(key, container)
-        elif flag == "string":
-            _ = py_selfA.query_string_msgs(key, container)
-        elif flag == "strings":
-            _ = py_selfA.query_strings_msgs(key, container)
-        elif flag == "bool":
-            _ = py_selfA.query_bool_msgs(key, container)
-        elif flag == "bools":
-            _ = py_selfA.query_bools_msgs(key, container)
-        elif flag == "trig":
-            _ = py_selfA.query_trig_msgs(key, container)
+
+        py_self[].audio_state_ptr[].pools.acquire()
+
+        try:
+            for py_key in container:
+                var key = String(py=py_key)
+                
+                #### Check for int float bool string
+                if py_self[].environment_ptr[].out_messenger_manager.bool_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Bool](String(py=key))
+                    
+                    if opt:
+                        for val in opt.value():
+                            container[py_key].append(val)
+
+                if py_self[].environment_ptr[].out_messenger_manager.float_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Float64](String(py=key))
+                    
+                    if opt:
+                        for val in opt.value():
+                            container[py_key].append(val)    
+            
+                if py_self[].environment_ptr[].out_messenger_manager.int_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Int](String(py=key))
+            
+                    if opt:
+                        for val in opt.value():
+                            container[py_key].append(val)
+                
+                if py_self[].environment_ptr[].out_messenger_manager.string_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[String](String(py=key))
+            
+                    if opt:
+                        for val in opt.value():
+                            container[py_key].append(val)
+            
+                ## Check for lists
+                if py_self[].environment_ptr[].out_messenger_manager.bools_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Bool]](String(py=key))
+            
+                    if opt:
+                        for i in range(len(opt.value())):
+                            var py_list = Python.list()
+                            
+                            for j in opt.value()[i]:
+                                py_list.append(j)
+                            
+                            container[py_key].append(py_list)
+                    
+
+                if py_self[].environment_ptr[].out_messenger_manager.floats_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Float64]](String(py=key))
+            
+                    if opt:
+                        for i in range(len(opt.value())):
+                            var py_list = Python.list()
+                            
+                            for j in opt.value()[i]:
+                                py_list.append(j)
+                            
+                            container[py_key].append(py_list) 
+            
+                if py_self[].environment_ptr[].out_messenger_manager.ints_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Int]](String(py=key))
+            
+                    if opt:
+                        for i in range(len(opt.value())):
+                            var py_list = Python.list()
+                            
+                            for j in opt.value()[i]:
+                                py_list.append(j)
+                            
+                            container[py_key].append(py_list)
+                
+                if py_self[].environment_ptr[].out_messenger_manager.strings_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[String]](String(py=key))
+            
+                    if opt:
+                        for i in range(len(opt.value())):
+                            var py_list = Python.list()
+                            
+                            for j in opt.value()[i]:
+                                py_list.append(j)
+                            
+                            container[py_key].append(py_list)
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+
+        # if flag == "int":
+        #     _ = py_selfA.query_int_msgs(key, container)
+        # elif flag == "ints": 
+        #     _ = py_selfA.query_ints_msgs(key, container)
+        # elif flag == "float":
+        #     _ = py_selfA.query_float_msgs(key, container)
+        # elif flag == "floats":
+        #     _ = py_selfA.query_floats_msgs(key, container)
+        # elif flag == "string":
+        #     _ = py_selfA.query_string_msgs(key, container)
+        # elif flag == "strings":
+        #     _ = py_selfA.query_strings_msgs(key, container)
+        # elif flag == "bool":
+        #     _ = py_selfA.query_bool_msgs(key, container)
+        # elif flag == "bools":
+        #     _ = py_selfA.query_bools_msgs(key, container)
+        # elif flag == "trig":
+        #     _ = py_selfA.query_trig_msgs(key, container)
 
         return PythonObject(None)
 
