@@ -105,8 +105,8 @@ struct MidiKeyboard(Movable, Copyable):
             out += voice.next(self.buffer)
 
         # cc is [controller, value, channel]: cc 1 sets the wubb rate of all the voices, 33 the filter cutoff and 34 the resonance
-        if self.messenger.notify_update_all("cc", self.ccs):
-            for ref cc in self.ccs:
+        def cc_callback(ccs: List[List[Int]]) capturing -> None:
+            for ref cc in ccs:
                 var val = Float64(cc[1])
                 if cc[0] == 1:
                     var wubb_rate = linexp(val, 0.0, 127.0, 0.1, 10.0)
@@ -116,6 +116,7 @@ struct MidiKeyboard(Movable, Copyable):
                     self.filter_cutoff = linexp(val, 0.0, 127.0, 20.0, 20000.0)
                 elif cc[0] == 34:
                     self.filter_resonance = linexp(val, 0.0, 127.0, 0.1, 1.0)
+        self.messenger.address_callback_all[cc_callback]("cc")
         out = self.moog_filter.next(out, self.filter_cutoff, self.filter_resonance)
 
         return out * 0.5
