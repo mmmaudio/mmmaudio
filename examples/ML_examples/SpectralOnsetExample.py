@@ -10,7 +10,7 @@ ma.start_audio()
 # Adjust threshold for onset sensitivity (lower = more sensitive)
 ma.send_float("thresh", 0.5)
 # Adjust minimum slice length between onsets (higher = less sensitive)
-ma.send_float("debounce", 0.3)  
+ma.send_float("min_slice_len", 0.3)  
 
 # Adjust impulse volume
 ma.send_float("impulse_vol", 0.5)

@@ -38,7 +38,7 @@ def main() raises:
 
     comptime filter_size: Int = 5
     comptime frame_delta: Int = 0
-    var onset_debounce: Float64 = (Float64(hop_size) / sample_rate) * 2.0
+    var onset_min_slice_len: Float64 = (Float64(hop_size) / sample_rate) * 2.0
 
     var environment = unsafe_alloc[Environment](1)
     environment.unsafe_write(Environment(64, 2, 2))
@@ -55,7 +55,7 @@ def main() raises:
             buf,
             metric=OnsetMetric(i),
             threshold=onset_threshold,
-            debounce=onset_debounce,
+            min_slice_len=onset_min_slice_len,
             window_size=window_size,
             hop_size=hop_size,
             filter_size=filter_size,
@@ -74,7 +74,7 @@ def main() raises:
 
     var rt_detection_points = List[List[Int]](length=10, fill=List[Int]())
     for i in range(10):
-        var rt_slicer = OnsetDetection(world, metric=OnsetMetric(i), threshold=thresholds[i], debounce=onset_debounce, window_size=window_size, hop_size=hop_size, filter_size=filter_size, frame_delta=frame_delta)
+        var rt_slicer = OnsetDetection(world, metric=OnsetMetric(i), threshold=thresholds[i], min_slice_len=onset_min_slice_len, window_size=window_size, hop_size=hop_size, filter_size=filter_size, frame_delta=frame_delta)
         for sample_i in range(buf.num_frames):
             if rt_slicer.next(buf.data[0][sample_i]):
                 rt_detection_points[i].append(sample_i)

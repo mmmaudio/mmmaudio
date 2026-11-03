@@ -12,23 +12,23 @@ or from Python:
 See Exporters/PluginExporter/PluginExporter.py for examples.
 
 What it does (<name> below is plugin_name, which defaults to graph_name):
-  1. Compiles the graph and MMMAudioPluginBridge.mojo (the engine's C
+  1. Compiles the graph and src/MMMAudioPluginBridge.mojo (the engine's C
      interface) into shared libraries.
   2. If `gui_file` is given, runs it against stand-ins for PySide6 and
-     MMMAudio (see gui_tracer.py) to learn its controls, which become host
+     MMMAudio (see src/gui_tracer.py) to learn its controls, which become host
      automatable parameters and a plain JUCE editor. Without one, the plugin
      has no parameters and an empty editor.
   3. Writes a JUCE CMake project to builds/<name>/. The Mojo libraries and
      resources are staged in builds/<name>/bundle/, and the CMake project
-     copies them into each plugin after building it (bundle_plugin.py), so
+     copies them into each plugin after building it (src/bundle_plugin.py), so
      the project also builds on its own with cmake. builds/<name>/README.md
      has the commands. With --no_build, the export stops here.
-  4. Downloads JUCE (and, for CLAP, clap-juce-extensions) into this folder,
+  4. Downloads JUCE (and, for CLAP, clap-juce-extensions) into src/,
      the first time a plugin is built.
   5. Builds the project with CMake.
 
 The editor is written as ordinary JUCE code in builds/<name>/Source/
-(see editor_codegen.py), one named member per control, for you to restyle.
+(see src/editor_codegen.py), one named member per control, for you to restyle.
 Re-exporting keeps it once you have edited it; --reset_editor regenerates it
 from the GUI. Any other .cpp files you add to Source/ are compiled too, and
 files in Source/assets/ (images, fonts) are embedded as JUCE BinaryData.
@@ -66,6 +66,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
+# everything but the two entry points (this file and PluginExporter.py), the README and builds/
+SRC_DIR = HERE / "src"
 
 JUCE_URL = "https://github.com/juce-framework/JUCE.git"
 JUCE_TAG = "9.0.4"
@@ -74,9 +76,9 @@ CLAP_URL = "https://github.com/free-audio/clap-juce-extensions.git"
 # branch does (2026-10-06).
 CLAP_COMMIT = "7adee3a1bd4684d4caa5601100e364abccff4b4d"
 
-JUCE_DIR = HERE / "JUCE"
-CLAP_DIR = HERE / "clap-juce-extensions"
-TEMPLATE_DIR = HERE / "juce_template"
+JUCE_DIR = SRC_DIR / "JUCE"
+CLAP_DIR = SRC_DIR / "clap-juce-extensions"
+TEMPLATE_DIR = SRC_DIR / "juce_template"
 BUILDS_DIR = HERE / "builds"
 
 PLUGIN_TYPES = {"vst3": "VST3", "clap": "CLAP", "au": "AU"}
@@ -172,7 +174,7 @@ def export_plugin(graph_name, package_name=None, plugin_type="VST3", gui_file=No
                   is_synth=instrument, num_in=num_in, num_out=num_out, spec=spec,
                   graph_lib_name=graph_lib_name, bridge_lib_name=bridge_lib_name,
                   runtime_libs=sorted(runtime), version=version)
-    editor_codegen = _load("editor_codegen", HERE / "editor_codegen.py")
+    editor_codegen = _load("editor_codegen", SRC_DIR / "editor_codegen.py")
     editor_codegen.write_editor(work_dir / "Source", spec, source=Path(gui_file).name if gui_file else "the graph",
                                 reset=reset_editor, log=_log)
     _write_readme(work_dir, target=target, product_name=product_name, graph_name=graph_name,
@@ -253,7 +255,7 @@ def _load(name, path):
     return module
 
 
-_bundle_plugin = _load("bundle_plugin", HERE / "bundle_plugin.py")
+_bundle_plugin = _load("bundle_plugin", SRC_DIR / "bundle_plugin.py")
 bundle_lib_dir = _bundle_plugin.bundle_lib_dir            # where a plugin's Mojo libraries go
 bundle_resource_dir = _bundle_plugin.bundle_resource_dir  # and the files the graph loads
 
@@ -291,7 +293,7 @@ def _build_mojo_libs(graph_name, package_name):
     graph_lib = gb.build_graph_lib(graph_name, package_name, pkg_dir)
 
     _log("building MMMAudioPluginBridge")
-    bridge_src = (HERE / "MMMAudioPluginBridge.mojo").read_text(encoding="utf-8")
+    bridge_src = (SRC_DIR / "MMMAudioPluginBridge.mojo").read_text(encoding="utf-8")
     bridge_lib = gb.build_shared_lib(
         "MMMAudioPluginBridge",
         bridge_src,
@@ -400,7 +402,7 @@ def _trace_gui(gui_file, work_dir, title):
     _log(f"translating GUI {gui_file}")
     try:
         # No stdin, so a script waiting on input() stops instead of hanging the export.
-        subprocess.run([sys.executable, str(HERE / "gui_tracer.py"), str(gui_file), str(out)],
+        subprocess.run([sys.executable, str(SRC_DIR / "gui_tracer.py"), str(gui_file), str(out)],
                        check=True, cwd=REPO_ROOT, stdin=subprocess.DEVNULL,
                        stdout=subprocess.DEVNULL, timeout=60)
         spec = json.loads(out.read_text())
@@ -746,7 +748,7 @@ def _copy_plugin_sources(work_dir):
     if dest.exists():
         shutil.rmtree(dest)
     shutil.copytree(TEMPLATE_DIR, dest)
-    shutil.copy2(HERE / "bundle_plugin.py", dest / "bundle_plugin.py")
+    shutil.copy2(SRC_DIR / "bundle_plugin.py", dest / "bundle_plugin.py")
 
 
 def _cpp_string(s):

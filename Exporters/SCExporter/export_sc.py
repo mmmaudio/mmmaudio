@@ -14,7 +14,7 @@ next() method become the UGen's audio-rate arguments (MMMOsc.ar(freq: 440)).
 See Exporters/SCExporter/SCExporter.py for examples.
 
 The UGen runs the graph through the same engine interface as the plugins
-(Exporters/PluginExporter/MMMAudioPluginBridge.mojo):
+(Exporters/PluginExporter/src/MMMAudioPluginBridge.mojo):
 
   - The graph's audio inputs (`world[].sound_in(i)`) are its first, audio-rate,
     inputs. An instrument has none.
@@ -30,14 +30,14 @@ The UGen runs the graph through the same engine interface as the plugins
 What it does (<Name> below is the UGen's class name, by default graph_name):
   1. Compiles the graph and MMMAudioPluginBridge.mojo into shared libraries
      (as export_plugin.py does).
-  2. If `gui_file` is given, translates its controls (Exporters/PluginExporter/gui_tracer.py).
+  2. If `gui_file` is given, translates its controls (Exporters/PluginExporter/src/gui_tracer.py).
   3. Writes a CMake project to builds/Mojo<version>/<Name>/: the UGen's C++ (src/),
      its sclang class and help file (sc/), and the graph's Mojo libraries and
      resources (bundle/). The Mojo runtime libraries, the same for every UGen
      built with that Mojo version, go in builds/Mojo<version>/shared_libraries/,
      renamed with the version (libKGENCompilerRTShared.1.1.0.dylib).
      With --no_build, the export stops here.
-  4. Downloads SuperCollider's plug-in headers into Exporters/SCExporter/supercollider,
+  4. Downloads SuperCollider's plug-in headers into Exporters/SCExporter/src/supercollider,
      the first time (unless --sc_path names a SuperCollider source folder).
   5. Builds it. The finished extension folder is
      builds/Mojo<version>/<Name>/extension/<Name>/. --install copies it into the
@@ -67,12 +67,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
+# everything but the two entry points (this file and SCExporter.py), the README and builds/
+SRC_DIR = HERE / "src"
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from Exporters.PluginExporter import export_plugin as pe  # noqa: E402
 
-TEMPLATE_DIR = HERE / "sc_template"
+TEMPLATE_DIR = SRC_DIR / "sc_template"
 # Projects go in builds/Mojo<version>/<Name>/, next to builds/Mojo<version>/shared_libraries/,
 # the Mojo runtime libraries all of that version's UGens use. They are installed the same
 # way: <install folder>/Mojo<version>/<Name>/ and <install folder>/Mojo<version>/shared_libraries/.
@@ -81,7 +83,7 @@ SHARED_LIBS = "shared_libraries"
 
 SC_URL = "https://github.com/supercollider/supercollider.git"
 SC_TAG = "Version-3.13.0"
-SC_DIR = HERE / "supercollider"
+SC_DIR = SRC_DIR / "supercollider"
 
 IS_MAC = pe.IS_MAC
 SCX_EXT = ".scx" if IS_MAC else ".so"
@@ -354,8 +356,8 @@ def _update_libs(libs, folder, renames=None):
 # --------------------------------------------------------------------------
 
 # export_struct_sc writes a graph that runs the struct here, as the package below.
-STRUCT_GRAPHS_DIR = HERE / "struct_graphs"
-STRUCT_PACKAGE = "Exporters.SCExporter.struct_graphs"
+STRUCT_GRAPHS_DIR = SRC_DIR / "struct_graphs"
+STRUCT_PACKAGE = "Exporters.SCExporter.src.struct_graphs"
 
 
 def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="next", params=None,

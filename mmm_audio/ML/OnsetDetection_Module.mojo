@@ -470,7 +470,7 @@ struct OnsetDetection(Movable, Copyable):
     var world: World
     var metric: OnsetMetric
     var threshold: Float64
-    var debounce: Float64
+    var min_slice_len: Float64
     var window_size: Int
     var hop_size: Int
     var filter_size: Int
@@ -478,7 +478,7 @@ struct OnsetDetection(Movable, Copyable):
     var state: Bool
     var descriptor: Float64
     var previous_descriptor: Float64
-    var debounce_count: Float64
+    var min_slice_len_count: Float64
     var fftp: FFTProcess[
         OnsetDetectionFeature,
         ifft=False,
@@ -490,7 +490,7 @@ struct OnsetDetection(Movable, Copyable):
         world: World,
         metric: OnsetMetric = OnsetMetric.complex_domain,
         threshold: Float64 = 0.5,
-        debounce: Float64 = 0.1,
+        min_slice_len: Float64 = 0.1,
         window_size: Int = 1024,
         hop_size: Int = 512,
         filter_size: Int = 5,
@@ -502,7 +502,7 @@ struct OnsetDetection(Movable, Copyable):
             world: The MMMWorld used for buffered processing.
             metric: The onset metric to calculate.
             threshold: Threshold crossing required to emit an onset.
-            debounce: Minimum time duration (in seconds) between onsets.
+            min_slice_len: Minimum time duration (in seconds) between onsets.
             window_size: Analysis window size in samples.
             hop_size: Number of samples between analysis frames.
             filter_size: Median-filter size.
@@ -511,7 +511,7 @@ struct OnsetDetection(Movable, Copyable):
         self.world = world
         self.metric = metric
         self.threshold = threshold
-        self.debounce = max(debounce, 0.0)
+        self.min_slice_len = max(min_slice_len, 0.0)
         self.window_size = window_size
         self.hop_size = hop_size
         self.filter_size = filter_size
@@ -519,7 +519,7 @@ struct OnsetDetection(Movable, Copyable):
         self.state = False
         self.descriptor = 0.0
         self.previous_descriptor = 0.0
-        self.debounce_count = 0
+        self.min_slice_len_count = 0
 
         var processor = OnsetDetectionFeature(
             metric=self.metric,
@@ -547,11 +547,11 @@ struct OnsetDetection(Movable, Copyable):
         _ = self.fftp.next(input)
 
         self.descriptor = self.fftp.get_process().descriptor
-        if self.descriptor >= self.threshold and self.previous_descriptor < self.threshold and self.debounce_count <= 0.0:
+        if self.descriptor >= self.threshold and self.previous_descriptor < self.threshold and self.min_slice_len_count <= 0.0:
             self.state = True
-            self.debounce_count = self.debounce
-        elif self.debounce_count > 0:
-            self.debounce_count -= self.world[].sample_dur_seconds
+            self.min_slice_len_count = self.min_slice_len
+        elif self.min_slice_len_count > 0:
+            self.min_slice_len_count -= self.world[].sample_dur_seconds
         self.previous_descriptor = self.descriptor
 
         return self.state
@@ -565,7 +565,7 @@ struct OnsetDetection(Movable, Copyable):
         var num_frames: Optional[Int] = None,
         metric: OnsetMetric = OnsetMetric.complex_domain,
         threshold: Float64 = 0.5,
-        debounce: Float64 = 0.1,
+        min_slice_len: Float64 = 0.1,
         window_size: Int = 1024,
         hop_size: Int = 512,
         filter_size: Int = 5,
@@ -581,7 +581,7 @@ struct OnsetDetection(Movable, Copyable):
             num_frames: Number of source frames to analyze. A negative value analyzes to the end of the buffer.
             metric: The onset metric to calculate.
             threshold: Threshold crossing required to emit an onset.
-            debounce: Minimum time duration (in seconds) between onsets.
+            min_slice_len: Minimum time duration (in seconds) between onsets.
             window_size: Analysis window size in samples.
             hop_size: Number of samples between analysis frames.
             filter_size: Median-filter size.
@@ -597,7 +597,7 @@ struct OnsetDetection(Movable, Copyable):
             world=world,
             metric=metric,
             threshold=threshold,
-            debounce=debounce,
+            min_slice_len=min_slice_len,
             window_size=window_size,
             hop_size=hop_size,
             filter_size=filter_size,

@@ -24,7 +24,7 @@ struct SpectralOnsetExample(Movable, Copyable):
         
         self.m.update("thresh", self.onsets.threshold) 
         self.m.update("impulse_vol", self.impulse_vol)
-        self.m.update("debounce", self.onsets.debounce) 
+        self.m.update("min_slice_len", self.onsets.min_slice_len) 
         
         # play the audio file
         var audio = self.playBuf.next(self.buffer)

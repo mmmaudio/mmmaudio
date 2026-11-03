@@ -7,6 +7,13 @@ a JUCE editor that you can restyle by hand.
 The export writes a self-contained JUCE CMake project for each plugin to
 `builds/<name>/`, and usually builds it and installs it too.
 
+## Vibe Coded
+
+This part of MMMAudio is completely vibe-coded. With the rest of the library
+we have made things painstakingly organized and documented. This is not the case
+for the plug-in exporters. This part of the project uses LLM pyrotechnics to
+connect MMMAudio to the VST, SC, VCV, etc API's. 
+
 ## Requirements
 
 - The MMMAudio pixi environment, with `cmake` added (`pixi add cmake`)
@@ -15,8 +22,8 @@ The export writes a self-contained JUCE CMake project for each plugin to
 - Linux: a C++ compiler, JUCE's development packages, and `patchelf`. Each exported
   project's README lists the apt packages.
 
-The first export downloads JUCE (and, for CLAP, clap-juce-extensions) into this
-folder, which takes a few minutes. Later exports reuse it.
+The first export downloads JUCE (and, for CLAP, clap-juce-extensions) into
+`src/`, which takes a few minutes. Later exports reuse it.
 
 ## Export a plugin
 
@@ -63,10 +70,10 @@ your host.
 
 ### What the export does
 
-1. Compiles the graph and the plugin bridge (`MMMAudioPluginBridge.mojo`) into shared
+1. Compiles the graph and the plugin bridge (`src/MMMAudioPluginBridge.mojo`) into shared
    libraries.
 2. If `--gui_file` is given, runs the script against stand-ins for PySide6 and
-   MMMAudio (`gui_tracer.py`) to find its controls. Nothing is shown and no audio
+   MMMAudio (`src/gui_tracer.py`) to find its controls. Nothing is shown and no audio
    starts. The result is saved as `builds/<name>/gui_spec.json`.
 3. Writes the JUCE project to `builds/<name>/`.
 4. Configures and builds it with CMake, using the local JUCE copy.
@@ -170,7 +177,7 @@ environment's CMake. Outside it, any CMake 3.28 or newer works.
 
 ## Customizing the editor
 
-The editor in `Source/` is plain JUCE code generated from the Qt GUI (`editor_codegen.py`):
+The editor in `Source/` is plain JUCE code generated from the Qt GUI (`src/editor_codegen.py`):
 
 - **Controls:** each control is a named member, e.g.
   `mmm::SliderRow freqSlider { plugin.apvts, "freq", "freq Hz" };`. It attaches to
@@ -222,11 +229,12 @@ parameters instead of using a cached copy.
 
 | File | Role |
 |---|---|
+| `PluginExporter.py` | Examples of `export_plugin()` calls |
 | `export_plugin.py` | The exporter (command line and `export_plugin()`) |
-| `gui_tracer.py` | Translates a Qt GUI script into `gui_spec.json` |
-| `editor_codegen.py` | Writes the editor's C++ from that spec |
-| `bundle_plugin.py` | Copies the Mojo libraries into a built plugin (copied into every project) |
-| `juce_template/` | The processor and controls (copied into every project as `mmm_plugin/`) |
-| `MMMAudioPluginBridge.mojo`, `.h` | The engine's C interface, which the plugin calls |
-| `JUCE/`, `clap-juce-extensions/` | Local copies, downloaded on first use |
+| `src/gui_tracer.py` | Translates a Qt GUI script into `gui_spec.json` |
+| `src/editor_codegen.py` | Writes the editor's C++ from that spec |
+| `src/bundle_plugin.py` | Copies the Mojo libraries into a built plugin (copied into every project) |
+| `src/juce_template/` | The processor and controls (copied into every project as `mmm_plugin/`) |
+| `src/MMMAudioPluginBridge.mojo`, `.h` | The engine's C interface, which the plugin calls |
+| `src/JUCE/`, `src/clap-juce-extensions/` | Local copies, downloaded on first use |
 | `builds/` | One project per exported plugin |

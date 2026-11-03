@@ -47,6 +47,9 @@ struct StereoBeatingSines(Movable, Copyable):
 
         return pan2(temp, pan2_loc)  # Pan the temp signal
 
+# StereoBeatingSines2 shows that you can use SIMD oscillators to efficiently generate multiple signals at once
+# This is the same as above, but far more efficient due to using Osc[4] instead of multiple individual oscillators
+
 struct StereoBeatingSines2(Movable, Copyable):
     var world: World # pointer to the MMMWorld
     var osc_s: Osc[4, interp=Interp.linear] # the four oscillators, in one SIMD struct

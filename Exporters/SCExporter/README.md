@@ -13,7 +13,7 @@ The struct exporter allows you to build a single UGen from a Mojo struct. The ke
 
 The export writes a CMake project to `builds/Mojo<version>/<Name>/` (e.g.
 `builds/Mojo1.1.0/FM4/`), builds it, and usually installs it too. It uses the same engine interface as the
-[PluginExporter](../PluginExporter/README.md) (`MMMAudioPluginBridge.mojo`).
+[PluginExporter](../PluginExporter/README.md) (`src/MMMAudioPluginBridge.mojo`).
 
 ## Requirements
 
@@ -22,7 +22,7 @@ The export writes a CMake project to `builds/Mojo<version>/<Name>/` (e.g.
 - macOS: Xcode's command line tools. Linux: a C++ compiler and `patchelf` (Linux is untested)
 - SuperCollider (tested with 3.14)
 
-The first export downloads SuperCollider's plug-in headers (a few MB) into this folder.
+The first export downloads SuperCollider's plug-in headers (a few MB) into `src/supercollider/`.
 Later exports reuse them. To use a SuperCollider source folder you already have, pass
 `--sc_path` or set `SC_PATH`.
 
@@ -262,9 +262,9 @@ version, since SuperCollider can't have two classes with the same name.
 
 | File | Role |
 |---|---|
-| `export_sc.py` | The exporter (command line and `export_sc()`) |
-| `sc_template/` | The UGen's C++, copied into every project as `src/` |
 | `SCExporter.py` | Examples of how to export graphs and structs from Python |
-| `struct_graphs/` | The graphs `export_struct_sc` writes to run a struct |
-| `supercollider/` | SuperCollider's headers, downloaded on first use |
+| `export_sc.py` | The exporter (command line and `export_sc()`) |
+| `src/sc_template/` | The UGen's C++, copied into every project as `src/` |
+| `src/struct_graphs/` | The graphs `export_struct_sc` writes to run a struct |
+| `src/supercollider/` | SuperCollider's headers, downloaded on first use |
 | `builds/` | `Mojo<version>/`: one project per exported UGen, and `shared_libraries/`, the Mojo runtime |

@@ -53,8 +53,6 @@ struct MidiKeyboard(Movable, Copyable):
     var filter_cutoff: Float64
     var filter_resonance: Float64
     var moog_filter: VAMoogLadder[1,TimesOversampling.x2]
-    var note_ons: List[List[Int]]
-    var note_offs: List[List[Int]]
     var ccs: List[List[Int]]
 
 
@@ -71,8 +69,6 @@ struct MidiKeyboard(Movable, Copyable):
         self.filter_cutoff = 20000.0
         self.filter_resonance = 0.5
         self.moog_filter = VAMoogLadder[1,TimesOversampling.x2](self.world)
-        self.note_ons = List[List[Int]]()
-        self.note_offs = List[List[Int]]()
         self.ccs = List[List[Int]]()
 
     def loadBuffer(mut self):
@@ -85,19 +81,23 @@ struct MidiKeyboard(Movable, Copyable):
         # note_on and note_off are [note, velocity, channel] lists. notify_update_all gives every
         # message sent since the last block, in the order they were sent.
         # next_gate opens a free voice's gate for a note on...
-        if self.messenger.notify_update_all("note_on", self.note_ons):
-            for ref note in self.note_ons:
+        
+        def on_callback(notes: List[List[Int]]) capturing -> None:
+            for ref note in notes:
                 var voice = self.poly.next_gate(self.voices, note[0], True)
                 if voice >= 0:
                     var midi = Float64(note[0]) + self.voices[voice].just_offset[note[0] % 12]
                     self.voices[voice].freq = midicps(midi)
                     self.voices[voice].vol = Float64(note[1]) / 127.0
+        self.messenger.address_callback_all[on_callback]("note_on")
 
         # ...and closes the gate of the voice playing that note for a note off. Note offs are handled after
         # note ons so a note that starts and stops in the same block doesn't get stuck on.
-        if self.messenger.notify_update_all("note_off", self.note_offs):
-            for ref note in self.note_offs:
+        def off_callback(notes: List[List[Int]]) capturing -> None:
+            for ref note in notes:
                 _ = self.poly.next_gate(self.voices, note[0], False)
+        self.messenger.address_callback_all[off_callback]("note_off")
+                
 
         # add the output of all the voices
         var out = 0.0

@@ -1,5 +1,5 @@
 // A SuperCollider UGen that runs an MMMAudio graph through MMMAudioPluginBridge
-// (see Exporters/PluginExporter/MMMAudioPluginBridge.h for its C API).
+// (see Exporters/PluginExporter/src/MMMAudioPluginBridge.h for its C API).
 //
 // Everything specific to one graph (its name, channel counts, controls and
 // setup messages) is in MMMSCSpec.h, which export_sc.py writes.

@@ -313,11 +313,15 @@ def _get_all[T: Copyable & Deinitable](mut msgs: Dict[String, Message[T]], key: 
         return msg.values.copy()
     return None
 
-@doc_hidden
 def _is_midi_msg(key: String) -> Bool:
-    """The messages sent for MIDI by the plugins and MMMAudio.send_midi. A graph often only reads some of them, so they don't warn when they aren't retrieved."""
-    return (key == "note_on" or key == "note_off" or key == "cc" or key == "pitch_bend"
-        or key == "poly_aftertouch" or key == "channel_pressure" or key == "program_change")
+    """The messages sent for MIDI by the plugins and MMMAudio.send_midi. A graph often only reads some of them, so they don't warn when they aren't retrieved.
+
+    Only the part after the last "." is checked, so namespaced keys like "synth.note_on" will be recognized as MIDI messages.
+    """
+    var parts = key.split(".")
+    var name = parts[len(parts) - 1]
+    return (name == "note_on" or name == "note_off" or name == "cc" or name == "pitch_bend"
+        or name == "poly_aftertouch" or name == "channel_pressure" or name == "program_change")
 
 @doc_hidden
 def _empty_msgs[T: Copyable & Deinitable](mut msgs: Dict[String, Message[T]], kind: String):

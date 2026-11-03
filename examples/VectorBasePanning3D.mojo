@@ -1,5 +1,4 @@
 from mmm_audio import *
-from std.time import perf_counter
 # THE SYNTH
 
 

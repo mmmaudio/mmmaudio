@@ -10,7 +10,7 @@ import librosa
 d = {
     "path":"resources/Shiverer.wav",
      "threshold":0.05,# lower is more sensitive
-     "debounce":0.1,# minimum seconds between onsets
+     "min_slice_len":0.1,# minimum seconds between onsets
      "window_size":1024,
      "hop_size":512
 }

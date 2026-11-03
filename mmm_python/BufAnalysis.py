@@ -100,10 +100,6 @@ class MBufAnalysis:
         return _get_bridge().spectral_centroid(dict)
     
     @staticmethod
-    def spectral_flux_onsets(dict:dict):
-        return MBufAnalysis.onset_detection({"metric": "spectral_flux", **dict})
-
-    @staticmethod
     def onset_detection_feature(dict:dict):
         """Onset feature analysis of a buffer.
 
@@ -150,7 +146,7 @@ class MBufAnalysis:
             * **num_frames:** (Int, optional): Number of frames to analyze. Defaults to the remaining buffer.
             * **metric:** (String, optional, default "complex_domain"): Onset metric name.
             * **threshold:** (Float64, optional, default 0.5): Descriptor threshold for trigger detection.
-            * **debounce:** (Float64, optional, default 0.1): Minimum seconds between triggers.
+            * **min_slice_len:** (Float64, optional, default 0.1): Minimum seconds between triggers.
             * **window_size:** (Int, optional, default 1024): FFT window size in samples.
             * **hop_size:** (Int, optional, default window_size // 2): Hop size in samples.
             * **filter_size:** (Int, optional, default 5): Median-filter size.

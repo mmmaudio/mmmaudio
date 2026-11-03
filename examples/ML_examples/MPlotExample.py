@@ -24,7 +24,7 @@ def main():
             # threshold for spectral flux onset detection, lower is more sensitive, higher is less sensitive
             "threshold":0.025,
             # minimum length of slices in seconds
-            "debounce":0.05,
+            "min_slice_len":0.05,
             # window size and hop size used for all analyses
             "window_size":1024,
             "hop_size":512,

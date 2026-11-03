@@ -89,7 +89,7 @@ struct TestFFTProcess(Movable, Copyable):
     def next(mut self) -> SIMD[DType.float64,2]:
 
         self.m.update("onsets_thresh", self.onsets.threshold)
-        self.m.update("onsets_min_slice_len", self.onsets.debounce)
+        self.m.update("onsets_min_slice_len", self.onsets.min_slice_len)
 
         var input = self.playBuf.next(self.buffer, 1.0, True)  # Read samples from the buffer
         var onset = self.onsets.next(input)

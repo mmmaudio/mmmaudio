@@ -7,10 +7,31 @@ from mmm_audio.ML.SafeTensors import SafeTensors
 from mmm_audio.constants import *
 from mmm_audio.Oscillators import Phasor
 
-comptime ACT_NONE = 0
-comptime ACT_RELU = 1
-comptime ACT_SIGMOID = 2
-comptime ACT_TANH = 3
+@fieldwise_init
+struct Activation(Equatable, ImplicitlyCopyable):
+    """The activation that follows a `DenseLayer`.
+
+    | Activation         | Weight file name |
+    | ------------------ | ---------------- |
+    | Activation.none    | "none"           |
+    | Activation.relu    | "relu"           |
+    | Activation.sigmoid | "sigmoid"        |
+    | Activation.tanh    | "tanh"           |
+    """
+    var value: Int
+
+    comptime none = Activation(0)
+    comptime relu = Activation(1)
+    comptime sigmoid = Activation(2)
+    comptime tanh = Activation(3)
+
+    @doc_hidden
+    def __eq__(self, other: Self) -> Bool:
+        return self.value == other.value
+
+    @doc_hidden
+    def __ne__(self, other: Self) -> Bool:
+        return not (self == other)
 
 comptime MLPWeight = Float32
 """Storage and arithmetic type inside the network.
@@ -34,17 +55,17 @@ struct DenseLayer(Copyable, Movable):
 
     var in_size: Int
     var out_size: Int
-    var activation: Int
+    var activation: Activation
     var weight: List[MLPWeight]
     var bias: List[MLPWeight]
 
-    def __init__(out self, in_size: Int, out_size: Int, activation: Int):
+    def __init__(out self, in_size: Int, out_size: Int, activation: Activation):
         """Make a zeroed layer.
 
         Args:
             in_size: Number of inputs.
             out_size: Number of outputs.
-            activation: One of `ACT_NONE`, `ACT_RELU`, `ACT_SIGMOID`, `ACT_TANH`.
+            activation: The activation applied to the layer's output.
         """
         self.in_size = in_size
         self.out_size = out_size
@@ -96,7 +117,7 @@ struct DenseLayer(Copyable, Movable):
             j += 1
 
         # The activation, vectorized over the whole output
-        if self.activation == ACT_NONE:
+        if self.activation == Activation.none:
             return
         var i = 0
         while i + W <= self.out_size:
@@ -109,45 +130,45 @@ struct DenseLayer(Copyable, Movable):
 
 @doc_hidden
 @always_inline
-def _activate[w: Int](v: SIMD[DType.float32, w], activation: Int) -> SIMD[DType.float32, w]:
-    """Apply one of the `ACT_*` activations lane by lane.
+def _activate[w: Int](v: SIMD[DType.float32, w], activation: Activation) -> SIMD[DType.float32, w]:
+    """Apply an `Activation` lane by lane.
 
     Parameters:
         w: Number of lanes.
 
     Args:
         v: The pre-activation values.
-        activation: One of `ACT_NONE`, `ACT_RELU`, `ACT_SIGMOID`, `ACT_TANH`.
+        activation: The activation to apply.
 
     Returns:
         The activated values.
     """
-    if activation == ACT_RELU:
+    if activation == Activation.relu:
         return max(v, 0.0)
-    elif activation == ACT_SIGMOID:
+    elif activation == Activation.sigmoid:
         return 1.0 / (1.0 + exp(-v))
-    elif activation == ACT_TANH:
+    elif activation == Activation.tanh:
         return tanh(v)
     return v
 
 @doc_hidden
-def _activation_code(name: String) raises -> Int:
-    """Map an activation name from the weight file to its `ACT_*` code.
+def _activation_from_name(name: String) raises -> Activation:
+    """Map an activation name from the weight file to its `Activation`.
 
     Args:
         name: One of "none", "relu", "sigmoid", "tanh".
 
     Returns:
-        The matching `ACT_*` constant.
+        The matching `Activation`.
     """
     if name == "none":
-        return ACT_NONE
+        return Activation.none
     elif name == "relu":
-        return ACT_RELU
+        return Activation.relu
     elif name == "sigmoid":
-        return ACT_SIGMOID
+        return Activation.sigmoid
     elif name == "tanh":
-        return ACT_TANH
+        return Activation.tanh
     raise Error("unknown activation: " + name)
 
 struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
@@ -241,7 +262,7 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
                     + " inputs but receives " + String(expected_in)
                 )
 
-            var layer = DenseLayer(in_size, out_size, _activation_code(String(activations[l])))
+            var layer = DenseLayer(in_size, out_size, _activation_from_name(String(activations[l])))
             layer.weight = st.get[DType.float32](prefix + "weight")
             layer.bias = st.get[DType.float32](prefix + "bias")
             if len(layer.bias) != out_size:

@@ -262,10 +262,10 @@ peaks
 
 wsl_fixes/
 # Plugin exporter downloads and build output
-Exporters/PluginExporter/JUCE/
-Exporters/PluginExporter/clap-juce-extensions/
+Exporters/PluginExporter/src/JUCE/
+Exporters/PluginExporter/src/clap-juce-extensions/
 Exporters/PluginExporter/builds/
 # SuperCollider exporter downloads and build output
-Exporters/SCExporter/supercollider/
+Exporters/SCExporter/src/supercollider/
 Exporters/SCExporter/builds/
-Exporters/SCExporter/struct_graphs/
+Exporters/SCExporter/src/struct_graphs/

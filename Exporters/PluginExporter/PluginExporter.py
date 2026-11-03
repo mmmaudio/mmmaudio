@@ -6,8 +6,8 @@ Exporters/PluginExporter/builds/<name>/ and builds it, where <name> is plugin_na
 the graph_name). The finished plugins are left in Exporters/PluginExporter/builds/<name>/plugins/,
 and the call returns their paths.
 
-The first build downloads JUCE (and, for CLAP, clap-juce-extensions) into the
-PluginExporter folder, so it takes a few minutes. Later builds are faster.
+The first build downloads JUCE (and, for CLAP, clap-juce-extensions) into
+Exporters/PluginExporter/src/, so it takes a few minutes. Later builds are faster.
 It needs git and cmake (cmake should be installed via pixi).
 
 macOS requires Xcode's command line tools.

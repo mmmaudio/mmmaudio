@@ -58,12 +58,12 @@ class MLPTrainingGUI():
     def __init__(self,
                  mmm_audio: MMMAudio,
                  input_size: int,
-                 layers: list[list],
-                 labels: list[str],
+                 layers_info: list[list],
+                 fader_labels: list[str],
                  mlp_namespace: str,
                  save_points_path: str,
-                 save_path: str,
-                 controls_list: list,
+                 save_model_path: str,
+                 gui_controls: list,
                  epochs: int = 5000):
         """Build the window and show it.
 
@@ -72,12 +72,12 @@ class MLPTrainingGUI():
                 should be named something other than `mmm_audio`. Doing so will cause an error.
             input_size: Number of inputs to the network. Must equal the number of values the
                 controls in `controls_list` produce.
-            layers: Layer specifications as `[size, activation]` pairs, as in
-                `MLP_Python.train_new_mlp`. The last size must equal `len(lables)`.
-            labels: One label per network output; one output slider is made for each.
+            layers_info: Layer specifications as `[size, activation]` pairs. The last size 
+                must equal `len(fader_labels)`. Possible activations include `"relu"`, `"sigmoid"`, and `"tanh"`.
+            fader_labels: One label per network output; one output slider is made for each.
             mlp_namespace: Namespace of the Mojo `MLP` to send messages to (e.g. `"mlp1"`).
             save_points_path: JSON file the training points are saved to and loaded from.
-            save_path: `.safetensors` file the trained weights are saved to and loaded into MMMAudio from.
+            save_model_path: `.safetensors` file the trained weights are saved to and loaded into MMMAudio from.
             controls_list: Input controls: `Slider2D`s (two inputs each) or Qt sliders with
                 `value()`, `minimum()` and `maximum()` (one input each). This list of controls should match the number of inputs specified by `input_size`. The controls will be added to the window and their values will be normalized to 0.0-1.0 for training.
             epochs: Number of training epochs. Can also be changed in the GUI. Default is 5000.
@@ -86,12 +86,12 @@ class MLPTrainingGUI():
         self.app = QApplication.instance() or QApplication([])
         self.mlp_namespace = mlp_namespace
         self.save_points_path = save_points_path
-        self.save_path = save_path
-        self.out_size = len(labels)
-        self.labels = labels
-        self.controls_list = controls_list
+        self.save_path = save_model_path
+        self.out_size = len(fader_labels)
+        self.labels = fader_labels
+        self.controls_list = gui_controls
         self.input_size = input_size
-        self.layers = layers
+        self.layers = layers_info
         self.epochs = epochs
 
         self.running = True
