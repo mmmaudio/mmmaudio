@@ -105,6 +105,7 @@ struct MessengerExample(Copyable, Movable):
         # Send a new message out every 2 seconds
         if self.counter % (self.world[].sample_rate * 2) == 0:
             self.m.send_floats("list_from_mojo", [random_float64(), random_float64()])
+            self.m.send_floats("list_from_mojo", [random_float64(), random_float64()])
             
         # Send a new message out every 4 seconds
         if self.counter % (self.world[].sample_rate * 4) == 0:

@@ -63,7 +63,7 @@ from mmm_python import *
 
 a = MMMAudio(128 * 8, graph_name="MessengerExample", package_name="examples")
 
-a.start_audio()
+
 
 def list_mojo_callback(vals):
     # The callback is passed a list of all values sent from Mojo since the last poll.
@@ -78,5 +78,5 @@ a.register_response_callback("list_from_mojo", list_mojo_callback)
 
 a.register_response_callback("string_from_mojo", mojo_callback)
 
-
+a.start_audio()
 a.stop_audio()

@@ -537,8 +537,10 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Float64](String(py=key))
             
             if opt:
-                for val in opt.value():
-                    container.append(val)
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
         finally:
             py_self[].audio_state_ptr[].pools.release()
         return PythonObject(None)
@@ -554,14 +556,14 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Float64]](String(py=key))
             
             if opt:
-                
-                for i in range(len(opt.value())):
-                    var py_list = Python.list()
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
                     
-                    for j in opt.value()[i]:
-                        py_list.append(j)
-                    
-                    container.append(py_list)
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
         finally:
             py_self[].audio_state_ptr[].pools.release()
         return PythonObject(None)
@@ -577,8 +579,10 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Int](String(py=key))
             
             if opt:
-                for val in opt.value():
-                    container.append(val)
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
 
         finally:
             py_self[].audio_state_ptr[].pools.release()
@@ -596,13 +600,14 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Int]](String(py=key))
             
             if opt:
-                for i in range(len(opt.value())):
-                    var py_list = Python.list()
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
                     
-                    for j in opt.value()[i]:
-                        py_list.append(j)
-                    
-                    container.append(py_list)
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
 
         finally:
             py_self[].audio_state_ptr[].pools.release()
@@ -619,8 +624,10 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[String](String(py=key))
             
             if opt:
-                for val in opt.value():
-                    container.append(val)
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
 
         finally:
             py_self[].audio_state_ptr[].pools.release()
@@ -637,13 +644,14 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[String]](String(py=key))
             
             if opt:
-                for i in range(len(opt.value())):
-                    var py_list = Python.list()
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
                     
-                    for j in opt.value()[i]:
-                        py_list.append(j)
-                    
-                    container.append(py_list)
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
 
         finally:
             py_self[].audio_state_ptr[].pools.release()
@@ -660,8 +668,10 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Bool](String(py=key))
             
             if opt:
-                for val in opt.value():
-                    container.append(val)
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
 
         finally:
             py_self[].audio_state_ptr[].pools.release()
@@ -678,13 +688,14 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Bool]](String(py=key))
             
             if opt:
-                for i in range(len(opt.value())):
-                    var py_list = Python.list()
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
                     
-                    for j in opt.value()[i]:
-                        py_list.append(j)
-                    
-                    container.append(py_list)
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
 
         finally:
             py_self[].audio_state_ptr[].pools.release()
@@ -702,7 +713,10 @@ struct MMMAudioBridge(Movable, Writable):
             var opt = py_self[].environment_ptr[].out_messenger_manager.get_trig(String(py=key))
             
             if opt:
-                container.append(opt)
+                
+                container[key][0][0] = opt
+                container[key][1][1] = 1
+                container[key][2] = 1
                 
 
         finally:
