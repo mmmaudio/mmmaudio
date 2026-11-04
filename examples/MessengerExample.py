@@ -55,9 +55,11 @@ a.send_bool("tone_1.gate",False)
 a.send_floats("callback", [1.0, 2.0, 3.0])
 
 
+a.stop_audio()
 
-# Messages can be received from Mojo, when received they will run a callback function for the given address.
 
+
+# Messages can be received from Mojo, when received they will run a callback function for the given address. Mojo pools the outgoing messages and delivers them as a list when polled. This can either be a list of lists (if send_floats/strings/ints/bools is used) or a list of values. 
 
 from mmm_python import *
 
@@ -66,7 +68,7 @@ a = MMMAudio(128 * 8, graph_name="MessengerExample", package_name="examples")
 
 
 def list_mojo_callback(vals):
-    # The callback is passed a list of all values sent from Mojo since the last poll.
+    # The callback is passed a list of lists of all values sent from Mojo since the last poll.
     # val = vals[0]
     print("Received values " + str(vals) +  " from Mojo.")
 
@@ -79,4 +81,5 @@ a.register_response_callback("list_from_mojo", list_mojo_callback)
 a.register_response_callback("string_from_mojo", mojo_callback)
 
 a.start_audio()
+
 a.stop_audio()
