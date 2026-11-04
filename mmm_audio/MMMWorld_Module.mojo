@@ -29,6 +29,7 @@ struct Environment(Movable, Copyable):
     var osc_buffers: OscBuffers
     var windows: Windows
     var messenger_manager: MessengerManager
+    var out_messenger_manager: MessengerManager
     var sinc_interpolator: SincInterpolator[4, 14]
 
     def __init__(out self, block_size: Int = 64, num_in_chans: Int = 2, num_out_chans: Int = 2):
@@ -51,6 +52,7 @@ struct Environment(Movable, Copyable):
         self.windows = Windows()
         self.sinc_interpolator = SincInterpolator[4, 14]()
         self.messenger_manager = MessengerManager()
+        self.out_messenger_manager = MessengerManager()
 
 struct MMMWorld(Movable, Copyable, WorldIsMessagable):
     """The MMMWorld struct holds global audio processing parameters and state.
@@ -92,6 +94,14 @@ struct MMMWorld(Movable, Copyable, WorldIsMessagable):
             A reference to the MessengerManager struct.
         """
         return self.environment_ptr.value()[].messenger_manager
+
+    def out_messenger_manager(self) -> ref[self.environment_ptr.value()[].out_messenger_manager] MessengerManager:
+        """Returns a reference to the MessengerManager struct for sending messages.
+
+        Returns:
+            A reference to the MessengerManager struct.
+        """
+        return self.environment_ptr.value()[].out_messenger_manager
 
     def __init__(out self, sample_rate: Float64,
         environment_ptr: Optional[Pointer[mut=True, Environment, MutUntrackedOrigin]] = None,
@@ -151,6 +161,19 @@ struct MMMWorld(Movable, Copyable, WorldIsMessagable):
         return MutPointer[MessengerManager, MutUntrackedOrigin](
             unsafe_from_address=Int(Pointer(to=self.environment_ptr.value()[].messenger_manager))
         )
+
+    def out_messenger_manager_ptr(self) -> MutPointer[MessengerManager, MutUntrackedOrigin]:
+        """A pointer to the Environment's MessengerManager, for `Messenger` (see `WorldIsMessagable`).
+
+        Returns:
+            A pointer to the MessengerManager.
+        """
+        if not self.environment_ptr:
+            abort("MMMWorld has no Environment, so a Messenger can't be created from it.")
+        return MutPointer[MessengerManager, MutUntrackedOrigin](
+            unsafe_from_address=Int(Pointer(to=self.environment_ptr.value()[].out_messenger_manager))
+        )
+
 
     def top_of_block_ptr(self) -> MutPointer[Bool, MutUntrackedOrigin]:
         """A pointer to the Environment's top-of-block flag, for `Messenger` (see `WorldIsMessagable`).

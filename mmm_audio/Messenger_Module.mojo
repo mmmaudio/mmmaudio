@@ -19,6 +19,15 @@ trait WorldIsMessagable:
         """
         ...
 
+    def out_messenger_manager_ptr(self) -> MutPointer[MessengerManager, MutUntrackedOrigin]:
+        """The `MessengerManager` that Mojo's messages are delivered to.
+        
+        Returns:
+            A mutable pointer to the Outgoing MessengerManager.
+        """
+        ...
+
+
     def top_of_block_ptr(self) -> MutPointer[Bool, MutUntrackedOrigin]:
         """The flag that is true while the first sample of a block (or the frame) is processed. Messages are only read while it is set to True.
 
@@ -40,6 +49,7 @@ struct Messenger(Copyable, Movable):
 
     var namespace: Optional[String]
     var _messenger_manager: MutPointer[MessengerManager, MutUntrackedOrigin]
+    var _out_messenger_manager: MutPointer[MessengerManager, MutUntrackedOrigin]
     var _top_of_block: MutPointer[Bool, MutUntrackedOrigin]
 
     var key_dict: Dict[String, String]
@@ -56,6 +66,7 @@ struct Messenger(Copyable, Movable):
         """
 
         self._messenger_manager = world[].messenger_manager_ptr()
+        self._out_messenger_manager = world[].out_messenger_manager_ptr()
         self._top_of_block = world[].top_of_block_ptr()
         self.namespace = namespace
         self.key_dict = Dict[String, String]()
@@ -270,6 +281,42 @@ struct Messenger(Copyable, Movable):
         """
         _ = self.notify_address_callback_all[call_back](name)
 
+
+    ## Sending messages out
+    def send_float(mut self, key: String, val: Float64):
+        self._out_messenger_manager[].update_float_msg(key, val)
+        
+        
+    def send_floats(mut self, key: String, vals: List[Float64]):
+        # Not sure if this needs to be a copy here, but I think it does initially
+        self._out_messenger_manager[].update_floats_msg(key, vals.copy())
+
+    def send_int(mut self, key: String, val: Int):
+        self._out_messenger_manager[].update_int_msg(key, val)
+    
+    def send_ints(mut self, key: String, vals: List[Int]):
+        self._out_messenger_manager[].update_ints_msg(key, vals.copy())
+
+    def send_bool(mut self, key: String, val: Bool):
+        self._out_messenger_manager[].update_bool_msg(key, val)
+
+    def send_bools(mut self, key: String, vals: List[Bool]):
+        self._out_messenger_manager[].update_bools_msg(key, vals.copy())
+
+    def send_string(mut self, key: String, val: String):
+        self._out_messenger_manager[].update_string_msg(key, val)
+
+    def send_strings(mut self, key: String, vals: List[String]):
+        self._out_messenger_manager[].update_strings_msg(key, vals.copy())
+    
+    def send_trig(mut self, key: String):
+        self._out_messenger_manager[].update_trig_msg(key)
+        pass
+
+    def transfer_out_messages(self) raises:
+        if self._top_of_block[]:
+            self._out_messenger_manager[].transfer_msgs()
+
 @doc_hidden
 struct Message[T: Copyable & Deinitable](Movable, Copyable):
     """Every value sent under one name since the last block, in the order they were received."""
@@ -367,6 +414,19 @@ struct MessengerManager(Movable, Copyable):
     var trigs_msg_pool: Dict[String, List[List[Bool]]]
     var trigs_msgs: Dict[String, Message[List[Bool]]]
     
+
+    # Update if a new message has been received
+    
+    var bool_msg_recv : Bool
+    var bools_msg_recv : Bool
+    var float_msg_recv : Bool
+    var floats_msg_recv : Bool
+    var int_msg_recv : Bool
+    var ints_msg_recv : Bool
+    var string_msg_recv : Bool
+    var strings_msg_recv : Bool
+    var trig_recv : Bool
+
     def __init__(out self):
 
         self.bool_msg_pool = Dict[String, List[Bool]]()
@@ -399,6 +459,16 @@ struct MessengerManager(Movable, Copyable):
         self.trigs_msg_pool = Dict[String, List[List[Bool]]]()
         self.trigs_msgs = Dict[String, Message[List[Bool]]]()
 
+        self.bool_msg_recv = False
+        self.bools_msg_recv = False
+        self.float_msg_recv = False
+        self.floats_msg_recv = False
+        self.int_msg_recv = False
+        self.ints_msg_recv = False
+        self.string_msg_recv = False
+        self.strings_msg_recv = False
+        self.trig_recv = False
+
     # update_*_msg functions are called from Python (via the bridge). Each one
     # appends to the pool, so several messages sent to the same name before
     # the next block are all kept, in order.
@@ -407,43 +477,52 @@ struct MessengerManager(Movable, Copyable):
     @always_inline
     def update_bool_msg(mut self, key: String, value: Bool):
         _pool_msg(self.bool_msg_pool, key, value)
-
+        self.bool_msg_recv = True
     @always_inline
     def update_bools_msg(mut self, key: String, var value: List[Bool]):
         _pool_msg(self.bools_msg_pool, key, value^)
-
+        self.bools_msg_recv = True
+    
     ##### Float #####
     @always_inline
     def update_float_msg(mut self, key: String, value: Float64):
         _pool_msg(self.float_msg_pool, key, value)
+        self.float_msg_recv = True
+        
 
     @always_inline
     def update_floats_msg(mut self, key: String, var value: List[Float64]):
         _pool_msg(self.floats_msg_pool, key, value^)
-
+        self.floats_msg_recv = True
+    
     ##### Int #####
     @always_inline
     def update_int_msg(mut self, key: String, value: Int):
         _pool_msg(self.int_msg_pool, key, value)
+        self.int_msg_recv = True
     
     @always_inline
     def update_ints_msg(mut self, key: String, var value: List[Int]):
         _pool_msg(self.ints_msg_pool, key, value^)
-
+        self.ints_msg_recv = True
+    
     ##### String #####
     @always_inline
     def update_string_msg(mut self, key: String, value: String):
         _pool_msg(self.string_msg_pool, key, value)
+        self.string_msg_recv = True
 
     @always_inline
     def update_strings_msg(mut self, key: String, var value: List[String]):
         _pool_msg(self.strings_msg_pool, key, value^)
-
+        self.strings_msg_recv = True
+    
     ##### Trig #####
     @always_inline
     def update_trig_msg(mut self, var key: String):
         self.trig_msg_pool.add(key^)
-
+        self.trig_recv = True
+    
     @always_inline
     def update_trigs_msg(mut self, key: String, var value: List[Bool]):
         _pool_msg(self.trigs_msg_pool, key, value^)
@@ -465,6 +544,8 @@ struct MessengerManager(Movable, Copyable):
         self.trig_msg_pool.clear() 
 
         _transfer_pool(self.trigs_msg_pool, self.trigs_msgs)
+
+        
 
     @doc_hidden
     def _update_param[T: Copyable & Deinitable](mut self, key: String, mut param: T) raises -> Bool:
@@ -667,3 +748,13 @@ struct MessengerManager(Movable, Copyable):
                 print("Trig message was not retrieved this block:", tm.key)
 
         _empty_msgs(self.trigs_msgs, "Trigs")
+        
+        self.bool_msg_recv = False
+        self.bools_msg_recv = False
+        self.float_msg_recv = False
+        self.floats_msg_recv = False
+        self.int_msg_recv = False
+        self.ints_msg_recv = False
+        self.string_msg_recv = False
+        self.strings_msg_recv = False
+        self.trig_recv = False

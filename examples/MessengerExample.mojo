@@ -1,4 +1,5 @@
 from mmm_audio import *
+# from std.random import random_si64
 
 struct Tone(Movable,Copyable):
     var world: World
@@ -39,6 +40,7 @@ struct MessengerExample(Copyable, Movable):
     var ints: List[Int]
     var string: String
     var strings: List[String]
+    var counter: Float64
 
     def __init__(out self, world: World):
         self.world = world
@@ -56,6 +58,8 @@ struct MessengerExample(Copyable, Movable):
         self.ints = [0, 0]
         self.string = ""
         self.strings = ["", ""]
+        self.counter = 0
+    
     def next(mut self) -> MFloat[2]:
 
         
@@ -97,6 +101,17 @@ struct MessengerExample(Copyable, Movable):
             print("Appended the following floats to self.floats: ", vals, " self.floats is now holding: ", self.floats)
 
         self.m.address_callback[recv_floats]("callback")
+
+        # Send a new message out every 2 seconds
+        if self.counter % (self.world[].sample_rate * 2) == 0:
+            self.m.send_floats("list_from_mojo", [random_float64(), random_float64()])
+            self.m.send_floats("list_from_mojo", [random_float64(), random_float64()])
+            
+        # Send a new message out every 4 seconds
+        if self.counter % (self.world[].sample_rate * 4) == 0:
+            self.m.send_string("string_from_mojo", ["Hello World!", "nihao shijie", "My life for aiur"][random_si64(0,2)])
+        
+        self.counter += 1
 
         var out = MFloat[2](0.0, 0.0)
         for i in range(2):

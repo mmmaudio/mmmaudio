@@ -81,6 +81,7 @@ class AudioCommand(IntEnum):
     GET_SAMPLES = 12
     UPDATE_MOUSE = 13  # New command for mouse updates
     SET_SCREEN_DIMS = 14  # New command for screen dimensions
+    POLL_MSGS = 15
 
 class MMMAudio:
     """
@@ -163,6 +164,14 @@ class MMMAudio:
         # Shared values for real-time parameter control
         self.shared_float_params = {}
         self.shared_int_params = {}
+        
+        
+        from mmm_python import Scheduler
+        self.response_callbacks = {}
+        self.response_key_flags = []
+        self.response_scheduler = Scheduler()
+        self.poll_rate = 0.01
+        self.response_dict = {}
 
         MMMAudio.instances.append(self)
 
@@ -316,10 +325,31 @@ class MMMAudio:
     
     def start_audio(self):
         """Start audio streaming in the audio process"""
+        from mmm_python import Scheduler
+        
+        
+        self.response_scheduler.stop_routs()
+        
+        
+        
+        async def receive_message_loop():
+            while True:
+                if len(self.response_callbacks):
+                    
+                    self.poll_incoming_msgs(list(self.response_callbacks))
+                        # self.clear_out_msgs()
+                await asyncio.sleep(self.poll_rate)
+        self.response_scheduler.start_thread()
+        self.response_scheduler.sched(receive_message_loop())
+        # self.response_scheduler = asyncio.create_task(receive_message_loop())
+        
         self.command_queue.put((AudioCommand.START_AUDIO, None))
     
     def stop_audio(self):
         """Stop audio streaming in the audio process"""
+        
+        self.response_scheduler.stop_routs()
+        
         self.command_queue.put((AudioCommand.STOP_AUDIO, None))
     
     def is_running(self) -> bool:
@@ -418,6 +448,64 @@ class MMMAudio:
         """Send screen dimensions to the audio process."""
         self.command_queue.put((AudioCommand.SET_SCREEN_DIMS, (width, height)))
     
+    # =========================================================================
+    # Message receiving methods
+    # =========================================================================
+    
+    
+    def register_response_callback(self, key: str, callback):
+        """
+        Register a callback function when Python receives a message from Mojo on a specific address. 
+        
+        Arguments:
+            key: The key that the message is sent to.
+            callback: A callback function to be ran when a message is received on the specified key.
+            data_flag: The data type of the incoming data. Options are:
+                int, ints, float, floats, bool, bools, string, strings, trig
+        
+        """
+        self.response_dict[key] = [[], [], 0]
+        self.response_callbacks[key] = callback
+        
+    
+    def deregister_response_callback(self, key: str):
+        """
+        Remove a callback.
+        """
+        self.response_callbacks.pop(key, None)
+        
+    def poll_incoming_msgs(self, keys: list):
+        """
+        Poll Mojo for outgoing messages. If a callback function is registered to a specific key, run that callback function for the incoming data.
+        """
+        
+        self.command_queue.put((AudioCommand.POLL_MSGS, (keys, 2048)))
+        
+        try:
+            response = self.response_queue.get(timeout=30.0)
+            
+            if response[0] == "MSG_RECEIVED":
+                key = response[1][0]
+                vals = response[1][1][0]
+                indexes = response[1][1][1]
+                num_lists = response[1][1][2]
+                
+                if vals != self.response_dict[key][0]:
+                    if num_lists != 1:
+                        formatted_vals = []
+                        for i in range(num_lists):
+                            formatted_vals.append(vals[indexes[i]:indexes[i+1]])
+                        self.response_callbacks[key](formatted_vals)
+                    else:
+                        self.response_callbacks[key](vals[indexes[0]:indexes[1]])
+                
+                    self.response_dict[key][0] = vals
+                
+                
+        except Exception as e:
+            print("Something went wrong")
+        
+  
     # =========================================================================
     # Methods that need response from audio process
     # =========================================================================
@@ -543,7 +631,7 @@ class MMMAudio:
         print(f"[Child] Python: {sys.version}", flush=True)
         import os
         import traceback
-        
+        msgs = {}
         pid = os.getpid()
         
         try:
@@ -746,6 +834,29 @@ class MMMAudio:
                 mmm_audio_bridge.set_screen_dims((width, height))
                 return True
 
+            
+            def handle_poll_incoming_msgs(args):
+                keys = args[0]
+                max_size = args[1]
+                mmm_audio_bridge.get_out_messages()
+                
+                
+                
+                for key in keys:
+                    if not key in msgs:
+                        msgs[key] = [[0 for _ in range(max_size)], [0 for _ in range(max_size)], 0]
+                mmm_audio_bridge.receive_messages(msgs)
+                
+                for key in msgs:
+                    
+                    response_queue.put(("MSG_RECEIVED", (key, msgs[key])))
+                    
+                mmm_audio_bridge.clear_out_msgs()
+            
+                
+                return True
+            
+                
             command_handlers = [
                 handle_stop_process,      # 0
                 handle_start_audio,       # 1
@@ -762,6 +873,7 @@ class MMMAudio:
                 handle_get_samples,       # 12
                 handle_update_mouse,      # 13
                 handle_set_screen_dims,   # 14
+                handle_poll_incoming_msgs,          # 15
             ]
 
             # =========================================================================
