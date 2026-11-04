@@ -171,6 +171,7 @@ class MMMAudio:
         self.response_key_flags = []
         self.response_scheduler = Scheduler()
         self.poll_rate = 0.01
+        self.response_dict = {}
 
         MMMAudio.instances.append(self)
 
@@ -463,7 +464,7 @@ class MMMAudio:
                 int, ints, float, floats, bool, bools, string, strings, trig
         
         """
-        
+        self.response_dict[key] = [[], [], 0]
         self.response_callbacks[key] = callback
         
     
@@ -478,17 +479,28 @@ class MMMAudio:
         Poll Mojo for outgoing messages. If a callback function is registered to a specific key, run that callback function for the incoming data.
         """
         
-        self.command_queue.put((AudioCommand.POLL_MSGS, (keys,)))
+        self.command_queue.put((AudioCommand.POLL_MSGS, (keys, 2048)))
         
         try:
             response = self.response_queue.get(timeout=30.0)
+            
             if response[0] == "MSG_RECEIVED":
                 key = response[1][0]
-                vals = response[1][1]
+                vals = response[1][1][0]
+                indexes = response[1][1][1]
+                num_lists = response[1][1][2]
                 
-                if vals:
-                    
-                    self.response_callbacks[key](vals)
+                if vals != self.response_dict[key][0]:
+                    if num_lists != 1:
+                        formatted_vals = []
+                        for i in range(num_lists):
+                            formatted_vals.append(vals[indexes[i]:indexes[i+1]])
+                        self.response_callbacks[key](formatted_vals)
+                    else:
+                        self.response_callbacks[key](vals[indexes[0]:indexes[1]])
+                
+                    self.response_dict[key][0] = vals
+                
                 
         except Exception as e:
             print("Something went wrong")
@@ -619,7 +631,7 @@ class MMMAudio:
         print(f"[Child] Python: {sys.version}", flush=True)
         import os
         import traceback
-        
+        msgs = {}
         pid = os.getpid()
         
         try:
@@ -825,12 +837,14 @@ class MMMAudio:
             
             def handle_poll_incoming_msgs(args):
                 keys = args[0]
-                
+                max_size = args[1]
                 mmm_audio_bridge.get_out_messages()
                 
-                msgs = {}
+                
+                
                 for key in keys:
-                    msgs[key] = []
+                    if not key in msgs:
+                        msgs[key] = [[0 for _ in range(max_size)], [0 for _ in range(max_size)], 0]
                 mmm_audio_bridge.receive_messages(msgs)
                 
                 for key in msgs:

@@ -729,79 +729,92 @@ struct MMMAudioBridge(Movable, Writable):
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Bool](String(py=key))
                     
                     if opt:
-                        for val in opt.value():
-                            container[py_key].append(val)
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1
 
                 if py_self[].environment_ptr[].out_messenger_manager.float_msg_recv:
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Float64](String(py=key))
                     
                     if opt:
-                        for val in opt.value():
-                            container[py_key].append(val)    
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1    
             
                 if py_self[].environment_ptr[].out_messenger_manager.int_msg_recv:
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Int](String(py=key))
             
                     if opt:
-                        for val in opt.value():
-                            container[py_key].append(val)
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1
                 
                 if py_self[].environment_ptr[].out_messenger_manager.string_msg_recv:
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[String](String(py=key))
             
                     if opt:
-                        for val in opt.value():
-                            container[py_key].append(val)
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1
             
                 ## Check for lists
                 if py_self[].environment_ptr[].out_messenger_manager.bools_msg_recv:
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Bool]](String(py=key))
             
                     if opt:
-                        for i in range(len(opt.value())):
-                            var py_list = Python.list()
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
                             
-                            for j in opt.value()[i]:
-                                py_list.append(j)
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
                             
-                            container[py_key].append(py_list)
                     
 
                 if py_self[].environment_ptr[].out_messenger_manager.floats_msg_recv:
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Float64]](String(py=key))
             
                     if opt:
-                        for i in range(len(opt.value())):
-                            var py_list = Python.list()
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
                             
-                            for j in opt.value()[i]:
-                                py_list.append(j)
-                            
-                            container[py_key].append(py_list) 
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
             
                 if py_self[].environment_ptr[].out_messenger_manager.ints_msg_recv:
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Int]](String(py=key))
             
                     if opt:
-                        for i in range(len(opt.value())):
-                            var py_list = Python.list()
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
                             
-                            for j in opt.value()[i]:
-                                py_list.append(j)
-                            
-                            container[py_key].append(py_list)
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
                 
                 if py_self[].environment_ptr[].out_messenger_manager.strings_msg_recv:
                     var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[String]](String(py=key))
             
                     if opt:
-                        for i in range(len(opt.value())):
-                            var py_list = Python.list()
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
                             
-                            for j in opt.value()[i]:
-                                py_list.append(j)
-                            
-                            container[py_key].append(py_list)
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
 
         finally:
             py_self[].audio_state_ptr[].pools.release()
