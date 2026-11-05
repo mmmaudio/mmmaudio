@@ -54,10 +54,10 @@ a.send_strings("strings", ["goodbye", "there", "general", "grievous"])
 a.send_trig("trig")
 
 # default midi messages will not print any error even if they are not handled by the graph
-a.send_midi([0x90, 60, 127]) # note on, middle C, velocity 127
-a.send_ints("note_off", [0x80, 60, 0])   # note off
-a.send_ints("cc", [0xB0, 1, 127])        # cc 1, value 127
-a.send_ints("pitch_bend", [0xE0, 0, 64])  # pitch bend, value 8192
+a.route_raw_midi([0x90, 60, 127]) # note on, middle C, velocity 127
+a.send_ints("midi_note_off", [1, 60, 0])      # note off, channel 1, middle C
+a.send_ints("midi_cc", [1, 1, 127])           # channel 1, cc 1, value 127
+a.send_ints("midi_pitch_bend", [1, 8192])     # channel 1, no bend
 
 # everything else will
 a.send_ints("unknown", [0xF0, 0, 0]) # unknown message

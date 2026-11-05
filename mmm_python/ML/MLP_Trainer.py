@@ -1,6 +1,6 @@
 """A GUI for collecting training points, training an MLP, and loading it into a running MMMAudio graph.
 
-`MLPTrainingGUI` is the interactive front end for the pure Mojo `MLP` (`MLP_Module.mojo`)
+`MLPTrainingGUI` is the interactive front end for the pure Mojo `MLP_Interface` (`MLP_Module.mojo`)
 and the PyTorch training code in `MLP_Python.py`. It maps a set of input controls (the X
 side of the network) to a bank of output sliders (the y side), lets you collect X/y pairs
 by ear, trains a network on them in PyTorch, and hands the result to the synth, which runs inference in pure Mojo.
@@ -16,7 +16,7 @@ A typical session:
 
 You can also save and load the training points to a JSON file, and the trained weights are saved as a safetensors file. This means you can make a training set in Python, save it, and then load it into the GUI later to continue training or to train a new network.
 
-The Mojo graph needs an `MLP` whose `input_size` and `output_size` match the GUI, and whose
+The Mojo graph needs an `MLP_Interface` whose `input_size` and `output_size` match the GUI, and whose
 namespace matches `mlp_namespace`. See `examples/ML_examples/MLP_Synth.py` for a full example.
 """
 
@@ -44,7 +44,7 @@ class MLPTrainingGUI():
     - **train model**: train a new network on the stored pairs in a background thread, save it to
       "save path", and load it into MMMAudio when it is done.
     - **load model to MMMAudio**: load the weights at "save path" without training.
-    - **toggle inference**: switch the Mojo `MLP` between running the network and following the output sliders.
+    - **toggle inference**: switch the Mojo `MLP_Interface` between running the network and following the output sliders.
     - **namespace, save points path, save path, epochs**: edit the matching settings while the GUI is running.
 
     Input values are normalized to 0.0-1.0: a `Slider2D` adds two inputs (x and y), and any
@@ -71,14 +71,14 @@ class MLPTrainingGUI():
             mmm_audio: The `MMMAudio` instance to send messages to. This variable
                 should be named something other than `mmm_audio`. Doing so will cause an error.
             input_size: Number of inputs to the network. Must equal the number of values the
-                controls in `controls_list` produce.
+                controls in `gui_controls` produce.
             layers_info: Layer specifications as `[size, activation]` pairs. The last size 
                 must equal `len(fader_labels)`. Possible activations include `"relu"`, `"sigmoid"`, and `"tanh"`.
             fader_labels: One label per network output; one output slider is made for each.
-            mlp_namespace: Namespace of the Mojo `MLP` to send messages to (e.g. `"mlp1"`).
+            mlp_namespace: Namespace of the Mojo `MLP_Interface` to send messages to (e.g. `"mlp1"`).
             save_points_path: JSON file the training points are saved to and loaded from.
             save_model_path: `.safetensors` file the trained weights are saved to and loaded into MMMAudio from.
-            controls_list: Input controls: `Slider2D`s (two inputs each) or Qt sliders with
+            gui_controls: Input controls: `Slider2D`s (two inputs each) or Qt sliders with
                 `value()`, `minimum()` and `maximum()` (one input each). This list of controls should match the number of inputs specified by `input_size`. The controls will be added to the window and their values will be normalized to 0.0-1.0 for training.
             epochs: Number of training epochs. Can also be changed in the GUI. Default is 5000.
         """
@@ -395,13 +395,13 @@ class MLPTrainingGUI():
 
         Training runs in a background thread on a copy of the points, so the GUI and audio
         keep running. When it finishes, the weights are saved to `save_path` and loaded into
-        the `MLP` at `mlp_namespace`. Nothing is trained if there are no points or the sizes
+        the `MLP_Interface` at `mlp_namespace`. Nothing is trained if there are no points or the sizes
         of the points, `input_size`, `layers` and the labels don't agree.
         """
         if not self.X_train_list:
             print("no training points - add some before training")
             return
-        # catch size mismatches here, rather than when the Mojo MLP rejects the file
+        # catch size mismatches here, rather than when the Mojo MLP_Interface rejects the file
         out_size = self.layers[-1][0]
         if out_size != self.out_size:
             print(f"last layer size {out_size} doesn't match the {self.out_size} labels")
@@ -436,7 +436,7 @@ class MLPTrainingGUI():
         training_thread.start()
 
     def load_model(self):
-        """Load the weights at `save_path` into the `MLP` at `mlp_namespace`."""
+        """Load the weights at `save_path` into the `MLP_Interface` at `mlp_namespace`."""
         self.mmm_audio.send_string(self.mlp_namespace + ".load_mlp_training", self.save_path)
 
     def on_close(self, event):

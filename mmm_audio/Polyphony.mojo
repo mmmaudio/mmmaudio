@@ -254,7 +254,7 @@ struct Poly(Movable, Copyable):
         return -1
 
     def next_gate[T: PolyObject](mut self, mut poly_objects: List[T], key: Int, gate: Bool) -> Int:
-        """Opens or closes the gate of the voice playing `key`. Designed for note on/note off messages, such as a List of [note, velocity] lists received with `Messenger.notify_update_all`, and can be called once for each message in a sample.
+        """Opens or closes the gate of the voice playing `key`. Designed for note on/note off messages, such as the List of [channel, note, velocity] MIDI note lists received with `Messenger.notify_update_all`, and can be called once for each message in a sample.
 
         When `gate` is True, looks for a free voice, opens its gate and remembers that it is playing `key`. When `gate` is False, closes the gate of the voice playing `key` and forgets it.
 

@@ -31,8 +31,8 @@ rescan the host afterwards to see them.
 
 The folder created in the builds/ directory is a JUCE project with all necessary files, so it can be moved to a new location, and you can edit it and build it yourself. Instructions on how to build it with CMake on the command line are in the README.md in that folder. To work on it in Xcode, generate an Xcode project from that folder with `cmake -S . -B build-xcode -G Xcode` and open build-xcode/<name>.xcodeproj.
 
-Every plugin accepts MIDI and passes it to the graph as "note_on", "note_off",
-"cc", "pitch_bend" and so on, the same messages `MMMAudio.send_midi` sends.
+Every plugin accepts MIDI and passes it to the graph as "midi_note_on", "midi_note_off",
+"midi_cc", "midi_pitch_bend" and so on, the same messages `MMMAudio.route_raw_midi` sends.
 See Exporters/PluginExporter/export_plugin.py for the details.
 """
 from Exporters.PluginExporter.export_plugin import export_plugin

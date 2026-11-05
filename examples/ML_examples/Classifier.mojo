@@ -9,6 +9,8 @@ comptime n_mfcc = 13
 
 struct ClassifierWindow(FFTProcessable):
     var model: MLP[n_mfcc, 1]
+    var model_input: Array[Float64, n_mfcc]
+    var model_output: Array[Float64, 1]
     var scaler: StandardScaler
     var mfcc: MFCC
     var scaled_coeffs: List[Float64]
@@ -19,16 +21,19 @@ struct ClassifierWindow(FFTProcessable):
         self.scaled_coeffs = List[Float64](fill=0.0, length=n_mfcc)
     
         # pure Mojo inference: no Python or torch on the audio thread
-        self.model = MLP[n_mfcc, 1](world, model_path, namespace="classifier")
+        self.model = MLP[n_mfcc, 1](model_path)
+        self.model_input = Array[Float64, n_mfcc](fill=0.0)
+        self.model_output = Array[Float64, 1](fill=0.0)
 
     def next_frame(mut self, mut mags: List[Float64], mut phss: List[Float64]):
         self.mfcc.from_mags(mags)
         self.scaler.transform_point(self.mfcc.coeffs, self.scaled_coeffs)
         comptime for i in range(n_mfcc):
-            self.model.model_input[i] = self.scaled_coeffs[i]
-        self.model.next[every_next=True]() #every_next=True means the model will run every time next_frame is called
+            self.model_input[i] = self.scaled_coeffs[i]
+        # runs the network once per FFT frame
+        self.model.forward(self.model_input, self.model_output)
         # the exported model ends in a sigmoid, so this is the probability of "dog"
-        var o = self.model.model_output[0]
+        var o = self.model_output[0]
         var display: String = "🐶" if o > 0.5 else "❌"
         print("Dog:",display,"---", o)
 

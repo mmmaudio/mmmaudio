@@ -436,3 +436,18 @@ def coin(p: float) -> bool:
     """
     p = clip(p, 0.0, 1.0) 
     return random.random() < p
+
+def raw_midi_to_list(message: list[int]) -> list[int]:
+    """Convert a raw MIDI message to a list of integers.
+
+    Args:
+        message: The raw MIDI message as a list of integers.
+
+    Returns:
+        The raw MIDI message as a list of integers.
+    """
+    if len(message) < 2 or message[0] < 0x80 or message[0] >= 0xF0:
+        return [0,0,0]
+    kind = message[0] & 0xF0
+    channel = (message[0] & 0x0F) + 1
+    return [channel, message[1], message[2]]

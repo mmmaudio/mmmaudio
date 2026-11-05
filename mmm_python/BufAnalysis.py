@@ -100,6 +100,10 @@ class MBufAnalysis:
         return _get_bridge().spectral_centroid(dict)
     
     @staticmethod
+    def spectral_flux_onsets(dict:dict):
+        return MBufAnalysis.onset_detection({"metric": "spectral_flux", **dict})
+
+    @staticmethod
     def onset_detection_feature(dict:dict):
         """Onset feature analysis of a buffer.
 

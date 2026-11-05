@@ -104,14 +104,14 @@ list messages:
 
 | Message | Contents |
 |---|---|
-| `note_on` / `note_off` | `[note, velocity, channel]` |
-| `cc` | `[controller, value, channel]` |
-| `pitch_bend` | `[value, channel]` |
-| `poly_aftertouch` | `[note, pressure, channel]` |
-| `channel_pressure` | `[pressure, channel]` |
-| `program_change` | `[program, channel]` |
+| `midi_note_on` / `midi_note_off` | `[channel, note, velocity]` |
+| `midi_cc` | `[channel, controller, value]` |
+| `midi_pitch_bend` | `[channel, value]` |
+| `midi_poly_aftertouch` | `[channel, note, pressure]` |
+| `midi_channel_pressure` | `[channel, pressure]` |
+| `midi_program_change` | `[channel, program]` |
 
-`MMMAudio.send_midi` sends the same messages, so a graph behaves the same with a MIDI
+`MMMAudio.route_raw_midi` sends the same messages, so a graph behaves the same with a MIDI
 device in Python and as a plugin.
 
 ## The project folder

@@ -216,13 +216,13 @@ void MMMAudioProcessor::sendParams (MMMBridge::Handle h)
 // sent under a name during a block is pooled, so a graph reads them all, in
 // order, with Messenger.notify_update_all into a List[List[Int]]:
 //
-//   "note_on"          [note, velocity, channel]
-//   "note_off"         [note, velocity, channel]   (includes note ons with velocity 0)
-//   "cc"               [controller, value, channel]
-//   "pitch_bend"       [value, channel]            (0 to 16383, 8192 is no bend)
-//   "poly_aftertouch"  [note, pressure, channel]
-//   "channel_pressure" [pressure, channel]
-//   "program_change"   [program, channel]
+//   "midi_note_on"          [channel, note, velocity]
+//   "midi_note_off"         [channel, note, velocity]   (includes note ons with velocity 0)
+//   "midi_cc"               [channel, controller, value]
+//   "midi_pitch_bend"       [channel, value]            (0 to 16383, 8192 is no bend)
+//   "midi_poly_aftertouch"  [channel, note, pressure]
+//   "midi_channel_pressure" [channel, pressure]
+//   "midi_program_change"   [channel, program]
 //
 // Channels are 1 to 16. Anything else (sysex, clock, ...) is ignored.
 void MMMAudioProcessor::sendMidi (MMMBridge::Handle h, const juce::MidiMessage& m)
@@ -233,13 +233,13 @@ void MMMAudioProcessor::sendMidi (MMMBridge::Handle h, const juce::MidiMessage& 
         bridge.sendInts (h, key, vals.begin(), (intptr_t) vals.size());
     };
 
-    if (m.isNoteOn())                send ("note_on", { m.getNoteNumber(), m.getVelocity(), chan });
-    else if (m.isNoteOff())          send ("note_off", { m.getNoteNumber(), m.getVelocity(), chan });
-    else if (m.isController())       send ("cc", { m.getControllerNumber(), m.getControllerValue(), chan });
-    else if (m.isPitchWheel())       send ("pitch_bend", { m.getPitchWheelValue(), chan });
-    else if (m.isAftertouch())       send ("poly_aftertouch", { m.getNoteNumber(), m.getAfterTouchValue(), chan });
-    else if (m.isChannelPressure())  send ("channel_pressure", { m.getChannelPressureValue(), chan });
-    else if (m.isProgramChange())    send ("program_change", { m.getProgramChangeNumber(), chan });
+    if (m.isNoteOn())                send ("midi_note_on", { chan, m.getNoteNumber(), m.getVelocity() });
+    else if (m.isNoteOff())          send ("midi_note_off", { chan, m.getNoteNumber(), m.getVelocity() });
+    else if (m.isController())       send ("midi_cc", { chan, m.getControllerNumber(), m.getControllerValue() });
+    else if (m.isPitchWheel())       send ("midi_pitch_bend", { chan, m.getPitchWheelValue() });
+    else if (m.isAftertouch())       send ("midi_poly_aftertouch", { chan, m.getNoteNumber(), m.getAfterTouchValue() });
+    else if (m.isChannelPressure())  send ("midi_channel_pressure", { chan, m.getChannelPressureValue() });
+    else if (m.isProgramChange())    send ("midi_program_change", { chan, m.getProgramChangeNumber() });
 }
 
 void MMMAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)

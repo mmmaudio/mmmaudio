@@ -26,12 +26,12 @@ if True:
     tg = MLP_Trainer.MLPTrainingGUI(
         m_a, #this cannot be named `mmm_audio` because that is the package name
         input_size,
-        layers,
-        labels = ["freq1", "mod1", "osc1_frac", "sr_reduction", "lpf1", "q1", "tanh_gain2", "freq2", "mod2", "osc2_frac", "sr_reduction2", "lpf2", "q2", "tanh_gain2"],
+        layers_info = layers,
+        fader_labels = ["freq1", "mod1", "osc1_frac", "sr_reduction", "lpf1", "q1", "tanh_gain2", "freq2", "mod2", "osc2_frac", "sr_reduction2", "lpf2", "q2", "tanh_gain2"],
         mlp_namespace = "mlp1",
         save_points_path = "examples/ML_examples/nn_trainings/mlp_example_training_points.json",
-        save_path = "examples/ML_examples/nn_trainings/mlp_example_training.safetensors",
-        controls_list = [
+        save_model_path = "examples/ML_examples/nn_trainings/mlp_example_training.safetensors",
+        gui_controls = [
             Slider2D(200, 200)
         ],
         epochs = 5000)

@@ -10,7 +10,6 @@ struct TrigSynthVoice(PolyObject):
     var mod: Osc[]
     var car: Osc[1, Interp.linear]
     var sub: Osc[]
-    var bend_mul: Float64
     var note: List[Float64]
     var trigger: Bool
 
@@ -29,7 +28,6 @@ struct TrigSynthVoice(PolyObject):
         self.sub = Osc(self.world)
         self.env = Env(self.world)
         self.env.params = EnvParams([0.0, 1.0, 0.75, 0.75, 0.0], [0.01, 0.1, 0.2, 0.5], [1.0])
-        self.bend_mul = 1.0
         self.note = List[Float64]()
         self.trigger = False
 
@@ -39,7 +37,7 @@ struct TrigSynthVoice(PolyObject):
         if not self.env.is_active and not self.trigger:
             return 0.0
         else:
-            var bend_freq = self.note[0] * self.bend_mul
+            var bend_freq = self.note[0]
             var mod_value = self.mod.next(bend_freq * 1.5)  
             var env = self.env.next(self.trigger)  
             var mod_mult = env * 0.5 * linlin(bend_freq, 1000, 4000, 1, 0) #decrease the mod amount as freq increases
@@ -62,13 +60,7 @@ struct MidiSequencer(Movable, Copyable):
     var messenger: Messenger
     var num_voices: Int
     var svf: SVF[]
-    var filt_lag: Lag[]
-    var filt_freq: Float64
-    var bend_mul: Float64
-    var notes: List[List[Float64]]
-    var note_ons: List[List[Int]]
-    var ccs: List[List[Int]]
-    var bends: List[List[Int]]
+    var filt_freq: Lag[]
 
     var voices: List[TrigSynthVoice]
     var poly: Poly
@@ -82,13 +74,8 @@ struct MidiSequencer(Movable, Copyable):
         self.voices = [TrigSynthVoice(self.world) for _ in range(num_voices)]  # Initialize the list of voices
 
         self.svf = SVF(self.world)
-        self.filt_lag = Lag(self.world, 0.1)
-        self.filt_freq = 1000.0
-        self.bend_mul = 1.0
-        self.notes = List[List[Float64]]()
-        self.note_ons = List[List[Int]]()
-        self.ccs = List[List[Int]]()
-        self.bends = List[List[Int]]()
+        self.filt_freq = Lag(self.world, 0.1)
+        self.filt_freq.input = 1000.0
         self.poly = Poly(world, num_voices)
 
     # each trigger finds and triggers a different free voice
@@ -105,32 +92,26 @@ struct MidiSequencer(Movable, Copyable):
         _ = self.poly.next_trig(self.voices, False)
 
         # the sequencer sends each note as a [freq, amplitude] list with send_floats("notes", ...)
-        if self.messenger.notify_update_all("notes", self.notes):
-            for ref note in self.notes:
+        def notes_callback(notes: List[List[Float64]]) capturing -> None:
+            for ref note in notes:
                 self.trigger_note(note[0], note[1])
+        self.messenger.address_callback_all[notes_callback]("notes")
 
-        # MIDI note ons are [note, velocity, channel]. The voices have their own release, so note_off is ignored.
-        if self.messenger.notify_update_all("note_on", self.note_ons):
-            for ref note in self.note_ons:
-                self.trigger_note(midicps(Float64(note[0])), Float64(note[1]) / 127.0)
+        # MIDI note ons are [channel, note, velocity]. The voices have their own release, so midi_note_off is ignored.
+        def note_on_callback(notes: List[List[Int]]) capturing -> None:
+            for ref note in notes:
+                self.trigger_note(midicps(Float64(note[1])), Float64(note[2]) / 127.0)
+        self.messenger.address_callback_all[note_on_callback]("midi_note_on")
 
         # add the values of all the voices
         for i in range(len(self.voices)):
             out += self.voices[i].next()
 
         # the sequencer sets the filter with "filt_freq" and a MIDI keyboard sets it with cc 34
-        self.messenger.update("filt_freq", self.filt_freq)
-        if self.messenger.notify_update_all("cc", self.ccs):
-            for ref cc in self.ccs:
-                if cc[0] == 34:
-                    self.filt_freq = linexp(Float64(cc[1]), 0.0, 127.0, 100.0, 4000.0)
+        def filt_freq_callback(freq: Float64) capturing -> None:
+            self.filt_freq.input = freq
+        self.messenger.address_callback[filt_freq_callback]("filt_freq")
 
-        # pitch bend is [value, channel], where value is 0 to 16383 and 8192 is no bend. Bends about a semitone either way.
-        if self.messenger.notify_update_all("pitch_bend", self.bends):
-            self.bend_mul = linlin(Float64(self.bends[len(self.bends) - 1][0]), 0.0, 16383.0, 0.9375, 1.0625)
-            for i in range(len(self.voices)):
-                self.voices[i].bend_mul = self.bend_mul
-
-        out = self.svf.lpf(out, self.filt_lag.next(self.filt_freq), 2.0) * 0.6
+        out = self.svf.lpf(out, self.filt_freq.next(), 2.0) * 0.6
 
         return out

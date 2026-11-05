@@ -2,51 +2,6 @@ from mmm_audio import *
 
 # THE SYNTH
 
-
-# The synth here, called StereoBeatingSines, is not yet the "graph" that MMMAudio will 
-# call upon to make sound with. StereoBeatingSines is a struct that
-# defines some DSP behavior that can be called upon by 
-# the ManyOscillators graph below.
-
-struct StereoBeatingSines(Movable, Copyable):
-    var world: World # pointer to the MMMWorld
-    var osc1: Osc[interp=Interp.linear] # first oscillator
-    var osc2: Osc[interp=Interp.linear] # second oscillator
-    var osc_freqs: MFloat[2] # frequencies for the two oscillators
-    var pan2_osc: Osc[1, Interp.none] # LFO for panning
-    var pan2_freq: Float64 # frequency for the panning LFO
-    var vol_osc: Osc[1, Interp.none] # LFO for volume
-    var vol_osc_freq: Float64 # frequency for the volume LFO
-
-    def __init__(out self, world: World, center_freq: Float64):
-        self.world = world
-
-        self.osc1 = Osc[interp=Interp.linear](self.world)
-        self.osc2 = Osc[interp=Interp.linear](self.world)
-        
-        self.pan2_osc = Osc[1, Interp.none](self.world)
-        self.pan2_freq = rrand(0.03, 0.1)
-
-        self.vol_osc = Osc[1, Interp.none](self.world)
-        self.vol_osc_freq = rrand(0.05, 0.2)
-        self.osc_freqs = MFloat[2](
-            center_freq + rrand(1.0, 5.0),
-            center_freq - rrand(1.0, 5.0)
-        )
-
-    @always_inline
-    def next(mut self) -> MFloat[2]:
-        # calling .next on both oscillators gets both of their next samples
-        var temp = self.osc1.next(self.osc_freqs[0]) + self.osc2.next(self.osc_freqs[1])
-
-        # modulate the volume with a slow LFO
-        
-        temp = temp * (self.vol_osc.next(self.vol_osc_freq) * 0.5 + 0.5)
-
-        var pan2_loc = self.pan2_osc.next(self.pan2_freq)  # Get pan position
-
-        return pan2(temp, pan2_loc)  # Pan the temp signal
-
 struct StereoBeatingSines2(Movable, Copyable):
     var world: World # pointer to the MMMWorld
     var osc_s: Osc[4, interp=Interp.linear] # the four oscillators, in one SIMD struct

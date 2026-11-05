@@ -171,7 +171,7 @@ def _activation_from_name(name: String) raises -> Activation:
         return Activation.tanh
     raise Error("unknown activation: " + name)
 
-struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
+struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
     """A multi-layer perceptron in pure Mojo which loads its weights from a torch trained safetensors file.
 
     Runs a network trained by `train_new_mlp` in `mmm_python/ML/MLP_Python.py`, which saves
@@ -319,8 +319,8 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
         return len(self.layers)
 
 
-struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
-    """A multi-layer perceptron, trained in PyTorch by `mmm_python/ML/MLP_Python.py`, that runs in pure Mojo. This is a convenience class around the MLPNetwork, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
+struct MLP_Interface[input_size: Int, output_size: Int](Copyable, Movable):
+    """A multi-layer perceptron, trained in PyTorch by `mmm_python/ML/MLP_Python.py`, that runs in pure Mojo. This is a convenience class around `MLP`, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
 
     The weights come from the safetensors file trained by `MLP_Python.train_new_mlp`.
 
@@ -340,7 +340,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
       output_size: The size of the output vector.
     """
     var world: World
-    var mlp: MLPNetwork[Self.input_size, Self.output_size]
+    var mlp: MLP[Self.input_size, Self.output_size]
     var model_input: Array[Float64, Self.input_size]
     var model_output: Array[Float64, Self.output_size]
     var fake_model_output: List[Float64]
@@ -351,7 +351,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
     var file_name: String
 
     def __init__(out self, world: World, file_name: String, namespace: Optional[String] = None, trig_rate: Float64 = 25.0):
-        """Initialize the MLP struct.
+        """Initialize the MLP_Interface struct.
 
         Args:
           world: Pointer to the MMMWorld.
@@ -360,7 +360,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
           trig_rate: The rate in Hz at which to trigger inference.
         """
         self.world = world
-        self.mlp = MLPNetwork[Self.input_size, Self.output_size]()
+        self.mlp = MLP[Self.input_size, Self.output_size]()
         self.model_input = Array[Float64, Self.input_size](fill=0.0)
         self.model_output = Array[Float64, Self.output_size](fill=0.0)
         self.fake_model_output = [0.0 for _ in range(Self.output_size)]
@@ -389,7 +389,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
 
     @always_inline
     def next[every_next: Bool = False](mut self):
-        """MLP next function to be called every sample in the audio thread. The model input is taken from `model_input`, and the output is written to `model_output`.
+        """MLP_Interface next function to be called every sample in the audio thread. The model input is taken from `model_input`, and the output is written to `model_output`.
 
         Parameters:
             every_next: If True, the MLP will perform inference on every `next()` call. If False (default), the MLP will perform inference at the rate specified by `trig_rate`. In both cases, this is only if `inference_gate` is True.

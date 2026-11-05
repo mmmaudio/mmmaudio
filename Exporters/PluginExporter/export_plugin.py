@@ -37,14 +37,14 @@ The finished plugins are left in builds/<name>/plugins/, and copied to
 the user's plug-in folders with --install.
 
 Every exported plugin, instrument or effect, accepts MIDI from the DAW and
-forwards it to the graph as Int list messages: "note_on" and "note_off"
-([note, velocity, channel]), "cc" ([controller, value, channel]), "pitch_bend"
-([value, channel]), "poly_aftertouch" ([note, pressure, channel]),
-"channel_pressure" ([pressure, channel]) and "program_change" ([program, channel]).
+forwards it to the graph as Int list messages: "midi_note_on" and "midi_note_off"
+([channel, note, velocity]), "midi_cc" ([channel, controller, value]), "midi_pitch_bend"
+([channel, value]), "midi_poly_aftertouch" ([channel, note, pressure]),
+"midi_channel_pressure" ([channel, pressure]) and "midi_program_change" ([channel, program]).
 
-In Python, `MMMAudio.send_midi` sends exactly the same messages from a MIDI
-device. So if a graph reads MIDI with `Messenger.notify_update_all("note_on", ...)`
-and friends, and its Python script passes MIDI in with `send_midi`, the same graph
+In Python, `MMMAudio.route_raw_midi` sends exactly the same messages from a MIDI
+device. So if a graph reads MIDI with `Messenger.notify_update_all("midi_note_on", ...)`
+and friends, and its Python script passes MIDI in with `route_raw_midi`, the same graph
 works with a MIDI controller in Python and as a plugin in the DAW, with no changes.
 See the MidiKeyboard example.
 
