@@ -14,10 +14,8 @@ On macOS, turn the IAC Driver on in Audio MIDI Setup (Window > Show MIDI Studio,
 Run it from the MMMAudio root: `pixi run python examples/MIDIToHardware.py`. Ctrl+C stops it and turns off any notes still sounding.
 """
 
-import asyncio
 import json
 import sys
-import time
 from pathlib import Path
 
 # This example is able to run by pressing the "play" button in VSCode
@@ -45,15 +43,14 @@ def open_output(name: str) -> midi.MidiOut:
     return out
 
 
-async def play(out: midi.MidiOut, events: list, sounding: set):
+async def play(scheduler: Scheduler, out: midi.MidiOut, events: list, sounding: set):
     """Send each event when its time comes. Runs on the Scheduler's thread."""
-    # time each event from the start, rather than sleeping between events, so the timing doesn't drift
-    start = time.perf_counter()
+    prev_time = 0.0
     for event in events:
         note, velocity = event["value"]
-        wait = start + event["time"] - time.perf_counter()
-        if wait > 0:
-            await asyncio.sleep(wait)
+        # scheduler.wait times from when the previous event was due, so the timing doesn't drift
+        await scheduler.wait(event["time"] - prev_time)
+        prev_time = event["time"]
 
         if velocity > 0:
             message = midi.NoteOnMessage(channel_id=CHANNEL, note_number=note, velocity=velocity)
@@ -71,7 +68,7 @@ def main():
     sounding = set()  # notes that are on, so Ctrl+C can turn them off
 
     scheduler = Scheduler()
-    rout = scheduler.sched(play(out, events, sounding))
+    rout = scheduler.sched(play(scheduler, out, events, sounding))
     try:
         rout.result()  # wait here until the whole score has played
     except KeyboardInterrupt:

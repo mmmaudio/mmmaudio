@@ -24,7 +24,7 @@ async def loop():
             for _ in range(randint(3, 15)):
                 mmm_audio.send_float("fundamental", midicps(randint(40, 80)))
                 mmm_audio.send_trig("trig")
-                await asyncio.sleep(0.1)
+                await s.wait(0.1)
         # loop through second state const num of times with changing subdivision
         for _ in range(randint(2, 12)):
             setstate(state2)
@@ -32,7 +32,7 @@ async def loop():
             for _ in range(randint(3, 15)):
                 mmm_audio.send_float("fundamental", midicps(randint(40, 80)))
                 mmm_audio.send_trig("trig")
-                await asyncio.sleep(0.1)
+                await s.wait(0.1)
 
 s = Scheduler()
 
