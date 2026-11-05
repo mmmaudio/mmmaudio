@@ -268,4 +268,11 @@ Exporters/PluginExporter/builds/
 # SuperCollider exporter downloads and build output
 Exporters/SCExporter/src/supercollider/
 Exporters/SCExporter/builds/
-Exporters/SCExporter/src/struct_graphs/
+Exporters/SCExporter/struct_graphs/
+# VCV Rack exporter downloads and build output
+Exporters/VCVExporter/src/Rack-SDK-*/
+Exporters/VCVExporter/src/Rack-SDK.zip
+Exporters/VCVExporter/src/Rack-SDK.unpacked/
+Exporters/VCVExporter/builds/
+Exporters/VCVExporter/src/struct_graphs/
+Exporters/SCExporter/src/struct_graphs

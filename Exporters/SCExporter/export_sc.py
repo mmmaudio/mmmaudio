@@ -396,6 +396,57 @@ def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="ne
     method_params = dict(method_params or {})
     camel = "".join(w[:1].upper() + w[1:] for w in method.split("_"))
     name = ugen_name or "MMM" + struct_name[:1].upper() + struct_name[1:] + ("" if method == "next" else camel)
+    graph_name = f"{name}Struct"
+    g = struct_graph(struct_name, module, method, params, method_params, init_args, STRUCT_GRAPHS_DIR,
+                     graph_name, "Exporters/SCExporter/export_sc.py (export_struct_sc)")
+    audio_args, num_out, struct_info = g["audio_args"], g["num_out"], g["struct_info"]
+    _log(f"exporting {module}.{struct_name}.{g['call_name']} (from {g['where']}) as {name}: "
+         f"{g['num_in']} audio inputs, {num_out} output{'s' if num_out != 1 else ''}")
+    for label, text_ in (("parameters", struct_info["params"]), (f"{method}'s parameters", struct_info["method_params"])):
+        if text_:
+            _log(f"  {label}: {text_}")
+
+    cmd = [f"pixi run python Exporters/SCExporter/export_sc.py --struct {struct_name}"]
+    if module != "mmm_audio":
+        cmd.append(f"--module {module}")
+    if ugen_name:
+        cmd.append(f"--ugen_name {ugen_name}")
+    cmd += struct_command_args(method, params, g["method_params"], init_args)
+    if config != "Release":
+        cmd.append(f"--config {config}")
+    return _export(graph_name, STRUCT_PACKAGE, None, name, None, None, num_out, (), install, config,
+                   build, sc_path, install_dir, audio_args=audio_args, origin=("struct", f"{module}.{struct_name}"),
+                   export_command=" \\\n    ".join(cmd), struct_info=struct_info)
+
+
+def struct_command_args(method, params, method_params, init_args):
+    """The command line options that repeat a struct export's method, params,
+    method_params and init_args."""
+    cmd = []
+    if method != "next":
+        cmd.append(f"--method {method}")
+    if params:
+        cmd.append("--params " + " ".join(f"{k}={v}" for k, v in params.items()))
+    if method_params:
+        cmd.append("--method_params " + " ".join(f"{k}={','.join(v) if isinstance(v, list) else v}"
+                                                 for k, v in method_params.items()))
+    if init_args:
+        cmd.append("--init_args " + " ".join(f"'{k}={v}'" for k, v in init_args.items()))
+    return cmd
+
+
+def struct_graph(struct_name, module, method, params, method_params, init_args, graphs_dir, graph_name,
+                 generator):
+    """Write `graphs_dir/graph_name.mojo`, a graph that runs `struct_name.method`
+    each sample, with the method's arguments read from the graph's audio inputs, in
+    order, and its result as the graph's outputs. `params`, `method_params` and
+    `init_args` are as for export_struct_sc; `generator` names the exporter in the
+    file's header. Returns {"audio_args", "num_in", "num_out", "struct_info",
+    "call_name", "method_params", "where"}: `audio_args` is one
+    {"name", "arg", "kind", "channels", "default", "doc"} per argument, where "name"
+    is a SuperCollider argument name and "arg" the Mojo one."""
+    params = {k: str(v) for k, v in (params or {}).items()}
+    method_params = dict(method_params or {})
     text, where = _find_struct(struct_name, module)
 
     # The struct's parameters, with defaults replaced by `params`.
@@ -435,7 +486,8 @@ def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="ne
         if not sc_name[0].isalpha() or sc_name in RESERVED or sc_name in used:
             sc_name = "a_" + sc_name if not sc_name[0].isalpha() else sc_name + "_"
         used.add(sc_name)
-        audio_args.append({"name": sc_name, "channels": width, "default": _default_number(default),
+        audio_args.append({"name": sc_name, "arg": arg, "kind": kind, "channels": width,
+                           "default": _default_number(default),
                            "doc": f"{struct_name}.{method}'s {arg} ({_resolved(type_, values)}"
                                   + (", true above 0)" if kind == "bool" else ")")})
     out_kind, num_out, out_scalar = _value_type(returns, values, f"{struct_name}.{method}'s return value")
@@ -454,37 +506,13 @@ def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="ne
         # shadow the struct.
         parts = where.with_suffix("").parts
         imports += f"\nfrom {'.'.join(parts[:-1] if parts[-1] == '__init__' else parts)} import {struct_name}"
-    graph_name = f"{name}Struct"
-    STRUCT_GRAPHS_DIR.mkdir(exist_ok=True)
-    (STRUCT_GRAPHS_DIR / f"{graph_name}.mojo").write_text(STRUCT_GRAPH_TEMPLATE.format(
-        imports=imports, graph=graph_name, struct=struct_name, module=module, method=method,
+    graphs_dir.mkdir(exist_ok=True)
+    (graphs_dir / f"{graph_name}.mojo").write_text(STRUCT_GRAPH_TEMPLATE.format(
+        generator=generator, imports=imports, graph=graph_name, struct=struct_name, module=module, method=method,
         call_name=call_name, struct_type=struct_type, init=init, num_out=num_out,
         call=",\n            ".join(calls), result=_mojo_to_float(out_kind, num_out, out_scalar, "out")))
-    _log(f"exporting {module}.{struct_name}.{call_name} (from {where}) as {name}: "
-         f"{channel} audio inputs, {num_out} output{'s' if num_out != 1 else ''}")
-    for label, text_ in (("parameters", struct_info["params"]), (f"{method}'s parameters", struct_info["method_params"])):
-        if text_:
-            _log(f"  {label}: {text_}")
-
-    cmd = [f"pixi run python Exporters/SCExporter/export_sc.py --struct {struct_name}"]
-    if module != "mmm_audio":
-        cmd.append(f"--module {module}")
-    if ugen_name:
-        cmd.append(f"--ugen_name {ugen_name}")
-    if method != "next":
-        cmd.append(f"--method {method}")
-    if params:
-        cmd.append("--params " + " ".join(f"{k}={v}" for k, v in params.items()))
-    if method_params:
-        cmd.append("--method_params " + " ".join(f"{k}={','.join(v) if isinstance(v, list) else v}"
-                                                 for k, v in method_params.items()))
-    if init_args:
-        cmd.append("--init_args " + " ".join(f"'{k}={v}'" for k, v in init_args.items()))
-    if config != "Release":
-        cmd.append(f"--config {config}")
-    return _export(graph_name, STRUCT_PACKAGE, None, name, None, None, num_out, (), install, config,
-                   build, sc_path, install_dir, audio_args=audio_args, origin=("struct", f"{module}.{struct_name}"),
-                   export_command=" \\\n    ".join(cmd), struct_info=struct_info)
+    return {"audio_args": audio_args, "num_in": channel, "num_out": num_out, "struct_info": struct_info,
+            "call_name": call_name, "method_params": method_params, "where": where}
 
 
 def _struct_messages(text):
@@ -532,7 +560,7 @@ def _param_values(declared, given, owner, option, example=lambda k: "..."):
 
 
 STRUCT_GRAPH_TEMPLATE = """\
-# Generated by Exporters/SCExporter/export_sc.py (export_struct_sc) - do not edit.
+# Generated by {generator} - do not edit.
 # Runs {module}.{struct}.{call_name} as an MMMAudio graph: its arguments are the
 # graph's audio inputs, in order, and its result the graph's outputs.
 {imports}
@@ -567,10 +595,30 @@ def _find_struct(struct_name, module):
             m = re.search(rf"^struct\s+{re.escape(struct_name)}\b", text, re.M)
             if m:
                 end = re.search(r"\n(?=[^\s#])", text[m.end():])
-                return text[m.start():m.end() + end.start() if end else len(text)], f.relative_to(root)
+                # Without comments, so commented-out code (a Messenger call, an old
+                # struct after this one) isn't read as the struct's.
+                return _strip_comments(text[m.start():m.end() + end.start() if end else len(text)]), \
+                    f.relative_to(root)
         if files:
             break
     raise FileNotFoundError(f"can't find struct {struct_name} in {module}")
+
+
+def _strip_comments(text):
+    """`text` without its # comments (a # inside a string stays)."""
+    lines = []
+    for line in text.split("\n"):
+        quote = None
+        for i, ch in enumerate(line):
+            if quote:
+                quote = None if ch == quote and line[i - 1] != "\\" else quote
+            elif ch in "\"'":
+                quote = ch
+            elif ch == "#":
+                line = line[:i].rstrip()
+                break
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def _bracketed(text, start):

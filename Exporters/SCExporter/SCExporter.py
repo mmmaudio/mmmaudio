@@ -13,7 +13,8 @@ Mojo<version>/<Name>/, and the runtime into Mojo<version>/shared_libraries/;
 Then recompile the class library and reboot the server.
 
 The first build downloads SuperCollider's plug-in headers (a few MB) into the
-SCExporter folder. It needs git and cmake (`pixi add cmake`), and on macOS Xcode's
+Exporters/SCExporter/src/supercollider/. It needs git and cmake (cmake is in the pixi
+environment), and on macOS Xcode's
 command line tools.
 
 There are key differences between compiling a graph and a struct:

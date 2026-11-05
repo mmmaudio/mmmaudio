@@ -7,16 +7,12 @@ a JUCE editor that you can restyle by hand.
 The export writes a self-contained JUCE CMake project for each plugin to
 `builds/<name>/`, and usually builds it and installs it too.
 
-## Vibe Coded
-
-This part of MMMAudio is completely vibe-coded. With the rest of the library
-we have made things painstakingly organized and documented. This is not the case
-for the plug-in exporters. This part of the project uses LLM pyrotechnics to
-connect MMMAudio to the VST, SC, VCV, etc API's. 
+> **Beta, and vibe coded.** LLMs wrote most of this exporter, and it may change without warning.
+> See [the Exporters README](../README.md#vibe-coded-and-in-beta).
 
 ## Requirements
 
-- The MMMAudio pixi environment, with `cmake` added (`pixi add cmake`)
+- The MMMAudio pixi environment, which includes `cmake`
 - git
 - macOS: Xcode's command line tools
 - Linux: a C++ compiler, JUCE's development packages, and `patchelf`. Each exported

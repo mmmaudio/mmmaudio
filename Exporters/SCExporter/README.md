@@ -1,6 +1,9 @@
 # SCExporter
 
-Turns a MMMAudio graph or struct into a SuperCollider UGen. 
+Turns an MMMAudio graph or struct into a SuperCollider UGen.
+
+> **Beta, and vibe coded.** LLMs wrote most of this exporter, and it may change without warning.
+> See [the Exporters README](../README.md#vibe-coded-and-in-beta).
 
 There are key differences between compiling a graph and a struct:
 
@@ -17,7 +20,7 @@ The export writes a CMake project to `builds/Mojo<version>/<Name>/` (e.g.
 
 ## Requirements
 
-- The MMMAudio pixi environment, with `cmake` added (`pixi add cmake`)
+- The MMMAudio pixi environment, which includes `cmake`
 - git
 - macOS: Xcode's command line tools. Linux: a C++ compiler and `patchelf` (Linux is untested)
 - SuperCollider (tested with 3.14)
@@ -62,7 +65,7 @@ layout.
 
 | Option | What it does |
 |---|---|
-| `--graph_name` | The graph's struct and `.mojo` file name, as for `MMMAudio` (required). |
+| `--graph_name` | The graph's struct and `.mojo` file name, as for `MMMAudio` (required, unless you use `--struct`). |
 | `--package_name` | The folder holding the graph (default: the GUI script's `package_name`, else `examples`). |
 | `--gui_file` | The graph's Qt GUI script. Its controls become control-rate inputs. |
 | `--ugen_name` | The UGen's class name (default: the graph name, capitalized). This is also the folder name in `builds/Mojo<version>/`. |
@@ -122,6 +125,19 @@ pixi run python Exporters/SCExporter/export_sc.py --struct Freeverb --install
   methods. `examples/export_examples/WavetableOsc.mojo` loads a wavetable this way:
   `MMMWavetableOsc.sendString(x, "load_wavetable", path)`. The help file lists the
   messages.
+
+| Option | What it does |
+|---|---|
+| `--struct` | The struct to export, instead of `--graph_name`. |
+| `--module` | The Mojo package or module that defines it, as you would import it (default `mmm_audio`). |
+| `--ugen_name` | The UGen's class name (default: `MMM` plus the struct's name, plus the method's for a method other than `next`). |
+| `--method` | The method to run each sample (default `next`). |
+| `--params` | Values for the struct's parameters, as Mojo code: `--params num_chans=2 interp=Interp.sinc`. |
+| `--method_params` | Values for the method's parameters: `--method_params osc_type=OscType.saw`. A parameter pack takes a comma-separated list. |
+| `--init_args` | Mojo expressions for `__init__` arguments without a default. |
+| `--install`, `--install_dir`, `--no_build`, `--sc_path`, `--config` | As for a graph. |
+
+The struct is run by a small graph the export writes to `src/struct_graphs/`.
 
 ## Using the UGen
 
@@ -190,10 +206,11 @@ and they are repeated at the top of the class file.
 
 Each export creates `builds/Mojo<version>/<Name>/`, a CMake project. It is built against
 the Mojo runtime libraries in `builds/Mojo<version>/shared_libraries/`. All plugins under
-a specific Mojo version, share the same set of shared_libraries.
+a specific Mojo version share the same set of shared_libraries.
 
-Each plugin build directory has the following folders:
+Each UGen's project folder holds:
 
+| | |
 |---|---|
 | `src/` | The UGen's C++ (`MMMUGen.cpp`), and `MMMSCSpec.h`, which describes this graph |
 | `sc/` | The class (`Classes/<Name>.sc`) and its help file (`HelpSource/Classes/<Name>.schelp`) |
@@ -263,7 +280,7 @@ version, since SuperCollider can't have two classes with the same name.
 | File | Role |
 |---|---|
 | `SCExporter.py` | Examples of how to export graphs and structs from Python |
-| `export_sc.py` | The exporter (command line and `export_sc()`) |
+| `export_sc.py` | The exporter (command line, `export_sc()` and `export_struct_sc()`) |
 | `src/sc_template/` | The UGen's C++, copied into every project as `src/` |
 | `src/struct_graphs/` | The graphs `export_struct_sc` writes to run a struct |
 | `src/supercollider/` | SuperCollider's headers, downloaded on first use |
