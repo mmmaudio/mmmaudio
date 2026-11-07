@@ -5,7 +5,7 @@ target_graph = None
 target_package = None
 plugin_name = None
 install = False
-plugin_type = None
+plugin_format = None
 is_instrument = None
 in_labels = None
 out_labels = None
@@ -60,14 +60,14 @@ def main():
                 target_package ,
                 plugin_name ,
                 install ,
-                plugin_type ,
+                plugin_format ,
                 is_instrument )
             
             export_plugin(
                 graph_name=target_graph, 
                 package_name=target_package,
                 plugin_name=plugin_name,
-                plugin_type=plugin_type,
+                plugin_type=plugin_format,
                 resources=path_to_resources,
                 install=install,
                 config=config,
@@ -122,14 +122,14 @@ def main():
 
 def plugin_questions():
         install = input("Would you like to install the compiled plugin? y/N: ")
-        plugin_type = input("What kind of plugin would you like to build? Multiple plugin types can be selected by separating them with spaces. Default is VST3 ('VST3'/'AU'/'Clap'): ")
+        plugin_format = input("What kind of plugin would you like to build? Multiple plugin types can be selected by separating them with spaces. Default is VST3 ('VST3'/'AU'/'Clap'): ")
         
 
     
-        if not plugin_type:
-            plugin_type = ["VST3"]
+        if not plugin_format:
+            plugin_format = ["VST3"]
         else:
-            plugin_type = plugin_type.split()
+            plugin_format = plugin_format.split()
             pass
         
         
