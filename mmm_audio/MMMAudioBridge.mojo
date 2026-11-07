@@ -627,5 +627,3 @@ struct MMMAudioBridge(Movable, Writable):
             py_self[].audio_state_ptr[].graph.release()
 
         return PythonObject(None)
-
-
