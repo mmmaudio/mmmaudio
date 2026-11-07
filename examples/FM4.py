@@ -79,6 +79,13 @@ def main():
 
     layouts[1].addWidget(button)
 
+    # volume slider: made directly (not with add_handle) so it isn't in `sliders` and randomize leaves it alone
+    vol_slider = Handle("vol", ControlSpec(0, 1.0, 2), 0.1, callback=lambda v: mmm_audio.send_float("vol", v))
+    layouts[1].addWidget(vol_slider)
+    mmm_audio.send_float("vol", 0.1)
+
+    button.click()
+
     # window.closeEvent = lambda event: (app.quit())
     # Set the layout for the main window
     window.closeEvent = lambda event: (MMMAudio.exit_all(), event.accept())

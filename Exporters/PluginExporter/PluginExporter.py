@@ -49,14 +49,17 @@ export_plugin("ManyOscillators", "examples", plugin_type="VST3", instrument=True
 
 # Give it a GUI script, and its sliders and checkboxes become host automatable
 # parameters and a plain plugin editor. The export script translates the GUI into a JUCE editor.
-export_plugin("FeedbackDelaysGUI", "examples", plugin_type="VST3", gui_file="examples/FeedbackDelaysGui.py")
+export_plugin("FeedbackDelaysGUI", "examples", plugin_type="VST3", gui_file="examples/FeedbackDelaysGui.py",
+              resources=["resources/Shiverer.wav"])
 
 # if the gui_file has not gui elements, it will build a plugin with no parameters and no editor, but it will still be automatable by the host.
-export_plugin("MidiKeyboard", "examples", plugin_type="VST3", gui_file="examples/MidiKeyboard.py", instrument=True, install=True)
+export_plugin("MidiKeyboard", "examples", plugin_type="VST3", gui_file="examples/MidiKeyboard.py", instrument=True, install=True,
+              resources=["resources/small_wavetable8.wav"])
 
 
 # Several plugin types at once. AU can only be built on macOS.
-paths = export_plugin("FeedbackDelaysGUI", "examples", plugin_type=["VST3", "AU", "Clap"], gui_file="examples/FeedbackDelaysGui.py")
+paths = export_plugin("FeedbackDelaysGUI", "examples", plugin_type=["VST3", "AU", "Clap"], gui_file="examples/FeedbackDelaysGui.py",
+                      resources=["resources/Shiverer.wav"])
 print(paths)
 
 # An instrument: no audio input, MIDI in. BenjolinExample.py opens MMMAudio with
@@ -66,10 +69,14 @@ export_plugin("BenjolinExample", "examples", plugin_type=["VST3", "AU"], gui_fil
 
 # ---- build and install ----
 
-# MLP_Synth with 2D Slider. It will package the safetensors and the model into the plugin bundle, so it can run without any extra files.
-export_plugin("MLP_Synth2D", "examples.ML_examples", plugin_type=["VST3", "AU", "Clap"], gui_file="examples/ML_examples/MLP_Synth2D.py", install=True, instrument=True)
+# MLP_Synth with 2D Slider. The MLP's training (the .safetensors file) is bundled into the plugin, so it can run without any extra files.
+export_plugin("MLP_Synth2D", "examples.ML_examples", plugin_type=["VST3", "AU", "Clap"], gui_file="examples/ML_examples/MLP_Synth2D.py", install=True, instrument=True,
+              resources=["examples/ML_examples/nn_trainings/mlp_example_training.safetensors"])
 
-export_plugin("PlayExample", "llm", plugin_type=["VST3"], gui_file="llm/PlayExample.py", install=True)
+export_plugin("PlayExample", "llm", plugin_type=["VST3"], gui_file="llm/PlayExample.py", install=True,
+              resources=["resources/Shiverer.wav"])
 
 # if you have an 8 channel graph and set num_out to 8, it will build a plugin with 8 outputs. These will run in the DAW as an 8 channel process.
 export_plugin("PanAzExample", "examples", plugin_type=["Clap"], install=True, num_out=8)
+
+export_plugin("FreebackGUI", "LMI", plugin_type=["VST3"], gui_file="LMI/FreebackGUI.py", install=True, resources=["LMI/resources/nn_trainings/freeback_traced.safetensors"])

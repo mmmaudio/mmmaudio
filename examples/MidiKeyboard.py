@@ -17,8 +17,8 @@ def main():
     mmm_audio = MMMAudio(128, graph_name="MidiKeyboard", package_name="examples")
     mmm_audio.start_audio() 
 
-    # by changing this variable, you can change the style of MIDI messaging
-    # in the end, the same messages are sent the graph
+    # by changing this variable, you can change the style of MIDI messaging.
+    # in each case, the same messages are used by the graph
     # the first sends every midi message. the second sends only selected midi message with formatting done in the function, the last sends only parsed messages, but uses the raw MIDI router after parsing out the relevant messages.
     messaging_format = 0
 

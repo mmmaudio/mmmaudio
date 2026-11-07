@@ -6,7 +6,7 @@ mmm_audio = MMMAudio(2048, graph_name="NessStretch", package_name="examples")
 mmm_audio.start_audio()
 
 # load your own file - the candier pop the better
-mmm_audio.send_string("file_name", "tmp/Man_short.wav")
+mmm_audio.send_string("file_name", "tmp/NRO_5sec.wav")
 
 # change how slow the audio gets stretched
 mmm_audio.send_float("dur_mult", 10.0)

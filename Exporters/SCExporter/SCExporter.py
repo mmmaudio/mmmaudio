@@ -43,7 +43,7 @@ export_sc('QuadRingMod', 'examples.export_examples', num_in=4, install=True)
 
 # Without a GUI script, the controls come from the graph itself: here the lpf_freq
 # and play_rate Float64s it reads with a Messenger. The sound file it loads is bundled.
-export_sc("PlayExample", "llm", gui_file="llm/PlayExample.py", install=True)
+export_sc("PlayExample", "llm", gui_file="llm/PlayExample.py", install=True, resources=["resources/Shiverer.wav"])
 
 # A graph that reads sound_in is an effect: PitchShiftExample.ar(SoundIn.ar([0, 1]), pitch_shift: 2)
 export_sc("PitchShiftExample", "examples", gui_file="examples/PitchShiftExample.py")

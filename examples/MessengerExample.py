@@ -54,6 +54,7 @@ a.send_strings("strings", ["goodbye", "there", "general", "grievous"])
 a.send_trig("trig")
 
 # default midi messages will not print any error even if they are not handled by the graph
+# route_raw_midi() is used to send raw MIDI messages received from external MIDI devices
 a.route_raw_midi([0x90, 60, 127]) # note on, middle C, velocity 127
 a.send_ints("midi_note_off", [1, 60, 0])      # note off, channel 1, middle C
 a.send_ints("midi_cc", [1, 1, 127])           # channel 1, cc 1, value 127

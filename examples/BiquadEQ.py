@@ -26,7 +26,7 @@ def main():
     window = QWidget()
     window.setWindowTitle("5-Band Biquad EQ")
     window.resize(400, 500)
-    window.closeEvent = lambda event: (mmm_audio.stop_audio(), event.accept())
+    window.closeEvent = lambda event: (MMMAudio.exit_all(), event.accept())
 
     layout = QVBoxLayout()
 
@@ -86,7 +86,7 @@ def main():
 
     window.setLayout(layout)
     window.show()
-    app.exec()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

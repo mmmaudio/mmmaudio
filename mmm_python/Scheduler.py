@@ -23,9 +23,7 @@ class Scheduler:
     async def wait(self, delay):
         """Coroutine that waits `delay` seconds after the routine's previous wait was due, rather than after now.
 
-        If a wait wakes up late, the next one is shortened by the same amount, so a routine that waits
-        between its events never drifts from its intended timing. Use this instead of asyncio.sleep
-        inside routines started with `sched`.
+        Always use `await sched.wait(delay)` instead of `await asyncio.sleep(delay)` inside routines started with `sched`. If a wait wakes up late, the next one is shortened by the same amount, so a routine that waits between its events never drifts from its intended timing. 
 
         Args:
             delay: Time in seconds after the previous wait was due. Scaled by `wait_mult`.
