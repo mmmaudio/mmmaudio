@@ -34,18 +34,16 @@ export_vcv("DattorroReverbExample", "examples", gui_file="examples/DattorroRever
            module_name="Dattorro", in_labels=["L", "R"], out_labels=["L", "R"], install=True)
 
 # Four audio inputs, and no added latency beyond one sample. The None keeps the default name, IN 4.
-export_vcv("QuadRingMod", "examples.export_examples", num_in=4, block_size=1,
+export_vcv("QuadRingMod", "Exporters.export_examples", num_in=4, block_size=1,
            in_labels=["car L", "mod L", "car R", None], out_labels=["L", "R"], install=True)
+
+export_vcv("ManyOscillators", "Exporters.export_examples", num_in=4, block_size=32,
+           in_labels=["num_pairs"], out_labels=["L", "R"], install=True)
 
 # ---- exporting a single struct ----
 
 # The arguments of a struct's next() become input jacks, and its result output jacks.
 # Each Float64 message it reads gets a knob that sends -1 to 1.
-# Kick808_S maps its knobs with linexp and linlin, so they show Hz, seconds and semitones.
-export_struct_vcv("Kick808_S", module="llm.Kick808", module_name="Kick808", install=True)
-# The bare circuit in llm/Kick808.mojo, without knobs: a trig jack in, the drum out.
-export_struct_vcv("BridgedT808", module="llm.Kick808", in_labels=["trig"],
-                  out_labels=["out"], install=True)
 
 # A two channel sine oscillator: jacks for freq 1 and 2 (100 Hz while unplugged), phase_offset 1
 # and 2, and trig.

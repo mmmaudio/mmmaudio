@@ -122,7 +122,7 @@ pixi run python Exporters/SCExporter/export_sc.py --struct Freeverb --install
   into several UGens, as usual: `MMMOsc.ar([440, 660])`. What the method returns sets the
   outputs: `next_all_basic_waveforms` returns an `MFloat[4]`, so it has 4.
 - A struct with its own `Messenger` reads messages, sent to a running Synth with the class
-  methods. `examples/export_examples/WavetableOsc.mojo` loads a wavetable this way:
+  methods. `Exporters/export_examples/WavetableOsc.mojo` loads a wavetable this way:
   `MMMWavetableOsc.sendString(x, "load_wavetable", path)`. The help file lists the
   messages.
 

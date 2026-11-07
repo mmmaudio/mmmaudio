@@ -77,10 +77,10 @@ module, as the SCExporter's `export_struct_sc` does for SuperCollider:
 ```python
 from Exporters.VCVExporter.export_vcv import export_struct_vcv
 
-export_struct_vcv("BridgedT808", module="llm.Kick808", module_name="Kick808")
+export_struct_vcv("WavetableOsc", module="Exporters.export_examples", module_name="MMMWavetableOsc")
 ```
 
-or `pixi run python Exporters/VCVExporter/export_vcv.py --struct BridgedT808 --module llm.Kick808`.
+or `pixi run python Exporters/VCVExporter/export_vcv.py --struct WavetableOsc --module Exporters.export_examples --module_name MMMWavetableOsc`.
 
 - **Inputs:** each argument of the struct's `next` (or `method`) becomes input jacks, in
   order: one for a `Float64`, `Bool` or `Int`, N for an `MFloat[N]`, `MBool[N]` or

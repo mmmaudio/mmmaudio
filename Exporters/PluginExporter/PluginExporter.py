@@ -73,10 +73,5 @@ export_plugin("BenjolinExample", "examples", plugin_type=["VST3", "AU"], gui_fil
 export_plugin("MLP_Synth2D", "examples.ML_examples", plugin_type=["VST3", "AU", "Clap"], gui_file="examples/ML_examples/MLP_Synth2D.py", install=True, instrument=True,
               resources=["examples/ML_examples/nn_trainings/mlp_example_training.safetensors"])
 
-export_plugin("PlayExample", "llm", plugin_type=["VST3"], gui_file="llm/PlayExample.py", install=True,
-              resources=["resources/Shiverer.wav"])
-
 # if you have an 8 channel graph and set num_out to 8, it will build a plugin with 8 outputs. These will run in the DAW as an 8 channel process.
 export_plugin("PanAzExample", "examples", plugin_type=["Clap"], install=True, num_out=8)
-
-export_plugin("FreebackGUI", "LMI", plugin_type=["VST3"], gui_file="LMI/FreebackGUI.py", install=True, resources=["LMI/resources/nn_trainings/freeback_traced.safetensors"])

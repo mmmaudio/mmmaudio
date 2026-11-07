@@ -209,7 +209,7 @@ def export_struct_vcv(struct_name, module="mmm_audio", module_name=None, method=
     Args:
         struct_name: The struct, e.g. "Osc".
         module: The Mojo package or module that defines it, as you would import
-            it: "mmm_audio" (the default), or e.g. "llm.Kick808".
+            it: "mmm_audio" (the default), or e.g. "Exporters.export_examples".
         module_name: The module's name (default: struct_name, plus the method's
             name for a method other than next). The plugin is MMMAudio-<module_name>.
         method, params, method_params, init_args: As for the SCExporter's

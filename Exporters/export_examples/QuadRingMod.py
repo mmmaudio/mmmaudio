@@ -12,7 +12,7 @@ MMMAudio.get_audio_devices()
 # in_device = "Fireface UCX II (24219339)"
 # out_device = "Fireface UCX II (24219339)"
 
-mmm_audio = MMMAudio(128, num_input_channels=4, num_output_channels=2, graph_name="QuadRingMod", package_name="llm.test_export")
+mmm_audio = MMMAudio(128, num_input_channels=4, num_output_channels=2, graph_name="QuadRingMod", package_name="Exporters.export_examples")
 mmm_audio.start_audio()
 
 mmm_audio.stop_audio()

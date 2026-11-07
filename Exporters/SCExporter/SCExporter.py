@@ -38,12 +38,8 @@ export_sc("FM4", "examples", gui_file="examples/FM4.py", build=False)
 
 # The GUI's sliders become control-rate inputs: FM4.ar(osc0_freq: 100, ...)
 export_sc("FM4", "examples", gui_file="examples/FM4.py", install=True)
-export_sc("ManyOscillators", "examples.export_examples", install=True)
-export_sc('QuadRingMod', 'examples.export_examples', num_in=4, install=True) 
-
-# Without a GUI script, the controls come from the graph itself: here the lpf_freq
-# and play_rate Float64s it reads with a Messenger. The sound file it loads is bundled.
-export_sc("PlayExample", "llm", gui_file="llm/PlayExample.py", install=True, resources=["resources/Shiverer.wav"])
+export_sc("ManyOscillators", "Exporters.export_examples", install=True)
+export_sc('QuadRingMod', 'Exporters.export_examples', num_in=4, install=True) 
 
 # A graph that reads sound_in is an effect: PitchShiftExample.ar(SoundIn.ar([0, 1]), pitch_shift: 2)
 export_sc("PitchShiftExample", "examples", gui_file="examples/PitchShiftExample.py")
@@ -75,5 +71,5 @@ export_struct_sc("Osc", ugen_name="MMMOscBasicWaveforms", method="next_basic_wav
 
 # 3D wavetable oscillator that uses a Mojo-side Buffer to load the wavetable.
 # needs to receive a string message with the path to the wavetable file, e.g. MMMWavetableOsc.sendString(x, "load_wavetable", path)
-export_struct_sc("WavetableOsc", module="examples.export_examples", ugen_name="MMMWavetableOsc",
+export_struct_sc("WavetableOsc", module="Exporters.export_examples", ugen_name="MMMWavetableOsc",
                  params={"num_chans": 1, "interp": "Interp.sinc", "ov_samp": "TimesOversampling.x2"}, install=True)

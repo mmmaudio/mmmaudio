@@ -372,7 +372,7 @@ def export_struct_sc(struct_name, module="mmm_audio", ugen_name=None, method="ne
     Args:
         struct_name: The struct, e.g. "Osc".
         module: The Mojo package or module that defines it, as you would import
-            it: "mmm_audio" (the default), or e.g. "llm.test_export.QuadRingMod".
+            it: "mmm_audio" (the default), or e.g. "Exporters.export_examples.QuadRingMod".
         ugen_name: The UGen's class name. By default "MMM" + struct_name, plus
             the method's name for a method other than next ("MMMOscNextBasicWaveforms"),
             since SuperCollider has its own Osc, Line, Phasor...

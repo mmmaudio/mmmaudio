@@ -1,4 +1,4 @@
-"""Example showing how to create a variable number of UGens in MMM-Audio. In the ManyOscillators.mojo file, the ManyOscillators struct holds a List of OscillatorPair structs. Each OscillatorPair contains two oscillators (sine wave generators) that can be detuned from each other. We can dynamically change the number of oscillator pairs by sending an integer message to the "num_pairs" parameter.
+"""Example showing how to create a gui for ManyOscillators so it can be exported as a VST.
 
 The slider sets "num_pairs", from 2 to 200.
 """
@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from mmm_python import *
 
 def main():
-    mmm_audio = MMMAudio(128, graph_name="ManyOscillators", package_name="examples.export_examples")
+    mmm_audio = MMMAudio(128, graph_name="ManyOscillators", package_name="Exporters.export_examples")
     mmm_audio.start_audio()
 
     app = QApplication([])
