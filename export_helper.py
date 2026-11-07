@@ -29,11 +29,10 @@ def main():
     for i in range(len(builds)):
         builds[i] = builds[i].upper()
     
-
-    target_graph = input("Name of target graph: ")
     target_package = input("Target package: ")
-    plugin_name = input("What is the name of your plugin/ugen? (Default is None): ")
-    is_instrument = input("Would you like to build the plugin/ugen as an instrument? y/N: ")
+    target_graph = input("Name of target graph: ")
+    plugin_name = input("What is the name of your plugin/ugen/module? (Default is None): ")
+    is_instrument = input("Would you like to build the plugin/ugen/module as an instrument? y/N: ")
     path_to_gui = input("Path to GUI file. If there is no path given, default GUI will be created: ")
     path_to_resources = input("Paths to resource files (Default is None): ")
     config = input("CMake Config ('RELEASE'/'debug'): ")
@@ -91,12 +90,27 @@ def main():
     
         if plugin_type == "VCV" or plugin_type == "ALL":
             from Exporters.VCVExporter.export_vcv import export_vcv 
-            vcv_questions()
+            in_labels, out_labels = vcv_questions()
+            
+            if not in_labels:
+                in_lables = []
+            else:
+                in_labels = in_labels.split()
+                
+            if not out_labels:
+                out_lables = []
+            else:
+                out_labels = out_labels.split()
+                
+            print(in_labels, out_labels)
+            
             export_vcv(
                 graph_name=target_graph,
                 package_name=target_package,
                 gui_file=path_to_gui,
                 module_name=plugin_name,
+                num_in = len(in_labels),
+                num_out = len(out_labels),
                 resources=path_to_resources,
                 install=install,
                 out_labels= out_labels,
@@ -138,8 +152,9 @@ def ugen_questions():
             install = False
 
 def vcv_questions():
-        in_labels = input("Provide input labels: ").split()
-        out_labels = input("Provide output labels: ").split()
+        
+        i_labels = input("Provide input labels: ")
+        o_labels = input("Provide output labels: ")
         install = input("Would you like to install the compiled module? y/N: ")
         
     
@@ -149,6 +164,6 @@ def vcv_questions():
                     install = False
         elif install.upper() != "N" or install.upper() != "YES":
             install = False
-        
+        return (i_labels, o_labels)
 if __name__ == "__main__":
     main()
