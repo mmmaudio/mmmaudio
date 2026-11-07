@@ -418,7 +418,6 @@ class MMMAudio:
         """Send screen dimensions to the audio process."""
         self.command_queue.put((AudioCommand.SET_SCREEN_DIMS, (width, height)))
     
-
     # =========================================================================
     # Methods that need response from audio process
     # =========================================================================
