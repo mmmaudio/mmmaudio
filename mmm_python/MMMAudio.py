@@ -81,7 +81,6 @@ class AudioCommand(IntEnum):
     GET_SAMPLES = 12
     UPDATE_MOUSE = 13  # New command for mouse updates
     SET_SCREEN_DIMS = 14  # New command for screen dimensions
-    RECV_MSG = 15
 
 class MMMAudio:
     """
@@ -419,8 +418,7 @@ class MMMAudio:
         """Send screen dimensions to the audio process."""
         self.command_queue.put((AudioCommand.SET_SCREEN_DIMS, (width, height)))
     
-    def recv_msg(self):
-        self.command_queue.put((AudioCommand.RECV_MSG))
+
     # =========================================================================
     # Methods that need response from audio process
     # =========================================================================
@@ -749,10 +747,7 @@ class MMMAudio:
                 mmm_audio_bridge.set_screen_dims((width, height))
                 return True
 
-            def recv_msg():
-                vals = mmm_audio_bridge.recv_msg()
-                print(vals)
-            
+
             command_handlers = [
                 handle_stop_process,      # 0
                 handle_start_audio,       # 1
@@ -769,7 +764,6 @@ class MMMAudio:
                 handle_get_samples,       # 12
                 handle_update_mouse,      # 13
                 handle_set_screen_dims,   # 14
-                recv_msg
             ]
 
             # =========================================================================
