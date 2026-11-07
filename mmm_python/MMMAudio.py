@@ -746,7 +746,6 @@ class MMMAudio:
                 mmm_audio_bridge.set_screen_dims((width, height))
                 return True
 
-
             command_handlers = [
                 handle_stop_process,      # 0
                 handle_start_audio,       # 1
