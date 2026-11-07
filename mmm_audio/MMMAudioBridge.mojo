@@ -596,7 +596,6 @@ struct MMMAudioBridge(Movable, Writable):
                 frames * num_out - rendered,
             )
 
-
     @staticmethod
     def next(py_selfA: PythonObject, in_buffer: PythonObject, out_buffer: PythonObject) raises -> PythonObject:
 
@@ -628,9 +627,5 @@ struct MMMAudioBridge(Movable, Writable):
             py_self[].audio_state_ptr[].graph.release()
 
         return PythonObject(None)
-
-
-
-
 
 
