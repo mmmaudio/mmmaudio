@@ -27,6 +27,8 @@ struct FM4(Movable, Copyable):
 
     var osc_frac: List[MFloat[1]]
 
+    var vol: Lag[]
+
     def __init__(out self, world: World) :
         # create a subworld for the oversampling UGens to live in
         self.oversampled_world = world[].create_subworld(Self.times_oversampling)
@@ -56,6 +58,9 @@ struct FM4(Movable, Copyable):
         self.osc_frac = [0.0, 0.0, 0.0, 0.0]
         # output of each oscillator to be fed back in the next audio cycle
         self.fb = [0.0, 0.0, 0.0, 0.0]
+        # output volume (set by the "vol" slider, not by randomize)
+        self.vol = Lag[1](0.1)
+        self.vol.input = 0.1
 
         self.m = Messenger(self.oversampled_world)
 
@@ -104,7 +109,9 @@ struct FM4(Movable, Copyable):
         self.m.update("osc_frac2", self.osc_frac[2])
         self.m.update("osc_frac3", self.osc_frac[3])
 
+        self.m.update("vol", self.vol.input)
+
         self.next_ov_loop()
 
         # downsample the oversampled signal and return
-        return self.over.get_sample() * 0.25
+        return self.over.get_sample() * self.vol.next()

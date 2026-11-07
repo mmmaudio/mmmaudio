@@ -9,6 +9,7 @@ from mmm_audio.BooleanTests import RisingBoolDetector, Changed
 from mmm_audio.Buffer_Module import SIMDBuffer, Buffer
 from mmm_audio.Oversampling import *
 from mmm_audio.Filters import *
+from mmm_audio.Delays import Delay
 from mmm_audio.constants import *
 from mmm_audio.functions import *
 
@@ -549,12 +550,13 @@ struct ADSREnv(Movable, Copyable, PolyReset):
         return self.value
 
 
-struct Compressor[num_chans: SIMDLength, ov_samp: TimesOversampling = TimesOversampling.none](Movable, Copyable):
+struct Compressor[num_chans: SIMDLength, ov_samp: TimesOversampling = TimesOversampling.none, filter_type: OversamplingFilter = OversamplingFilter.iir](Movable, Copyable):
     """Compressor from Nathan Ho's [Negative Compression web post](https://nathan.ho.name/posts/negative-compression/).
     
     Params:
         num_chans: Number of channels of input/output.
         ov_samp: TimesOversampling factor for oversampling the input signal before compression.
+        filter_type: [OversamplingFilter](Oversampling.md#struct-oversamplingfilter) type for the oversampling filter, used only when `ov_samp` is not `none`. Default is IIR, which adds only a few samples of latency but delays high frequencies more than low ones. FIR delays every frequency by the same amount, so use it when the compressed signal is mixed back with the original, as in parallel compression. Going up and back down, the FIR adds 44.5 samples at x2, 50.75 at x4, 53.375 at x8 and 54.4375 at x16 at 48 kHz and above, and more below 48 kHz (80.5 at x2 at 44.1 kHz). The latency is always fractional, so a dry signal needs an accurate fractional delay to line up in the treble. [ParallelCompressor](Envelopes.md#struct-parallelcompressor) handles this for you.
     """
 
     var amp: Amplitude[Self.num_chans]
@@ -564,8 +566,8 @@ struct Compressor[num_chans: SIMDLength, ov_samp: TimesOversampling = TimesOvers
     var changed: Changed[MFloat[1]]
     var changed2: Changed[MFloat[1]]
 
-    var upsampler: Upsampler[Self.num_chans, Self.ov_samp]
-    var downsampler: Downsampler[Self.num_chans, Self.ov_samp]
+    var upsampler: Upsampler[Self.num_chans, Self.ov_samp, Self.filter_type]
+    var downsampler: Downsampler[Self.num_chans, Self.ov_samp, Self.filter_type]
 
     def __init__(out self, world: World):
         """Initialize the Compressor struct.
@@ -587,9 +589,18 @@ struct Compressor[num_chans: SIMDLength, ov_samp: TimesOversampling = TimesOvers
         self.lag.set_lag_times(0.01, 0.1)
         self.amp.set_params(0.001, 0.01)
 
-        self.upsampler = Upsampler[Self.num_chans, Self.ov_samp](world)
-        self.downsampler = Downsampler[Self.num_chans, Self.ov_samp](world)
-    
+        self.upsampler = Upsampler[Self.num_chans, Self.ov_samp, Self.filter_type](world)
+        self.downsampler = Downsampler[Self.num_chans, Self.ov_samp, Self.filter_type](world)
+
+    def get_latency(self) -> Float64:
+        """How far the output lags the input with the FIR filter, the same at every frequency: the Upsampler's and the Downsampler's latency added together. Delay a dry signal by this much to line it up with the compressed one. Only available with `OversamplingFilter.fir`, since the IIR's delay depends on frequency (see [OversamplingFilter](Oversampling.md#struct-oversamplingfilter)).
+
+        Returns:
+            The delay in samples at the base sample rate. It is fractional (e.g. 50.75 at x4), and is 0 when `ov_samp` is `none`.
+        """
+        comptime assert Self.filter_type == OversamplingFilter.fir, "Compressor.get_latency() is only available with OversamplingFilter.fir"
+        return self.upsampler.get_latency() + self.downsampler.get_latency()
+
     def next(mut self, input: MFloat[Self.num_chans], threshold: MFloat[1] = -20.0, ratio: MFloat[1] = 4.0, attack: MFloat[1] = 0.01, release: MFloat[1] = 0.1, knee_width: MFloat[1] = 0.0) -> MFloat[Self.num_chans]:
         """Returns the compressed signal, which is the original signal multiplied by the negative compression gain.
         
@@ -655,3 +666,72 @@ struct Compressor[num_chans: SIMDLength, ov_samp: TimesOversampling = TimesOvers
 
         return self.sidechain
     
+struct ParallelCompressor[num_chans: SIMDLength, ov_samp: TimesOversampling = TimesOversampling.none](Movable, Copyable):
+    """A parallel compressor: a [Compressor](Envelopes.md#struct-compressor) mixed with the uncompressed signal. When oversampling, the compressor uses the linear-phase FIR filter and the dry signal is delayed by the compressor's latency, so the two line up at every frequency and sum without comb filtering.
+
+    Parameters:
+        num_chans: Number of channels of input/output.
+        ov_samp: TimesOversampling factor for oversampling the input signal before compression.
+    """
+
+    var compressor: Compressor[Self.num_chans, Self.ov_samp, OversamplingFilter.fir]
+    var pad: Delay[Self.num_chans, Interp.none]
+    var pad_samps: Int
+    """Delay at the high rate, from 1 to `ov_samp.times` samples, that makes the compressed path's latency a whole number of base-rate samples."""
+    var dry: Delay[Self.num_chans, Interp.none]
+    var latency: Int
+
+    def __init__(out self, world: World):
+        """Initialize the ParallelCompressor struct.
+
+        Args:
+            world: Pointer to the MMMWorld.
+        """
+        self.compressor = Compressor[Self.num_chans, Self.ov_samp, OversamplingFilter.fir](world)
+        # the FIR latency is a whole number of high-rate samples, so padding by the remainder
+        # of a base-rate sample makes it a whole number of base-rate samples
+        var times = Self.ov_samp.times
+        var latency_hi = Int(round(self.compressor.get_latency() * Float64(times)))
+        self.pad_samps = times - latency_hi % times
+        self.latency = (latency_hi + self.pad_samps) // times
+        self.pad = Delay[Self.num_chans, Interp.none](world, max_delay_samples=times + 1)
+        self.dry = Delay[Self.num_chans, Interp.none](world, max_delay_samples=self.latency + 1)
+
+    def get_latency(self) -> Int:
+        """How far the output lags the input. Both the compressed and the dry signal are delayed by this much.
+
+        Returns:
+            The delay in samples at the base sample rate, 0 when `ov_samp` is `none`.
+        """
+        comptime if Self.ov_samp == TimesOversampling.none:
+            return 0
+        return self.latency
+
+    def next(mut self, input: MFloat[Self.num_chans], threshold: MFloat[1] = -20.0, ratio: MFloat[1] = 4.0, attack: MFloat[1] = 0.01, release: MFloat[1] = 0.1, knee_width: MFloat[1] = 0.0, dry_gain: MFloat[1] = 1.0, compressed_gain: MFloat[1] = 1.0) -> MFloat[Self.num_chans]:
+        """Returns the dry signal plus the compressed signal, each scaled by its gain.
+
+        Args:
+            input: MFloat[Self.num_chans] audio signal to be compressed.
+            threshold: MFloat[1] threshold in dBFS above which compression occurs.
+            ratio: MFloat[1] compression ratio. For example, a ratio of 4.0 means that for every 4 dB the input signal exceeds the threshold, the output will only exceed the threshold by 1 dB.
+            attack: MFloat[1] attack time in seconds for the compressor's envelope follower.
+            release: MFloat[1] release time in seconds for the compressor's envelope follower.
+            knee_width: MFloat[1] width of the knee in dB. A value of 0 means a hard knee, while higher values create a softer knee N/2 decibels around the threshold.
+            dry_gain: MFloat[1] gain (in amplitude units) of the uncompressed signal.
+            compressed_gain: MFloat[1] gain (in amplitude units) of the compressed signal.
+
+        Returns:
+            MFloat[Self.num_chans] mix of the dry and compressed signals.
+        """
+        comptime if Self.ov_samp == TimesOversampling.none:
+            var gain = self.compressor.next_neg_comp(input, threshold, ratio, attack, release, knee_width)
+            return input * dry_gain + input * gain * compressed_gain
+        else:
+            # Compressor.next(), with the padding delay after upsampling
+            comptime for i in range(Self.ov_samp.times):
+                var x2 = self.pad.next(self.compressor.upsampler.next(input, i), MInt[Self.num_chans](self.pad_samps))
+                var y = self.compressor.next_neg_comp(x2, threshold, ratio, attack, release, knee_width) * x2
+                self.compressor.downsampler.add_sample(y)
+            var compressed = self.compressor.downsampler.get_sample()
+            var dry = self.dry.next(input, MInt[Self.num_chans](self.latency))
+            return dry * dry_gain + compressed * compressed_gain

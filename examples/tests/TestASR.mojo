@@ -22,10 +22,10 @@ struct TestASR(Movable, Copyable):
     def next(mut self) -> MFloat[2]:
         self.messenger.update("curves", self.curves) 
         # any MIDI note on opens the gate and any note off closes it.
-        # note_on and note_off are [note, velocity, channel] lists, sent by MMMAudio.send_midi or by a plugin's MIDI input.
-        if self.messenger.notify_update_all("note_on", self.notes):
+        # midi_note_on and midi_note_off are [channel, note, velocity] lists, sent by MMMAudio.route_raw_midi or by a plugin's MIDI input.
+        if self.messenger.notify_update_all("midi_note_on", self.notes):
             self.gate = True
-        if self.messenger.notify_update_all("note_off", self.notes):
+        if self.messenger.notify_update_all("midi_note_off", self.notes):
             self.gate = False
 
         var env = self.env.next(self.world[].mouse_x(), 1, self.world[].mouse_y(), self.gate, self.curves)

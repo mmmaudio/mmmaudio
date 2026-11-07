@@ -19,7 +19,7 @@ import json
 
 def main():
     mmm_audio = MMMAudio(16, num_output_channels = 2, graph_name="WavetableOsc", package_name="examples")
-    # the score uses mmm_audio.send_ints for the notes (sent to "note_on" and "note_off" as [note, velocity, channel], the same as send_midi) and mmm_audio.send_float for the filter, so mmm_audio is the only target
+    # the score uses mmm_audio.send_ints for the notes (sent to "midi_note_on" and "midi_note_off" as [channel, note, velocity], the same as route_raw_midi) and mmm_audio.send_float for the filter, so mmm_audio is the only target
     targets = {
         "mmm_audio": mmm_audio,
     }

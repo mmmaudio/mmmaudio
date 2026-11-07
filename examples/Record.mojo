@@ -54,14 +54,14 @@ struct Record(Movable, Copyable):
                 self.input_chan = 0
 
         # holding down MIDI note 48 records, and letting go of it plays back what was recorded.
-        # note_on and note_off are [note, velocity, channel] lists, sent by MMMAudio.send_midi or by a plugin's MIDI input.
-        if self.messenger.notify_update_all("note_on", self.note_ons):
+        # midi_note_on and midi_note_off are [channel, note, velocity] lists, sent by MMMAudio.route_raw_midi or by a plugin's MIDI input.
+        if self.messenger.notify_update_all("midi_note_on", self.note_ons):
             for ref note in self.note_ons:
-                if note[0] == 48 and not self.is_recording:
+                if note[1] == 48 and not self.is_recording:
                     self.start_recording()
-        if self.messenger.notify_update_all("note_off", self.note_offs):
+        if self.messenger.notify_update_all("midi_note_off", self.note_offs):
             for ref note in self.note_offs:
-                if note[0] == 48 and self.is_recording:
+                if note[1] == 48 and self.is_recording:
                     self.stop_recording()
 
         # this code does the actual recording, placing the next sample into the buffer

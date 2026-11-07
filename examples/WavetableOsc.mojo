@@ -72,19 +72,19 @@ struct WavetableOsc(Movable, Copyable):
         if self.messenger.notify_update("load_file", self.file_name):
             self.loadBuffer()
 
-        # note_on and note_off are [note, velocity, channel] lists, sent by MMMAudio.send_midi or by a plugin's MIDI input.
+        # midi_note_on and midi_note_off are [channel, note, velocity] lists, sent by MMMAudio.route_raw_midi or by a plugin's MIDI input.
         # next_gate opens a free voice's gate for a note on and closes the gate of the voice playing that note for a note off.
         # Note offs are handled after note ons so a note that starts and stops in the same block doesn't get stuck on.
-        if self.messenger.notify_update_all("note_on", self.note_ons):
+        if self.messenger.notify_update_all("midi_note_on", self.note_ons):
             for ref note in self.note_ons:
-                var voice = self.poly.next_gate(self.voices, note[0], True)
+                var voice = self.poly.next_gate(self.voices, note[1], True)
                 if voice >= 0:
-                    self.voices[voice].freq = midicps(Float64(note[0]))
-                    self.voices[voice].vol = Float64(note[1]) / 127.0
+                    self.voices[voice].freq = midicps(Float64(note[1]))
+                    self.voices[voice].vol = Float64(note[2]) / 127.0
 
-        if self.messenger.notify_update_all("note_off", self.note_offs):
+        if self.messenger.notify_update_all("midi_note_off", self.note_offs):
             for ref note in self.note_offs:
-                _ = self.poly.next_gate(self.voices, note[0], False)
+                _ = self.poly.next_gate(self.voices, note[1], False)
 
         var sample = 0.0
         for ref voice in self.voices:
@@ -94,17 +94,17 @@ struct WavetableOsc(Movable, Copyable):
         self.messenger.update("filter_cutoff", self.filter_cutoff)
         self.messenger.update("filter_resonance", self.filter_resonance)
 
-        # cc is [controller, value, channel]: cc 1 sets the wubb rate of all the voices, 33 the filter cutoff and 34 the resonance
-        if self.messenger.notify_update_all("cc", self.ccs):
+        # cc is [channel, controller, value]: cc 1 sets the wubb rate of all the voices, 33 the filter cutoff and 34 the resonance
+        if self.messenger.notify_update_all("midi_cc", self.ccs):
             for ref cc in self.ccs:
-                var val = Float64(cc[1])
-                if cc[0] == 1:
+                var val = Float64(cc[2])
+                if cc[1] == 1:
                     var wubb_rate = linexp(val, 0.0, 127.0, 0.1, 10.0)
                     for ref voice in self.voices:
                         voice.wubb_rate = wubb_rate
-                elif cc[0] == 33:
+                elif cc[1] == 33:
                     self.filter_cutoff = linexp(val, 0.0, 127.0, 20.0, 20000.0)
-                elif cc[0] == 34:
+                elif cc[1] == 34:
                     self.filter_resonance = linexp(val, 0.0, 127.0, 0.1, 1.0)
         sample = self.moog_filter.next(sample, self.filter_cutoff, self.filter_resonance)
 

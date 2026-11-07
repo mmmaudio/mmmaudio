@@ -18,9 +18,9 @@ if True:
     in_port = midi.MidiIn()
     in_port.open_port(port_num)
 
-    # send_midi forwards every message to the graph the same way an exported plugin does
+    # route_raw_midi forwards every message to the graph the same way an exported plugin does
     def midi_callback(msg, timestamp, data=None):
         print(f"Received {midi.MidiMessage.parse(msg)}")
-        mmm_audio.send_midi(msg)
+        mmm_audio.route_raw_midi(msg)
 
     in_port.set_callback(midi_callback)

@@ -29,7 +29,7 @@ Before you run the code in a new REPL, make sure to close all terminal instances
 
 Most examples run by selecting code in the file and pressing shift-return to execute the code. If your interpeter is not opened in the terminal, it should open a new one, load the virtual environment, and run the code. 
 
-VS Code has issues with lots of text sometimes. If your code gets garbled as it is sent to the terminal, it is a VS Code problem. You will need to break the code up into smaller chunks.
+If code sent with shift-return fails with `IndentationError: unexpected indent` or arrives garbled, make sure you have the repo's `.vscode/settings.json` (it sets `PYTHON_BASIC_REPL=1` for Python 3.13+), then close all terminals and try again. See section 6c of your OS setup guide for details.
 
 Go to the [Examples](../examples/index.md) page to run an example!
 

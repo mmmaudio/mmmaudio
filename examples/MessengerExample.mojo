@@ -70,6 +70,11 @@ struct MessengerExample(Copyable, Movable):
             for f in self.floats:
                 print("  ", f)
 
+        def floats_list_of_lists(vals: List[List[Float64]]) capturing -> None:
+            for val in vals:
+                print("Received a list of floats: ", val)
+        self.m.address_callback_all[floats_list_of_lists]("float_list_of_lists")
+
         if self.m.notify_update("int", self.int) :
             print("Updated int to ", self.int)
 

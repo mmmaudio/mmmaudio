@@ -7,7 +7,7 @@ struct MLP_Synth(Movable, Copyable):
     var osc1: Osc[1, Interp.sinc, TimesOversampling.x2]  # Oscillator 1 with interpolation and oversampling
     var osc2: Osc[1, Interp.sinc, TimesOversampling.x2]  # Oscillator 2 with interpolation and oversampling
 
-    var model: MLP[2, model_out_size]  # Instance of the MLP model - 2 inputs, model_out_size outputs
+    var model: MLP_Interface[2, model_out_size]  # Instance of the MLP_Interface - 2 inputs, model_out_size outputs
     var lags: Lags[model_out_size]  # A Lags (Lags processed in parallel) for smoothing the model outputs
 
     var fb: Float64
@@ -31,7 +31,7 @@ struct MLP_Synth(Movable, Copyable):
         self.osc2 = Osc[1, Interp.sinc, TimesOversampling.x2](self.world)
 
         # load the trained model
-        self.model = MLP[2, model_out_size](self.world, "examples/ML_examples/nn_trainings/mlp_example_training.safetensors", "mlp1", trig_rate=25.0)
+        self.model = MLP_Interface[2, model_out_size](self.world, "examples/ML_examples/nn_trainings/mlp_example_training.safetensors", "mlp1", trig_rate=25.0)
 
         # Lags is a utility for processing multiple lag lines in parallel
         self.lags = Lags[model_out_size](self.world, 1/25.0)  # Assuming the model updates at 25 Hz

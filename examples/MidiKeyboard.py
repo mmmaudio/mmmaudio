@@ -17,13 +17,38 @@ def main():
     mmm_audio = MMMAudio(128, graph_name="MidiKeyboard", package_name="examples")
     mmm_audio.start_audio() 
 
-    # send_midi forwards every message to the graph in the same format that an exported plugin does:
-    # note ons go to "note_on", note offs to "note_off", ccs to "cc", etc.
-    # the Messenger pools all of the messages received during a block, so playing a chord doesn't lose any notes.
-    # the graph maps cc 1 to the wubb rate, cc 33 to the filter cutoff and cc 34 to the filter resonance.
+    # by changing this variable, you can change the style of MIDI messaging.
+    # in each case, the same messages are used by the graph
+    # the first sends every midi message. the second sends only selected midi message with formatting done in the function, the last sends only parsed messages, but uses the raw MIDI router after parsing out the relevant messages.
+    messaging_format = 0
+
     def midi_callback(msg, timestamp, data=None):
-        print(f"Received MIDI message: {midi.MidiMessage.parse(msg)}")
-        mmm_audio.send_midi(msg)
+        parsed = midi.MidiMessage.parse(msg)
+        print(f"Received MIDI message: {parsed}")
+        
+        # depending on the setting above, we can send the MIDI message in different ways.
+        if messaging_format == 0:
+            # one way to handle MIDI messages is to forward raw MIDI messages directly to the graph using route_raw_midi
+            mmm_audio.route_raw_midi(msg)
+
+        elif messaging_format == 1:
+            # a second way is to parse the MIDI message and handle it manually, as shown below.
+            if type(parsed) == midi.NoteOnMessage:
+                mmm_audio.send_ints("midi_note_on", [parsed.channel_id, parsed.note_number, parsed.velocity])
+            elif type(parsed) == midi.NoteOffMessage:
+                mmm_audio.send_ints("midi_note_off", [parsed.channel_id, parsed.note_number, parsed.velocity])
+            elif type(parsed) == midi.ControllerChangeMessage and parsed.controller_number == 33:
+                mmm_audio.send_ints("midi_cc", [parsed.channel_id, parsed.controller_number, parsed.controller_value])
+            elif type(parsed) == midi.PitchWheelMessage:
+                mmm_audio.send_ints("midi_pitch_bend", [parsed.channel_id, parsed.transposition])
+
+        else:
+            # this is equivalent to:
+            if type(parsed) == midi.NoteOnMessage or type(parsed) == midi.NoteOffMessage or type(parsed) == midi.PitchWheelMessage:
+                mmm_audio.route_raw_midi(msg)
+            elif type(parsed) == midi.ControllerChangeMessage and parsed.controller_number == 33:
+                mmm_audio.route_raw_midi(msg)
+
 
     # open your midi device - you may need to change the device name
     in_port = midi.MidiIn()

@@ -19,6 +19,7 @@ import importlib.util
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -112,6 +113,23 @@ def source_hash(paths, extra: str = "", files=()) -> str:
     return hasher.hexdigest()[:16]
 
 
+_compiler_version = None
+
+
+def compiler_version() -> str:
+    """`mojo --version`, so that switching Mojo versions rebuilds everything
+    instead of reusing what another version compiled."""
+    global _compiler_version
+    if _compiler_version is None:
+        mojo = shutil.which("mojo") or str(Path(sys.prefix) / "bin" / "mojo")
+        try:
+            _compiler_version = subprocess.run([mojo, "--version"], capture_output=True,
+                                               text=True).stdout.strip()
+        except OSError:
+            _compiler_version = ""
+    return _compiler_version
+
+
 def _run_mojo(args, source: Path):
     """Uses mojo's subprocess_run_mojo to precompile th mmm_audio.mojoc library. This will only run with the mmm_audio library changes."""
     from mojo.paths import MojoCompilationError
@@ -130,7 +148,7 @@ def precompile_package(source_dir, cache_dir=PRECOMPILED_DIR) -> Path:
     """
     source_dir = Path(source_dir)
     name = source_dir.name
-    pkg_dir = Path(cache_dir) / f"{name}-{source_hash([source_dir])}"
+    pkg_dir = Path(cache_dir) / f"{name}-{source_hash([source_dir], compiler_version())}"
     if (pkg_dir / f"{name}.mojoc").is_file():
         return pkg_dir
 
@@ -238,6 +256,6 @@ def build_graph_lib(graph_name: str, package_name: str, pkg_dir=None) -> Path:
     return build_shared_lib(
         f"{graph_name}Graph",
         graph_stub,
-        source_hash(source_dirs, graph_stub),
+        source_hash(source_dirs, graph_stub + compiler_version()),
         [pkg_dir, *source_dirs],
     )

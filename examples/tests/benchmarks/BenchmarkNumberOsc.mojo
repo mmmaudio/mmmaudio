@@ -1,10 +1,10 @@
 
 from mmm_audio import *
 
-comptime num: Int = 1500 * 8
-comptime mul: Float64 = 1.0 / Float64(num)
+comptime num: Int =  9000
+comptime mul: Float64 = 1.0 / (Float64(num) * 2.0)
 
-struct TestOsc[](Movable, Copyable):
+struct BenchmarkNumberOsc[](Movable, Copyable):
     var world: World
     var osc: List[Osc[]]
     var osc2: List[Osc[2,interp=Interp.linear]]
@@ -21,7 +21,7 @@ struct TestOsc[](Movable, Copyable):
         self.osc2 = [Osc[2,interp=Interp.linear](self.world) for _ in range(num//2)]
         self.osc4 = [Osc[4,interp=Interp.linear](self.world) for _ in range(num//4)]
         self.osc8 = [Osc[8,interp=Interp.linear](self.world) for _ in range(num//8)]
-        print("TestOsc: num = ", String(len(self.osc8)) + " groups of 8 = ", len(self.osc8)*8)
+        print("BenchmarkNumberOsc: num = ", String(len(self.osc8)) + " groups of 8 = ", len(self.osc8)*8)
         self.freqs = [rrand(100.0, 2000.0) for _ in range(num)]
         self.which = 3
         self.m = Messenger(self.world)

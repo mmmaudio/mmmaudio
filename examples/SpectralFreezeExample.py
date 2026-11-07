@@ -28,7 +28,7 @@ def main():
     window.setWindowTitle("Spectral Freeze Controller")
     window.resize(100, 100)
     # stop audio when window is closed
-    window.closeEvent = lambda event: (mmm_audio.stop_audio(), event.accept())
+    window.closeEvent = lambda event: (MMMAudio.exit_all(), event.accept())
 
     # Create layout
     layout = QVBoxLayout()
@@ -40,7 +40,7 @@ def main():
     layout.addWidget(gatebutton)
     window.setLayout(layout)
     window.show()
-    app.exec()
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()

@@ -7,10 +7,31 @@ from mmm_audio.ML.SafeTensors import SafeTensors
 from mmm_audio.constants import *
 from mmm_audio.Oscillators import Phasor
 
-comptime ACT_NONE = 0
-comptime ACT_RELU = 1
-comptime ACT_SIGMOID = 2
-comptime ACT_TANH = 3
+@fieldwise_init
+struct Activation(Equatable, ImplicitlyCopyable):
+    """The activation that follows a `DenseLayer`.
+
+    | Activation         | Weight file name |
+    | ------------------ | ---------------- |
+    | Activation.none    | "none"           |
+    | Activation.relu    | "relu"           |
+    | Activation.sigmoid | "sigmoid"        |
+    | Activation.tanh    | "tanh"           |
+    """
+    var value: Int
+
+    comptime none = Activation(0)
+    comptime relu = Activation(1)
+    comptime sigmoid = Activation(2)
+    comptime tanh = Activation(3)
+
+    @doc_hidden
+    def __eq__(self, other: Self) -> Bool:
+        return self.value == other.value
+
+    @doc_hidden
+    def __ne__(self, other: Self) -> Bool:
+        return not (self == other)
 
 comptime MLPWeight = Float32
 """Storage and arithmetic type inside the network.
@@ -34,17 +55,17 @@ struct DenseLayer(Copyable, Movable):
 
     var in_size: Int
     var out_size: Int
-    var activation: Int
+    var activation: Activation
     var weight: List[MLPWeight]
     var bias: List[MLPWeight]
 
-    def __init__(out self, in_size: Int, out_size: Int, activation: Int):
+    def __init__(out self, in_size: Int, out_size: Int, activation: Activation):
         """Make a zeroed layer.
 
         Args:
             in_size: Number of inputs.
             out_size: Number of outputs.
-            activation: One of `ACT_NONE`, `ACT_RELU`, `ACT_SIGMOID`, `ACT_TANH`.
+            activation: The activation applied to the layer's output.
         """
         self.in_size = in_size
         self.out_size = out_size
@@ -96,7 +117,7 @@ struct DenseLayer(Copyable, Movable):
             j += 1
 
         # The activation, vectorized over the whole output
-        if self.activation == ACT_NONE:
+        if self.activation == Activation.none:
             return
         var i = 0
         while i + W <= self.out_size:
@@ -109,48 +130,48 @@ struct DenseLayer(Copyable, Movable):
 
 @doc_hidden
 @always_inline
-def _activate[w: Int](v: SIMD[DType.float32, w], activation: Int) -> SIMD[DType.float32, w]:
-    """Apply one of the `ACT_*` activations lane by lane.
+def _activate[w: Int](v: SIMD[DType.float32, w], activation: Activation) -> SIMD[DType.float32, w]:
+    """Apply an `Activation` lane by lane.
 
     Parameters:
         w: Number of lanes.
 
     Args:
         v: The pre-activation values.
-        activation: One of `ACT_NONE`, `ACT_RELU`, `ACT_SIGMOID`, `ACT_TANH`.
+        activation: The activation to apply.
 
     Returns:
         The activated values.
     """
-    if activation == ACT_RELU:
+    if activation == Activation.relu:
         return max(v, 0.0)
-    elif activation == ACT_SIGMOID:
+    elif activation == Activation.sigmoid:
         return 1.0 / (1.0 + exp(-v))
-    elif activation == ACT_TANH:
+    elif activation == Activation.tanh:
         return tanh(v)
     return v
 
 @doc_hidden
-def _activation_code(name: String) raises -> Int:
-    """Map an activation name from the weight file to its `ACT_*` code.
+def _activation_from_name(name: String) raises -> Activation:
+    """Map an activation name from the weight file to its `Activation`.
 
     Args:
         name: One of "none", "relu", "sigmoid", "tanh".
 
     Returns:
-        The matching `ACT_*` constant.
+        The matching `Activation`.
     """
     if name == "none":
-        return ACT_NONE
+        return Activation.none
     elif name == "relu":
-        return ACT_RELU
+        return Activation.relu
     elif name == "sigmoid":
-        return ACT_SIGMOID
+        return Activation.sigmoid
     elif name == "tanh":
-        return ACT_TANH
+        return Activation.tanh
     raise Error("unknown activation: " + name)
 
-struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
+struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
     """A multi-layer perceptron in pure Mojo which loads its weights from a torch trained safetensors file.
 
     Runs a network trained by `train_new_mlp` in `mmm_python/ML/MLP_Python.py`, which saves
@@ -241,7 +262,7 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
                     + " inputs but receives " + String(expected_in)
                 )
 
-            var layer = DenseLayer(in_size, out_size, _activation_code(String(activations[l])))
+            var layer = DenseLayer(in_size, out_size, _activation_from_name(String(activations[l])))
             layer.weight = st.get[DType.float32](prefix + "weight")
             layer.bias = st.get[DType.float32](prefix + "bias")
             if len(layer.bias) != out_size:
@@ -298,8 +319,8 @@ struct MLPNetwork[input_size: Int, output_size: Int](Copyable, Movable):
         return len(self.layers)
 
 
-struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
-    """A multi-layer perceptron, trained in PyTorch by `mmm_python/ML/MLP_Python.py`, that runs in pure Mojo. This is a convenience class around the MLPNetwork, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
+struct MLP_Interface[input_size: Int, output_size: Int](Copyable, Movable):
+    """A multi-layer perceptron, trained in PyTorch by `mmm_python/ML/MLP_Python.py`, that runs in pure Mojo. This is a convenience class around `MLP`, which stores the input and output Arrays, allows the user to toggle on and off inference, allows the user to load new trainings, and allows the user to send `fake` model outputs from python (necessary when training certain networks).
 
     The weights come from the safetensors file trained by `MLP_Python.train_new_mlp`.
 
@@ -319,7 +340,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
       output_size: The size of the output vector.
     """
     var world: World
-    var mlp: MLPNetwork[Self.input_size, Self.output_size]
+    var mlp: MLP[Self.input_size, Self.output_size]
     var model_input: Array[Float64, Self.input_size]
     var model_output: Array[Float64, Self.output_size]
     var fake_model_output: List[Float64]
@@ -330,7 +351,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
     var file_name: String
 
     def __init__(out self, world: World, file_name: String, namespace: Optional[String] = None, trig_rate: Float64 = 25.0):
-        """Initialize the MLP struct.
+        """Initialize the MLP_Interface struct.
 
         Args:
           world: Pointer to the MMMWorld.
@@ -339,7 +360,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
           trig_rate: The rate in Hz at which to trigger inference.
         """
         self.world = world
-        self.mlp = MLPNetwork[Self.input_size, Self.output_size]()
+        self.mlp = MLP[Self.input_size, Self.output_size]()
         self.model_input = Array[Float64, Self.input_size](fill=0.0)
         self.model_output = Array[Float64, Self.output_size](fill=0.0)
         self.fake_model_output = [0.0 for _ in range(Self.output_size)]
@@ -368,7 +389,7 @@ struct MLP[input_size: Int, output_size: Int](Copyable, Movable):
 
     @always_inline
     def next[every_next: Bool = False](mut self):
-        """MLP next function to be called every sample in the audio thread. The model input is taken from `model_input`, and the output is written to `model_output`.
+        """MLP_Interface next function to be called every sample in the audio thread. The model input is taken from `model_input`, and the output is written to `model_output`.
 
         Parameters:
             every_next: If True, the MLP will perform inference on every `next()` call. If False (default), the MLP will perform inference at the rate specified by `trig_rate`. In both cases, this is only if `inference_gate` is True.

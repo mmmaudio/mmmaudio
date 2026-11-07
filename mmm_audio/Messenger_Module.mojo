@@ -187,7 +187,7 @@ struct Messenger(Copyable, Movable):
         """Update a List with every value sent from Python under `name` since the last block, in the order they were received.
 
         Where `update` only keeps the last message, this keeps all of them, so messages sent in quick succession
-        (such as several `note_on`s within one block) aren't lost. The element type of `param` chooses the message
+        (such as several `midi_note_on`s within one block) aren't lost. The element type of `param` chooses the message
         type the same way the type of `param` does in `update`: a `List[Float64]` collects `send_float` messages,
         a `List[List[Int]]` collects `send_ints` messages, a `List[MFloat[2]]` collects `send_floats` messages
         lane by lane, and so on.
@@ -313,11 +313,15 @@ def _get_all[T: Copyable & Deinitable](mut msgs: Dict[String, Message[T]], key: 
         return msg.values.copy()
     return None
 
-@doc_hidden
 def _is_midi_msg(key: String) -> Bool:
-    """The messages sent for MIDI by the plugins and MMMAudio.send_midi. A graph often only reads some of them, so they don't warn when they aren't retrieved."""
-    return (key == "note_on" or key == "note_off" or key == "cc" or key == "pitch_bend"
-        or key == "poly_aftertouch" or key == "channel_pressure" or key == "program_change")
+    """The messages sent for MIDI by the plugins and MMMAudio.route_raw_midi. A graph often only reads some of them, so they don't warn when they aren't retrieved.
+
+    Only the part after the last "." is checked, so namespaced keys like "synth.midi_note_on" will be recognized as MIDI messages.
+    """
+    var parts = key.split(".")
+    var name = parts[len(parts) - 1]
+    return (name == "midi_note_on" or name == "midi_note_off" or name == "midi_cc" or name == "midi_pitch_bend"
+        or name == "midi_poly_aftertouch" or name == "midi_channel_pressure" or name == "midi_program_change")
 
 @doc_hidden
 def _empty_msgs[T: Copyable & Deinitable](mut msgs: Dict[String, Message[T]], kind: String):

@@ -8,5 +8,8 @@ mmm_audio.send_float("attack", 0.01)
 mmm_audio.send_float("release", 0.5)
 mmm_audio.send_float("knee_width", 4.0)
 
+mmm_audio.send_int("which_out", 0)
+mmm_audio.send_int("which_out", 1)
+
 mmm_audio.stop_audio()
 mmm_audio.plot(48000*2)

@@ -17,8 +17,8 @@
 !mmm_audio/**
 !mmm_python/
 !mmm_python/**
-!PluginExporter/
-!PluginExporter/**
+!Exporters/
+!Exporters/**
 !resources/
 !resources/**
 !testing_mmm_audio/
@@ -246,7 +246,6 @@ __marimo__/
 # MkDocs
 doc_generation/docs_md
 site
-.vscode
 testing/librosa_results
 .venv-257
 venv0257
@@ -263,6 +262,17 @@ peaks
 
 wsl_fixes/
 # Plugin exporter downloads and build output
-PluginExporter/JUCE/
-PluginExporter/clap-juce-extensions/
-PluginExporter/builds/
+Exporters/PluginExporter/src/JUCE/
+Exporters/PluginExporter/src/clap-juce-extensions/
+Exporters/PluginExporter/builds/
+# SuperCollider exporter downloads and build output
+Exporters/SCExporter/src/supercollider/
+Exporters/SCExporter/builds/
+Exporters/SCExporter/struct_graphs/
+# VCV Rack exporter downloads and build output
+Exporters/VCVExporter/src/Rack-SDK-*/
+Exporters/VCVExporter/src/Rack-SDK.zip
+Exporters/VCVExporter/src/Rack-SDK.unpacked/
+Exporters/VCVExporter/builds/
+Exporters/VCVExporter/src/struct_graphs/
+Exporters/SCExporter/src/struct_graphs

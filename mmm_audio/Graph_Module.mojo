@@ -48,7 +48,6 @@ struct C_GraphHandle(Movable):
 
     def __init__(out self, path: String, world: World) raises:
         self.dy_lib = OwnedDLHandle(path)
-        print(path)
         # get the two C functions we need from the library
         var new_fn = _c_function_lookup[GraphNewFn](self.dy_lib, "mmm_graph_new")
         self.block_fn = _c_function_lookup[GraphBlockDef](self.dy_lib, "mmm_graph_block")

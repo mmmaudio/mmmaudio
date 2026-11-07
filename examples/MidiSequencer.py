@@ -19,7 +19,6 @@ if True:
     mmm_audio.start_audio()
 
     import numpy as np
-    import asyncio
 
     global scheduler
     scheduler = Scheduler()
@@ -39,7 +38,7 @@ async def trig_synth(wait):
     while True:
         mmm_audio.send_float("filt_freq", filter_seq.next()) # update filter frequency before each note
         mmm_audio.send_floats("notes", [fund * mult_seq.next(), 100 / 127.0])  # note freq and velocity scaled 0 to 1
-        await asyncio.sleep(wait)
+        await scheduler.wait(wait)  # timed from when the last note was due, so the rhythm never drifts
         
         i = (i + 1) % count_to
         

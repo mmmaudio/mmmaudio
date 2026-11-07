@@ -392,7 +392,7 @@ struct MBufAnalysisBridge:
             * **num_frames:** (Int, optional): Number of frames to analyze. Defaults to the remaining buffer.
             * **metric:** (String, optional, default "complex_domain"): Onset metric name.
             * **threshold:** (Float64, optional, default 0.5): Descriptor threshold for trigger detection.
-            * **debounce:** (Float64, optional, default 0.1): Minimum seconds between triggers.
+            * **min_slice_len:** (Float64, optional, default 0.1): Minimum seconds between triggers.
             * **window_size:** (Int, optional, default 1024): FFT window size in samples.
             * **hop_size:** (Int, optional, default window_size // 2): Hop size in samples.
             * **filter_size:** (Int, optional, default 5): Median-filter size.
@@ -407,7 +407,7 @@ struct MBufAnalysisBridge:
         var ap = AnalysisParams(py_dict)
         var metric_string = get_at_key[String]("onset_detection", py_dict, "metric", "complex_domain")
         var threshold = getFloat64("onset_detection", py_dict, "threshold", 0.5)
-        var debounce = getFloat64("onset_detection", py_dict, "debounce", 0.1)
+        var min_slice_len = getFloat64("onset_detection", py_dict, "min_slice_len", 0.1)
         var window_size = get_at_key[Int]("onset_detection", py_dict, "window_size", 1024)
         var hop_size = get_at_key[Int]("onset_detection", py_dict, "hop_size", window_size // 2)
         var filter_size = get_at_key[Int]("onset_detection", py_dict, "filter_size", 5)
@@ -427,7 +427,7 @@ struct MBufAnalysisBridge:
             ap.num_frames,
             OnsetMetric.from_string(metric_string),
             threshold,
-            debounce,
+            min_slice_len,
             window_size,
             hop_size,
             filter_size,

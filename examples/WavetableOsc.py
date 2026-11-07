@@ -4,7 +4,7 @@ You can load your own wavetable files by sending a string message to the "load_f
 
 MMM_Audio can load commercial .wav files, designed for Vital or Serum, as wavetables. The wavetable should be a single channel audio file made up of one or more cycles of a waveform, each a power of 2 in length. The wavetable will be looped to create the oscillator waveform.
 
-Also demonstrates how to forward MIDI to the graph with send_midi and let a Poly in the graph manage the voices.
+Also demonstrates how to forward MIDI to the graph with route_raw_midi and let a Poly in the graph manage the voices.
 """
 
 from mmm_python import *
@@ -34,11 +34,11 @@ if True:
     in_port = midi.MidiIn()
     in_port.open_port(port_num)
 
-# send_midi forwards every message to the graph the same way an exported plugin does:
-# note ons go to "note_on", note offs to "note_off", ccs to "cc", etc.
+# route_raw_midi forwards every message to the graph the same way an exported plugin does:
+# note ons go to "midi_note_on", note offs to "midi_note_off", ccs to "midi_cc", etc.
 # the graph allocates the voices and maps cc 1 to the wubb rate, cc 33 to the filter cutoff and cc 34 to the filter resonance.
 def midi_callback(msg, timestamp, data=None):
     print(f"Received {midi.MidiMessage.parse(msg)}")
-    mmm_audio.send_midi(msg)
+    mmm_audio.route_raw_midi(msg)
 
 in_port.set_callback(midi_callback)

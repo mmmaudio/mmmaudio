@@ -1,6 +1,11 @@
 import asyncio
+import contextvars
 import threading
 import time
+
+# Each routine's logical time: when its last wait was due, on the event loop's clock.
+# Every task gets its own copy of a ContextVar, so each routine keeps a separate clock.
+_logical_time = contextvars.ContextVar("logical_time", default=None)
 
 class Scheduler:
     """The main Scheduler class for the Python side of MMMAudio. Can be used to run asyncio coroutines in a separate scheduling thread. This has the advantage of not blocking the main thread, but also allows for each schedule to be cancelled individually."""
@@ -11,31 +16,30 @@ class Scheduler:
         self.thread = None
         self.running = False
         self.routines = []
+        self.wait_mult = 1.0
 
         self.start_thread()
 
-    async def tc_sleep(self, delay, result=None):
-        """Coroutine that completes after a given time (in seconds).
-        
+    async def wait(self, delay):
+        """Coroutine that waits `delay` seconds after the routine's previous wait was due, rather than after now.
+
+        Always use `await sched.wait(delay)` instead of `await asyncio.sleep(delay)` inside routines started with `sched`. If a wait wakes up late, the next one is shortened by the same amount, so a routine that waits between its events never drifts from its intended timing. 
+
         Args:
-            delay: Time in seconds to wait before completing the coroutine.
-            result: Optional result to return when the coroutine completes.
-
+            delay: Time in seconds after the previous wait was due. Scaled by `wait_mult`.
         """
-        if delay <= 0:
-            await asyncio.tasks.__sleep0()
-            return result
+        loop = asyncio.get_running_loop()
+        start = _logical_time.get()
+        if start is None:  # not started by sched, so time from now
+            start = loop.time()
+        target = start + delay * self.wait_mult
+        _logical_time.set(target)
+        await asyncio.sleep(max(target - loop.time(), 0))
 
-        delay *= self.wait_mult  # Adjust delay based on tempo
-        loop = asyncio.events.get_running_loop()
-        future = loop.create_future()
-        h = loop.call_later(delay,
-                            asyncio.futures._set_result_unless_cancelled,
-                            future, result)
-        try:
-            return await future
-        finally:
-            h.cancel()
+    async def _run(self, coro):
+        """Start a routine's logical clock at the current time, then run it."""
+        _logical_time.set(asyncio.get_running_loop().time())
+        return await coro
 
     def start_thread(self):
         """Create a new asyncio event loop and run it in a separate scheduling thread."""
@@ -84,7 +88,7 @@ class Scheduler:
         if not self.running or not self.loop:
             raise RuntimeError("Asyncio thread is not running")
         
-        rout = asyncio.run_coroutine_threadsafe(coro, self.loop)
+        rout = asyncio.run_coroutine_threadsafe(self._run(coro), self.loop)
         self.routines.append(rout)
 
         return rout

@@ -32,7 +32,7 @@ def main():
     window.setWindowTitle("Freeverb Controller")
     window.resize(300, 100)
     # stop audio when window is closed
-    window.closeEvent = lambda event: (mmm_audio.stop_audio(), event.accept())
+    window.closeEvent = lambda event: (MMMAudio.exit_all(), event.accept())
 
     # Create layout
     layout = QVBoxLayout()
@@ -57,7 +57,7 @@ def main():
     window.show()
 
     # Start the application's event loop
-    app.exec()
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
