@@ -54,6 +54,20 @@ def make_bridge_module(name: StaticString) raises -> PythonObject:
         .def_method[Bridge.update_trigs_msg]("update_trigs_msg")
         .def_method[Bridge.update_string_msg]("update_string_msg")
         .def_method[Bridge.update_strings_msg]("update_strings_msg")
+        .def_method[Bridge.query_float_msgs]("query_float_msgs")
+        .def_method[Bridge.query_floats_msgs]("query_floats_msgs")
+        .def_method[Bridge.query_int_msgs]("query_int_msgs")
+        .def_method[Bridge.query_ints_msgs]("query_ints_msgs")
+        .def_method[Bridge.query_string_msgs]("query_string_msgs")
+        .def_method[Bridge.query_strings_msgs]("query_strings_msgs")
+        .def_method[Bridge.query_bool_msgs]("query_bool_msgs")
+        .def_method[Bridge.query_bools_msgs]("query_bools_msgs")
+        .def_method[Bridge.query_trig_msgs]("query_trig_msgs")
+        .def_method[Bridge.query_msgs_by_key]("receive_messages")
+        .def_method[Bridge.transfer_out_msgs]("get_out_messages")
+        .def_method[Bridge.clear_out_msgs]("clear_out_msgs")
+        
+        
     return m.finalize()
 
 
@@ -503,6 +517,357 @@ struct MMMAudioBridge(Movable, Writable):
 
         return PythonObject(None)
 
+    # =======================================================================
+    # Message out methods
+    # =======================================================================
+    @staticmethod
+    def transfer_out_msgs(py_selfA: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        return PythonObject(None)
+
+    @staticmethod
+    def query_float_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Float64](String(py=key))
+            
+            if opt:
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+
+    @staticmethod
+    def query_floats_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Float64]](String(py=key))
+            
+            if opt:
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
+                    
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+
+    @staticmethod
+    def query_int_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Int](String(py=key))
+            
+            if opt:
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+
+    
+    @staticmethod
+    def query_ints_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Int]](String(py=key))
+            
+            if opt:
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
+                    
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+
+    @staticmethod
+    def query_string_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[String](String(py=key))
+            
+            if opt:
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+
+    @staticmethod
+    def query_strings_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[String]](String(py=key))
+            
+            if opt:
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
+                    
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+
+    @staticmethod
+    def query_bool_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Bool](String(py=key))
+            
+            if opt:
+                for i, val in enumerate(opt.value()):
+                    container[key][0][i] = val
+                container[key][1][1] = len(opt.value())
+                container[key][2] = 1
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+
+    @staticmethod
+    def query_bools_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Bool]](String(py=key))
+            
+            if opt:
+                var curr_index : Int = 0
+                for i, vals in enumerate(opt.value()):
+                    
+                    container[key][1][i+1] = container[key][1][i] + len(vals)
+                    for val in vals:
+                        container[key][0][curr_index] = val
+                        curr_index += 1
+                container[key][2] = len(opt.value())
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+    
+    # Not sure about the need for this one.
+    @staticmethod
+    def query_trig_msgs(py_selfA: PythonObject, key: PythonObject, container: PythonObject) raises -> PythonObject:
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        # py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
+        
+        
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            var opt = py_self[].environment_ptr[].out_messenger_manager.get_trig(String(py=key))
+            
+            if opt:
+                
+                container[key][0][0] = opt
+                container[key][1][1] = 1
+                container[key][2] = 1
+                
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+        return PythonObject(None)
+    
+
+    @staticmethod
+    def query_msgs_by_key(py_selfA: PythonObject, container: PythonObject) raises -> PythonObject:
+        """
+        Query all messenger manager pools by key. Early return when key matched.
+        """
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+        
+
+        py_self[].audio_state_ptr[].pools.acquire()
+
+        try:
+            for py_key in container:
+                var key = String(py=py_key)
+                
+                #### Check for int float bool string
+                if py_self[].environment_ptr[].out_messenger_manager.bool_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Bool](String(py=key))
+                    
+                    if opt:
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1
+
+                if py_self[].environment_ptr[].out_messenger_manager.float_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Float64](String(py=key))
+                    
+                    if opt:
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1    
+            
+                if py_self[].environment_ptr[].out_messenger_manager.int_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[Int](String(py=key))
+            
+                    if opt:
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1
+                
+                if py_self[].environment_ptr[].out_messenger_manager.string_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[String](String(py=key))
+            
+                    if opt:
+                        for i, val in enumerate(opt.value()):
+                            container[py_key][0][i] = val
+                        container[py_key][1][1] = len(opt.value())
+                        container[py_key][2] = 1
+            
+                ## Check for lists
+                if py_self[].environment_ptr[].out_messenger_manager.bools_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Bool]](String(py=key))
+            
+                    if opt:
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
+                            
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
+                            
+                    
+
+                if py_self[].environment_ptr[].out_messenger_manager.floats_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Float64]](String(py=key))
+            
+                    if opt:
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
+                            
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
+            
+                if py_self[].environment_ptr[].out_messenger_manager.ints_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[Int]](String(py=key))
+            
+                    if opt:
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
+                            
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
+                
+                if py_self[].environment_ptr[].out_messenger_manager.strings_msg_recv:
+                    var opt = py_self[].environment_ptr[].out_messenger_manager._get_messages[List[String]](String(py=key))
+            
+                    if opt:
+                        var curr_index : Int = 0
+                        for i, vals in enumerate(opt.value()):
+                            
+                            container[py_key][1][i+1] = container[py_key][1][i] + len(vals)
+                            for val in vals:
+                                container[py_key][0][curr_index] = val
+                                curr_index += 1
+                        container[py_key][2] = len(opt.value())
+
+        finally:
+            py_self[].audio_state_ptr[].pools.release()
+
+        # if flag == "int":
+        #     _ = py_selfA.query_int_msgs(key, container)
+        # elif flag == "ints": 
+        #     _ = py_selfA.query_ints_msgs(key, container)
+        # elif flag == "float":
+        #     _ = py_selfA.query_float_msgs(key, container)
+        # elif flag == "floats":
+        #     _ = py_selfA.query_floats_msgs(key, container)
+        # elif flag == "string":
+        #     _ = py_selfA.query_string_msgs(key, container)
+        # elif flag == "strings":
+        #     _ = py_selfA.query_strings_msgs(key, container)
+        # elif flag == "bool":
+        #     _ = py_selfA.query_bool_msgs(key, container)
+        # elif flag == "bools":
+        #     _ = py_selfA.query_bools_msgs(key, container)
+        # elif flag == "trig":
+        #     _ = py_selfA.query_trig_msgs(key, container)
+
+        return PythonObject(None)
+
+    @staticmethod
+    def clear_out_msgs(py_selfA: PythonObject) raises -> PythonObject:
+        """
+        Empties message dicts. Must be called after receiving data
+        """
+        var py_self = py_selfA.downcast_value_ptr[Self]()
+
+        py_self[].audio_state_ptr[].pools.acquire()
+        try:
+            py_self[].environment_ptr[].out_messenger_manager.empty_msg_dicts()
+        finally:
+            py_self[].audio_state_ptr[].pools.release()   
+        return PythonObject(None)
+
     def get_audio_samples(mut self, loc_in_buffer: MutPointer[Float32, ...], mut loc_out_buffer: MutPointer[Float64, ...]) raises:
         # The per-sample loop lives in the graph's library (see GraphBlock),
         # so the whole block is one call across the library boundary.
@@ -596,6 +961,8 @@ struct MMMAudioBridge(Movable, Writable):
                 frames * num_out - rendered,
             )
 
+
+    
     @staticmethod
     def next(py_selfA: PythonObject, in_buffer: PythonObject, out_buffer: PythonObject) raises -> PythonObject:
         """Offline rendering of the graph, for Non-real-time rendering."""
@@ -620,6 +987,7 @@ struct MMMAudioBridge(Movable, Writable):
             py_self[].audio_state_ptr[].pools.acquire()
             try:
                 py_self[].environment_ptr[].messenger_manager.transfer_msgs()
+                py_self[].environment_ptr[].out_messenger_manager.transfer_msgs()
             finally:
                 py_self[].audio_state_ptr[].pools.release()
 
@@ -628,3 +996,9 @@ struct MMMAudioBridge(Movable, Writable):
             py_self[].audio_state_ptr[].graph.release()
 
         return PythonObject(None)
+
+
+
+
+
+
