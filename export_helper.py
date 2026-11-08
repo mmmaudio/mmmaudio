@@ -277,9 +277,10 @@ class Ui_MMMAudioExporter(object):
                 package_name=self.names_package.text(),
                 module_name=self.names_name,
                 gui_file=gui,
-                instrument=self.instrument_yes.isChecked(),
+                instrument=False,
                 install=self.install_yes.isChecked(),
                 in_labels=inputs,
+                num_in=len(inputs),
                 out_labels=outputs,
                 build=self.build_yes.isChecked(),
                 resources=resources
