@@ -17,8 +17,8 @@ interface as the [PluginExporter](../PluginExporter/README.md) and the
 ## Requirements
 
 - The MMMAudio pixi environment
-- `make` and a C++ compiler. macOS: Xcode's command line tools. Linux: `g++` and `patchelf`
-  (Linux is untested)
+- `make` and a C++ compiler. macOS: Xcode's command line tools. Linux: `g++` (`patchelf`
+  comes with the pixi environment; the export stops if it is missing)
 - VCV Rack 2 (tested with 2.6.6)
 
 The first export downloads the Rack SDK (about 8 MB) into `src/`. Later exports reuse

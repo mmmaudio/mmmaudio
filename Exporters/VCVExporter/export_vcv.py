@@ -384,6 +384,8 @@ def _export(name, work_dir, graph_name, package_name, spec, controls, notes, num
         _log(f"  note: {n}")
 
     # ---- Mojo ----
+    if not IS_MAC:
+        pe._require_patchelf()  # sce._relink needs it; check before the long Mojo build
     graph_lib, bridge_lib = pe._build_mojo_libs(graph_name, package_name)
     runtime = pe._runtime_closure([graph_lib, bridge_lib], pe._mojo_lib_dir())
     resource_files = resources
