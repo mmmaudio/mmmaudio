@@ -158,15 +158,15 @@ class Ui_MMMAudioExporter(object):
         self.verticalLayout_5 = QVBoxLayout(self.verticalLayoutWidget_4)
         self.verticalLayout_5.setObjectName(u"verticalLayout_5")
         self.verticalLayout_5.setContentsMargins(0, 0, 0, 0)
-        self.instrument_no = QRadioButton(self.verticalLayoutWidget_4)
-        self.instrument_no.setObjectName(u"instrument_no")
-
-        self.verticalLayout_5.addWidget(self.instrument_no)
-
         self.instrument_yes = QRadioButton(self.verticalLayoutWidget_4)
         self.instrument_yes.setObjectName(u"instrument_yes")
 
         self.verticalLayout_5.addWidget(self.instrument_yes)
+
+        self.instrument_no = QRadioButton(self.verticalLayoutWidget_4)
+        self.instrument_no.setObjectName(u"instrument_no")
+
+        self.verticalLayout_5.addWidget(self.instrument_no)
 
         self.label_10 = QLabel(self.build_options)
         self.label_10.setObjectName(u"label_10")
@@ -211,6 +211,15 @@ class Ui_MMMAudioExporter(object):
         self.vcv_next.setObjectName(u"vcv_next")
         self.vcv_next.setGeometry(QRect(590, 350, 88, 34))
         self.stackedWidget.addWidget(self.vcv_options)
+        self.build_page = QWidget()
+        self.build_page.setObjectName(u"build_page")
+        self.build_button = QPushButton(self.build_page)
+        self.build_button.setObjectName(u"build_button")
+        self.build_button.setGeometry(QRect(570, 350, 88, 34))
+        self.label_15 = QLabel(self.build_page)
+        self.label_15.setObjectName(u"label_15")
+        self.label_15.setGeometry(QRect(90, 60, 491, 18))
+        self.stackedWidget.addWidget(self.build_page)
         self.page = QWidget()
         self.page.setObjectName(u"page")
         self.label_11 = QLabel(self.page)
@@ -228,14 +237,14 @@ class Ui_MMMAudioExporter(object):
         self.build_options_next.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(2))
         
         self.extras_next.clicked.connect(self.on_extras_clicked)
-        self.vcv_next.clicked.connect(self.build)
-        # self.vcv_next.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(4))
 
+        self.vcv_next.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(4))
+        self.build_button.clicked.connect(self.build)
 
         ## Defaults
         self.build_yes.toggle()
         self.install_no.toggle()
-        self.instrument_no.toggle()
+        self.instrument_yes.toggle()
 
         QMetaObject.connectSlotsByName(MMMAudioExporter)
     # setupUi
@@ -243,8 +252,8 @@ class Ui_MMMAudioExporter(object):
     def build(self):
         
         gui = self.gui_line.text()
-        resources = self.resource_line.text().split(",")
-
+        resources = []
+    
         
         if self.names_name.text() == "":
             self.names_name = None
@@ -252,12 +261,13 @@ class Ui_MMMAudioExporter(object):
             self.names_name = self.names_name.text()
         print(gui, resources, self.names_name
               )
-        if resources[0] == "":
-            resources = None
-        
+        if self.resource_line.text() != "":
+            resources = self.resource_line.text().split(",")
+
+        print(resources)
         
         if self.vcv.isChecked():
-            print("Building VCV Module")
+      
 
             inputs = self.input_names.text().split(",")
             outputs = self.output_names.text().split(",")
@@ -266,26 +276,28 @@ class Ui_MMMAudioExporter(object):
                 graph_name=self.names_graph.text(),
                 package_name=self.names_package.text(),
                 module_name=self.names_name,
-                gui_file=None,
+                gui_file=gui,
                 instrument=self.instrument_yes.isChecked(),
                 install=self.install_yes.isChecked(),
                 in_labels=inputs,
                 out_labels=outputs,
-                build=self.build_yes.isChecked()
+                build=self.build_yes.isChecked(),
+                resources=resources
             )
 
         if self.ugen.isChecked():
-            print("Building SC Ugen")
+   
 
             export_sc(
                 graph_name=self.names_graph.text(),
                 package_name=self.names_package.text(),
                 ugen_name=self.names_name,
-                gui_file=None,
+                gui_file=gui,
                 instrument=self.instrument_yes.isChecked(),
                 install=self.install_yes.isChecked(),
                 config="Release",
-                build=self.build_yes.isChecked()
+                build=self.build_yes.isChecked(),
+                resources=resources
             )
 
         if self.vst.isChecked() or self.clap.isChecked() or self.au.isChecked():
@@ -301,21 +313,21 @@ class Ui_MMMAudioExporter(object):
                 graph_name=self.names_graph.text(),
                 package_name=self.names_package.text(),
                 plugin_name=self.names_name,
-                gui_file=None,
+                gui_file=gui,
                 instrument=self.instrument_yes.isChecked(),
                 install=self.install_yes.isChecked(),
                 plugin_type=plugin_formats,
-                build=self.build_yes.isChecked()
+                build=self.build_yes.isChecked(),
+                resources=resources
             )
-        self.stackedWidget.setCurrentIndex(4
-                                           )
-        print("All built")
+        self.stackedWidget.setCurrentIndex(5)
+  
         
     def on_extras_clicked(self):
         if self.vcv.isChecked():
             self.stackedWidget.setCurrentIndex(3)
         else:
-            self.build()
+            self.stackedWidget.setCurrentIndex(4)
     
     def retranslateUi(self, MMMAudioExporter):
         MMMAudioExporter.setWindowTitle(QCoreApplication.translate("MMMAudioExporter", u"MMMAudio Graph Exporter", None))
@@ -341,8 +353,8 @@ class Ui_MMMAudioExporter(object):
         self.install_yes.setText(QCoreApplication.translate("MMMAudioExporter", u"Yes", None))
         self.install_no.setText(QCoreApplication.translate("MMMAudioExporter", u"No", None))
         self.label_7.setText(QCoreApplication.translate("MMMAudioExporter", u"Install targets? (If yes targets will be instaled in default paths)", None))
-        self.instrument_no.setText(QCoreApplication.translate("MMMAudioExporter", u"Yes", None))
-        self.instrument_yes.setText(QCoreApplication.translate("MMMAudioExporter", u"No", None))
+        self.instrument_yes.setText(QCoreApplication.translate("MMMAudioExporter", u"Yes", None))
+        self.instrument_no.setText(QCoreApplication.translate("MMMAudioExporter", u"No", None))
         self.label_10.setText(QCoreApplication.translate("MMMAudioExporter", u"Export as instrument (No inputs)", None))
         self.resource_line.setText("")
         self.gui_line.setText("")
@@ -355,6 +367,8 @@ class Ui_MMMAudioExporter(object):
         self.label_8.setText(QCoreApplication.translate("MMMAudioExporter", u"Input Labels", None))
         self.label_9.setText(QCoreApplication.translate("MMMAudioExporter", u"Output Labels", None))
         self.vcv_next.setText(QCoreApplication.translate("MMMAudioExporter", u"Next", None))
+        self.build_button.setText(QCoreApplication.translate("MMMAudioExporter", u"Build", None))
+        self.label_15.setText(QCoreApplication.translate("MMMAudioExporter", u"Press build to start, this may take some time.", None))
         self.label_11.setText(QCoreApplication.translate("MMMAudioExporter", u"All targets successfully exported, you may now close the window.", None))
 # retranslateUi
 
