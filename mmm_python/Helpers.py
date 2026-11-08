@@ -8,6 +8,9 @@ from math import cos, sin, pi
 class SpeakerHelper:
     
     def __init__(self):
+        """
+        Save, Load, and Visualize speaker arrays.
+        """
         
         pass
     
@@ -36,6 +39,13 @@ class SpeakerHelper:
         
     @classmethod
     def load_array(cls, path : str) -> list:
+        """
+        Load a list of speaker azimuths from a JSON file. 
+        
+        Args:
+            path: The path to the JSON file to load.
+        """
+        
         speaker_array = []
         
         with open(path, "r") as file:
@@ -48,6 +58,9 @@ class SpeakerHelper:
 
     @classmethod
     def show_vbap3d_array(cls, array, az_in_radians = True):
+        """
+        Displays a visualization of the speaker triplets for a 3D VBAP array using matplotlib. 
+        """
         
         if not az_in_radians:
             for speaker in array:
