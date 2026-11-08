@@ -22,7 +22,8 @@ The export writes a CMake project to `builds/Mojo<version>/<Name>/` (e.g.
 
 - The MMMAudio pixi environment, which includes `cmake`
 - git
-- macOS: Xcode's command line tools. Linux: a C++ compiler and `patchelf` (Linux is untested)
+- macOS: Xcode's command line tools. Linux: a C++ compiler (`patchelf` comes with the pixi
+  environment; the export stops if it is missing)
 - SuperCollider (tested with 3.14)
 
 The first export downloads SuperCollider's plug-in headers (a few MB) into `src/supercollider/`.

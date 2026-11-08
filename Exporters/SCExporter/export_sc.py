@@ -199,6 +199,8 @@ def _export(graph_name, package_name, gui_file, ugen_name, instrument, num_in, n
         _log(f"  note: {n}")
 
     # ---- Mojo ----
+    if not IS_MAC:
+        pe._require_patchelf()  # _relink needs it; check before the long Mojo build
     graph_lib, bridge_lib = pe._build_mojo_libs(graph_name, package_name)
     runtime = pe._runtime_closure([graph_lib, bridge_lib], pe._mojo_lib_dir())
     resource_files = pe._find_resources(graph_name, package_name, spec, resources)
@@ -310,12 +312,14 @@ def _relink(lib, renames, own_name=None):
         subprocess.run(["install_name_tool", *args, str(lib)], check=True, capture_output=True)
         subprocess.run(["codesign", "--force", "--sign", "-", str(lib)], check=True, capture_output=True)
         return
-    if not shutil.which("patchelf"):
-        return  # _stage_bundle has already warned
+    # Not optional here, unlike the rpath _make_relocatable sets: the runtime
+    # libraries are renamed, so without the new names in their DT_NEEDED entries
+    # the bundle's libraries ask for files that aren't in it and none of them load.
+    patchelf = pe._require_patchelf()
     args = ["--set-soname", own_name] if own_name else []
     for old, new in renames.items():
         args += ["--replace-needed", old, new]
-    subprocess.run(["patchelf", *args, str(lib)], check=True, capture_output=True)
+    subprocess.run([patchelf, *args, str(lib)], check=True, capture_output=True)
 
 
 def _mojo_version():

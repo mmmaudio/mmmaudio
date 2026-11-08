@@ -337,6 +337,27 @@ def _linked_libs(lib):
     return [line.split()[0] for line in out.splitlines() if "=>" in line]
 
 
+PATCHELF_HELP = ("patchelf not found: install it with `pixi add patchelf` or "
+                 "`sudo apt install patchelf`, then export again")
+
+
+def _find_patchelf():
+    """The patchelf executable, or None. Checked on PATH, then next to sys.executable
+    (as _mojo_version looks up mojo): a plain `python` outside `pixi run` has the pixi
+    env's interpreter but not its bin/ on PATH."""
+    return shutil.which("patchelf") or shutil.which("patchelf", path=str(Path(sys.executable).parent))
+
+
+def _require_patchelf():
+    """_find_patchelf(), or raise. Renaming a bundled library is only half done
+    without it: the file gets the new name but the libraries that need it keep
+    asking for the old one, so nothing in the bundle loads."""
+    patchelf = _find_patchelf()
+    if patchelf is None:
+        raise RuntimeError(PATCHELF_HELP)
+    return patchelf
+
+
 def _make_relocatable(lib, also=()):
     """Point a copied library's rpath at its own folder (and at the folders in
     `also`, relative to it), name it after its file, then (macOS) re-sign it.
@@ -346,11 +367,12 @@ def _make_relocatable(lib, also=()):
     only ever loads its own copies and carries no paths from this machine.
     """
     if not IS_MAC:
-        if shutil.which("patchelf"):
+        patchelf = _find_patchelf()
+        if patchelf:
             rpath = ":".join(["$ORIGIN", *(f"$ORIGIN/{d}" for d in also)])
-            subprocess.run(["patchelf", "--set-rpath", rpath, "--set-soname", lib.name, str(lib)],
+            subprocess.run([patchelf, "--set-rpath", rpath, "--set-soname", lib.name, str(lib)],
                            check=False)
-        return  # without patchelf, _stage_bundle has already warned
+        return  # without patchelf, _stage_bundle has already warned (and _relink raises)
     out = subprocess.run(["otool", "-l", str(lib)], capture_output=True, text=True).stdout
     for rpath in re.findall(r"cmd LC_RPATH\n\s+cmdsize \d+\n\s+path (.+?) \(offset", out):
         subprocess.run(["install_name_tool", "-delete_rpath", rpath, str(lib)], check=False,
@@ -693,9 +715,9 @@ sudo apt install {packages}
 Inside the MMMAudio repository, `pixi run cmake ...` uses the pixi environment's CMake.
 
 The export (not this build) also needs `patchelf`, to make the bundled Mojo libraries
-load from the plugin rather than from the pixi environment: `pixi add patchelf` or
-`sudo apt install patchelf`. Without it the export prints a warning, and the plugin may
-only work on the machine that exported it.
+load from the plugin rather than from the pixi environment. It comes with the MMMAudio
+pixi environment; without it the export prints a warning, and the plugin may only work
+on the machine that exported it.
 
 The plugins only run on Linux on the same CPU architecture they were exported on."""
 
@@ -721,11 +743,10 @@ def _stage_bundle(work_dir, libs, resource_files, rpaths=()):
     """Copy what goes inside each plugin into work_dir/bundle/: the Mojo libraries
     (made relocatable and signed) and the resources. bundle_plugin.py takes it from there.
     `rpaths` are more folders, relative to the libraries, to find their dependencies in."""
-    if not IS_MAC and not shutil.which("patchelf"):
+    if not IS_MAC and not _find_patchelf():
         _log("WARNING: patchelf not found, so the bundled Mojo libraries keep pointing at this "
-            "pixi environment. The plugin may still load (it preloads the Mojo runtime), but "
-            "install patchelf (`pixi add patchelf` or `sudo apt install patchelf`) and re-export "
-            "to make it portable.")
+            "pixi environment. The plugin may still load (it preloads the Mojo runtime), but it "
+            f"only runs on this machine: {PATCHELF_HELP}.")
     stage = work_dir / "bundle"
     if stage.exists():
         shutil.rmtree(stage)
