@@ -14,9 +14,10 @@ The export writes a self-contained JUCE CMake project for each plugin to
 
 - The MMMAudio pixi environment, which includes `cmake`
 - git
-- macOS: Xcode's command line tools
+- macOS: Xcode's command line tools (`xcode-select --install`)
 - Linux: a C++ compiler and JUCE's development packages (`patchelf` comes with the pixi
-  environment). Each exported project's README lists the apt packages.
+  environment). Each exported project's README lists the apt packages. Linux users may
+  also need to install [JUCE dependencies](https://github.com/juce-framework/JUCE/blob/master/docs/Linux%20Dependencies.md).
 
 The first export downloads JUCE (and, for CLAP, clap-juce-extensions) into
 `src/`, which takes a few minutes. Later exports reuse it.
