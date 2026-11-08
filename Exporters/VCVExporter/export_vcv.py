@@ -516,6 +516,15 @@ def _rack_sdk(rack_sdk):
             raise FileNotFoundError(f"{path} is not a Rack SDK folder (no plugin.mk)")
         return path
     if not (RACK_SDK_DIR / "plugin.mk").exists():
+        if RACK_OS == "lin" and RACK_CPU == "arm64":
+            raise RuntimeError(
+                "VCV does not publish a Rack SDK for Linux ARM (lin-arm64), so there is nothing to download.\n"
+                "Build VCV Rack from source instead, then point the exporter at the source folder:\n"
+                f"    git clone --recursive --branch v{RACK_SDK_VERSION} https://github.com/VCVRack/Rack.git\n"
+                "    cd Rack && make dep && make\n"
+                "    export RACK_DIR=/path/to/Rack    (or pass --rack_sdk /path/to/Rack)\n"
+                "Exported plugins will load only in that self-built Rack."
+            )
         _log(f"downloading the Rack SDK ({RACK_SDK_URL}) into {RACK_SDK_DIR}")
         archive = SRC_DIR / "Rack-SDK.zip"
         urllib.request.urlretrieve(RACK_SDK_URL, archive)
