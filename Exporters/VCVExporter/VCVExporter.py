@@ -37,7 +37,7 @@ export_vcv("DattorroReverbExample", "examples", gui_file="examples/DattorroRever
 export_vcv("QuadRingMod", "Exporters.export_examples", num_in=4, block_size=1,
            in_labels=["car L", "mod L", "car R", None], out_labels=["L", "R"], install=True)
 
-export_vcv("ManyOscillators", "Exporters.export_examples", num_in=4, block_size=32,
+export_vcv("ManyOscillators", "Exporters.export_examples", gui_file="Exporters/export_examples/ManyOscillators.py", block_size=32,
            in_labels=["num_pairs"], out_labels=["L", "R"], install=True)
 
 # ---- exporting a single struct ----
