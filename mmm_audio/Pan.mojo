@@ -1019,6 +1019,7 @@ struct SpeakerHelper(Movable, Copyable):
     def load_vbap3d_array(path : String) raises -> List[MFloat[2]]:
         """
         Loads a speaker array from a JSON file. The array must be formatted as azimuth values in radians.
+        
         Args:
             path: A string to the JSON file to load.
         
