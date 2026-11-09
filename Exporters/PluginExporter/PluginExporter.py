@@ -75,3 +75,7 @@ export_plugin("MLP_Synth2D", "examples.ML_examples", plugin_type=["VST3", "AU", 
 
 # if you have an 8 channel graph and set num_out to 8, it will build a plugin with 8 outputs. These will run in the DAW as an 8 channel process.
 export_plugin("PanAzExample", "examples", plugin_type=["Clap"], install=True, num_out=8)
+
+
+# shows that a file open dialog will translate to the plugin
+export_plugin("NessStretchGUI", "Exporters.export_examples", plugin_name="NessStretch", plugin_type=["VST3"], gui_file="Exporters/export_examples/NessStretchGUI.py", instrument=True, resources=["resources/Shiverer.wav"], install=True, reset_editor=True)

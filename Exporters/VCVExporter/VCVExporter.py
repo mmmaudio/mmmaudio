@@ -40,6 +40,14 @@ export_vcv("QuadRingMod", "Exporters.export_examples", num_in=4, block_size=1,
 export_vcv("ManyOscillators", "Exporters.export_examples", gui_file="Exporters/export_examples/ManyOscillators.py", block_size=32,
            in_labels=["num_pairs"], out_labels=["L", "R"], install=True)
 
+# the best way to export a struct with both audio and knob inputs is to use export_vcv where the GUI has sliders 
+# for the knob inputs and then use the world[].sound_in() for the jack inputs. 
+# the slider labels will translate to the knob labels in the VCV Rack module.
+# the jack labels are the in_labels argument in the export_vcv call.
+
+export_vcv("MMMOsc4", package_name="Exporters.export_examples", module_name="MMMOsc4", gui_file="Exporters/export_examples/MMMOsc4.py", num_in=8, install=True, in_labels=["freq1", "freq2", "freq3", "freq4", "shape1", "shape2", "shape3", "shape4"])
+
+
 # ---- exporting a single struct ----
 
 # The arguments of a struct's next() become input jacks, and its result output jacks.
@@ -51,3 +59,4 @@ export_struct_vcv("Osc", module_name="MMMOsc2", params={"num_chans": 2}, install
 
 # Only the first 5 of a struct's 8 output channels get jacks.
 # export_struct_vcv("MyStruct", module="my_package", num_outputs=5)
+

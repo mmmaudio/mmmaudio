@@ -140,6 +140,8 @@ Without a GUI script the module has no knobs or buttons.
 A jack's label on the panel shows the first 7 characters of its name; hover over it to
 see the whole name.
 
+The best way to export a struct with both audio and knob inputs is to use `export_vcv` with GUI sliders for the knob inputs, then use `world[].sound_in()` for the jack inputs. The slider labels become the knob labels in the VCV Rack module, and the jack labels are specified with the `in_labels` argument in the `export_vcv` call. The .mojo file will need to sum the audio and knob inputs in the `next()` function. See the VCVExporter.py file for an example.
+
 Rack's audio is ±5 V and MMMAudio's is ±1, so inputs are divided by 5 and outputs
 multiplied by 5. The ports are mono: a polyphonic cable gives its first channel.
 
