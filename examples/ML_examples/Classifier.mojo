@@ -47,7 +47,7 @@ struct Classifier(Movable,Copyable):
 
     def __init__(out self, world: World):
         self.world = world
-        self.src_path = "/Users/sam/Desktop/Tremblay-BaB-SoundscapeGolcarWithDog.wav"
+        self.src_path = "/Users/spluta1/Desktop/Tremblay-BaB-SoundscapeGolcarWithDog.wav"
         self.fftp = FFTProcess[ClassifierWindow](self.world, ClassifierWindow(world), windowsize, hopsize)
         self.src = Buffer.load(self.src_path)
         self.player = Play(self.world)
