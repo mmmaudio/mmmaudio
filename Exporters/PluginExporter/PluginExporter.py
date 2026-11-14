@@ -79,3 +79,6 @@ export_plugin("PanAzExample", "examples", plugin_type=["Clap"], install=True, nu
 
 # shows that a file open dialog will translate to the plugin
 export_plugin("NessStretchGUI", "Exporters.export_examples", plugin_name="NessStretch", plugin_type=["VST3"], gui_file="Exporters/export_examples/NessStretchGUI.py", instrument=True, resources=["resources/Shiverer.wav"], install=True, reset_editor=True)
+
+# export a standalone app
+export_plugin("DattorroReverbExample", "examples", "Standalone", "examples/DattorroReverbExample.py", "DattorroReverb", install=True)
