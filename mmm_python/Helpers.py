@@ -14,8 +14,8 @@ class SpeakerHelper:
         
         pass
     
-    @classmethod
-    def save_array(cls, array: list, path : str, to_radians : bool = False):
+    @staticmethod
+    def save_array(array: list, path : str, to_radians : bool = False):
         """
         Saves an array of speaker positions in azimuths as a JSON file.
         Arugments:
@@ -37,8 +37,8 @@ class SpeakerHelper:
             json.dump(speaker_array, file, indent=4)
         
         
-    @classmethod
-    def load_array(cls, path : str) -> list:
+    @staticmethod
+    def load_array(path : str) -> list:
         """
         Load a list of speaker azimuths from a JSON file. 
         
@@ -56,8 +56,8 @@ class SpeakerHelper:
         
         return speaker_array
 
-    @classmethod
-    def show_vbap3d_array(cls, array, az_in_radians = True):
+    @staticmethod
+    def show_vbap3d_array(array, az_in_radians = True):
         """
         Displays a visualization of the speaker triplets for a 3D VBAP array using matplotlib. 
         """
@@ -121,3 +121,39 @@ class SpeakerHelper:
             ax.text(xs[i], ys[i], zs[i], "Speaker" + str(i), color='black', fontsize=10)
         plt.show()
 
+    @staticmethod
+    def generate_circular_array(num_speakers : int, offset: float = 0.0, from_degrees: bool = False, as_pairs: bool = False, filename : None | str = None) -> list:
+        """
+        Formats equidistant speaker positions in a circular array for a given number of speakers. By default, returns azimuth positions in a clockwize sequence.
+        
+        Args:
+            num_speakers: The number of speakers in the array.
+            offset: An offset angle for the array.
+            from_degrees: If True, will convert the incoming offset from degrees into radians.
+            as_pairs: If True, will map the speakers in pairs instead of a clockwize sequence.
+            filename: An optional file name to save the generated array to.
+            
+        Returns:
+            A list of speaker azimuths in radians.
+        """
+        
+        step = pi/num_speakers
+        out = []
+        
+        if from_degrees:
+            offset = offset * (180/pi)
+        
+        if as_pairs:
+           for i in range(int(num_speakers/2)):
+                out.append(-1 * (step * (1 + (i * 2)) + offset))
+                out.append(step * (1 + (i * 2)) + offset)
+                
+        else:
+            for i in range(num_speakers):
+                out.append(step * (1 + (i * 2)) + offset)
+            
+        
+        if filename:
+            SpeakerHelper.save_array(out, filename)
+        
+        return out
