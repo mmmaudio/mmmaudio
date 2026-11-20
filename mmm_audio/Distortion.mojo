@@ -896,8 +896,8 @@ struct WaveShaper[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, tim
         Args:
             world: A pointer to the MMMWorld.
         """
-        comptime assert Self.interp != Interp.sinc, (
-            "WaveShaper does not support Interp.sinc. Use Interp.cubic for a smooth curve, and times_ov for anti-aliasing."
+        comptime assert not Self.interp.is_sinc(), (
+            "WaveShaper does not support Interp.sinc or Interp.sinc16. Use Interp.cubic for a smooth curve, and times_ov for anti-aliasing."
         )
 
         self.world = world

@@ -235,7 +235,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             ref temp = self.world[].osc_buffers()
             comptime for chan in range(self.num_chans):
                 out[chan] = temp.at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
-            comptime if Self.interp == Interp.sinc:
+            comptime if Self.interp.is_sinc():
                 self.last_phase = phase
             return out
         else:
@@ -248,7 +248,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                 comptime for chan in range(self.num_chans):
                     sample[chan] = temp.at_phase[osc_type, self.interp](self.world, phase[chan], self.last_phase[chan])
                 self.downsampler.value().add_sample(sample)
-                comptime if Self.interp == Interp.sinc:
+                comptime if Self.interp.is_sinc():
                     self.last_phase = phase
 
             return self.downsampler.value().get_sample()
@@ -373,7 +373,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             comptime for chan in range(self.num_chans):
                 var sample = self.next_all_basic_waveforms(phase[chan], self.last_phase[chan], trig)
                 out_sample[chan] = (MFloat[2](sample[Int(osc_type0[chan])], sample[Int(osc_type1[chan])]) * MFloat[2](1.0 - osc_frac_interp[chan], osc_frac_interp[chan])).reduce_add()
-            comptime if Self.interp == Interp.sinc:
+            comptime if Self.interp.is_sinc():
                 self.last_phase = phase
             return out_sample
         else:
@@ -385,7 +385,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                     var sample = self.next_all_basic_waveforms(phase[chan], self.last_phase[chan], trig)
                     out_sample[chan] = (MFloat[2](sample[Int(osc_type0[chan])], sample[Int(osc_type1[chan])]) * MFloat[2](1.0 - osc_frac_interp[chan], osc_frac_interp[chan])).reduce_add()
                 self.downsampler.value().add_sample(out_sample)
-                comptime if Self.interp == Interp.sinc:
+                comptime if Self.interp.is_sinc():
                     self.last_phase = phase
             return self.downsampler.value().get_sample()
    
@@ -434,7 +434,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                     sample1[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
             # See Osc.next - last_phase is only ever read as sinc
             # interpolation's prev_phase.
-            comptime if Self.interp == Interp.sinc:
+            comptime if Self.interp.is_sinc():
                 self.last_phase = phase
             return linear_interp(sample0, sample1, scaled_osc_frac)
         else:
@@ -447,7 +447,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                     sample0[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
                     sample1[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
                 self.downsampler.value().add_sample(linear_interp(sample0, sample1, scaled_osc_frac))
-                comptime if Self.interp == Interp.sinc:
+                comptime if Self.interp.is_sinc():
                     self.last_phase = phase
             return self.downsampler.value().get_sample()
 
@@ -497,7 +497,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                 
             # See Osc.next - last_phase is only ever read as sinc
             # interpolation's prev_phase.
-            comptime if Self.interp == Interp.sinc:
+            comptime if Self.interp.is_sinc():
                 self.last_phase = phase
             return out_sample
         else:
@@ -511,7 +511,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                     var sample = buffer.at_phase[self.interp, True, 0](self.world, phase[out_chan], self.last_phase[out_chan])
                     out_sample[out_chan] = (MFloat[2](sample[Int(buf_chan0[out_chan])], sample[Int(buf_chan1[out_chan])]) * MFloat[2](1.0 - scaled_osc_frac[out_chan], scaled_osc_frac[out_chan])).reduce_add()
                 self.downsampler.value().add_sample(out_sample)
-                comptime if Self.interp == Interp.sinc:
+                comptime if Self.interp.is_sinc():
                     self.last_phase = phase
             return self.downsampler.value().get_sample()
 

@@ -922,5 +922,46 @@ def test_sinc_interp() raises:
         assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc](w, 0.0, -prev), 0.0, atol=1e-6, msg="sinc square not centered at phase 0")
         assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc](w, 0.5, 0.5 - prev), 0.0, atol=1e-6, msg="sinc square not centered at phase 0.5")
 
+def test_sinc_max_layer() raises:
+    """The top layer has to keep a non-zero step through the kernel table, whatever the ripples."""
+    assert_equal(SincInterpolator[4, 14]().max_layer, 11, "SincInterpolator[4, 14] max_layer")
+    assert_equal(SincInterpolator[8, 15]().max_layer, 11, "SincInterpolator[8, 15] max_layer")
+    assert_equal(SincInterpolator[8, 14]().max_layer, 10, "SincInterpolator[8, 14] max_layer")
+
+def test_sinc16_interp() raises:
+    """Interp.sinc16 reads where it is asked to, at every read speed, and is more accurate than Interp.sinc on a band-limited signal."""
+    var e = unsafe_alloc[Environment](1)
+    e.unsafe_write(Environment())
+    var w = unsafe_alloc[MMMWorld](1)
+    w.unsafe_write(MMMWorld(48000.0, e, False))
+
+    comptime N = 4096
+    var data = List[MFloat[1]]()
+    for i in range(N):
+        data.append(sin(2.0 * pi * Float64(i) / 256.0))
+    for slope in [0.0, 0.5, 2.5, 6.0, 20.0]:
+        for k in range(500):
+            var x = 300.0 + Float64(k) * 0.3779
+            var y = SpanInterpolator.read[1, Interp.sinc16, True, N - 1](w, Span(data), x, x - slope)[0]
+            assert_almost_equal(y, sin(2.0 * pi * x / 256.0), atol=0.005, msg="sinc16 misread a sine at slope " + String(slope))
+
+    # a sine at 0.1 cycles/sample, read at normal speed
+    var data2 = List[MFloat[1]]()
+    for i in range(N):
+        data2.append(sin(2.0 * pi * 0.1 * Float64(i)))
+    var err8 = 0.0
+    var err16 = 0.0
+    for k in range(1000):
+        var x = 300.0 + Float64(k) * 1.0001
+        var exact = sin(2.0 * pi * 0.1 * x)
+        err8 = max(err8, abs(SpanInterpolator.read[1, Interp.sinc, True, N - 1](w, Span(data2), x, x - 1.0001)[0] - exact))
+        err16 = max(err16, abs(SpanInterpolator.read[1, Interp.sinc16, True, N - 1](w, Span(data2), x, x - 1.0001)[0] - exact))
+    assert_true(err16 < err8, "sinc16 should be more accurate than sinc: " + String(err16) + " vs " + String(err8))
+
+    ref osc_bufs = w[].osc_buffers()
+    for prev in [0.0, 0.0001, 0.001, 0.01]:
+        assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc16](w, 0.0, -prev), 0.0, atol=1e-6, msg="sinc16 square not centered at phase 0")
+        assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc16](w, 0.5, 0.5 - prev), 0.0, atol=1e-6, msg="sinc16 square not centered at phase 0.5")
+
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

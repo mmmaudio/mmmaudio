@@ -15,9 +15,10 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
     As a user, you won't need to interact with this struct directly. Instead use the [ListInterpolator](Buffer.md#struct-spaninterpolator) struct.
 
     Parameters:
-        ripples: Number of ripples in the sinc function, affecting interpolation quality.
-        power: Power of two determining the size of the sinc table (table_size = 2^power).
+        ripples: Number of zero crossings on each side of the kernel center, so the kernel uses `2 * ripples` taps. More ripples are more accurate when reading at or near normal speed (Buffer playback), but cost more CPU. They do not help at the high read speeds oscillators use. Must be a power of two.
+        power: Power of two determining the size of the sinc table (table_size = 2^power). The top layer the interpolator can use is `min(power - 3, log2(table_size / (2 * ripples)))`, so with 8 ripples use `power` 15 to keep the same top layer (11) as 4 ripples at `power` 14.
     """
+
     var table: List[Float64]  # Sinc table for interpolation
     var table_size: Int  # Size of the sinc table
     var mask: Int  # Mask for wrapping indices
@@ -28,9 +29,10 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
     var max_layer: Int
 
     def __init__(out self):
+        comptime assert Self.ripples > 0 and (Self.ripples & (Self.ripples - 1)) == 0, "SincInterpolator: ripples must be a power of two"
         self.table_size = 1 << self.power  # Size of the sinc table, e.g., 16384 for power 14 (using bit shift instead of exponentiation)
         self.mask = self.table_size - 1  # Mask for wrapping indices
-        self.table = SincInterpolator.build_sinc_table(self.table_size)
+        self.table = Self.build_sinc_table(self.table_size)
         self.max_sinc_offset = self.table_size // (self.ripples * 2)  # Calculate maximum sinc offset based on spacing
 
         self.sinc_points = List[Int]()
@@ -43,7 +45,9 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
         )
 
         self.sinc_power_f64 = Float64(self.power)  # Assuming sinc_power is 14
-        self.max_layer = self.power - 3
+        # A layer reads every 2^layer-th sample, and the kernel steps through the table
+        # max_sinc_offset // 2^layer entries per sample, so 2^layer must not exceed max_sinc_offset.
+        self.max_layer = min(self.power - 3, Int(log2(Float64(self.max_sinc_offset))))
 
     @doc_hidden
     @always_inline
@@ -169,7 +173,7 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
         var sinc1 = self.spaced_sinc[num_chans, bWrap, mask](data, index_floor, frac, spacing1)
         
         var sel0: MBool[num_chans] = MBool[num_chans](fill=(sinc_crossfade == 0.0))
-        var sel1: MBool[num_chans] = MBool[num_chans](fill=(layer < 12))
+        var sel1: MBool[num_chans] = MBool[num_chans](fill=(layer < self.max_layer))
         var sinc2 = sel0.select(0.0, sel1.select(self.spaced_sinc[num_chans,bWrap,mask](data, index_floor, frac, spacing2),0.0))
         
         return sinc1 + sinc_crossfade * (sinc2 - sinc1)
