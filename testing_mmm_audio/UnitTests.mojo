@@ -1,7 +1,7 @@
 from mmm_audio import *
 from std.testing import assert_equal, assert_almost_equal, assert_true, assert_false
 from std.testing import TestSuite
-from std.math import inf, nan
+from std.math import inf, nan, sin, pi
 from std.pathlib import Path
 from std.random import random_float64, random_ui64
 from std.memory.alloc import unsafe_alloc
@@ -893,6 +893,34 @@ def test_top_n_indices() raises:
     assert_equal(n_valid, 1, "Test: top_n_indices returned incorrect number of valid peaks")
     for i in range(n_valid):
         assert_equal(output[i], expected[i], "Test: top_n_indices function failed at index " + String(i))
+
+def test_sinc_interp() raises:
+    """Sinc interpolation has to read where it is asked to, at every read speed.
+
+    A slow sine read at fractional positions must match the exact value, and the band-limited
+    square wavetable must read 0 at the midpoint of its edges (phase 0 and 0.5), whatever the
+    slope. The kernel used to be centered one spacing late, which put a large offset on both.
+    """
+    var e = unsafe_alloc[Environment](1)
+    e.unsafe_write(Environment())
+    var w = unsafe_alloc[MMMWorld](1)
+    w.unsafe_write(MMMWorld(48000.0, e, False))
+
+    comptime N = 4096
+    var data = List[MFloat[1]]()
+    for i in range(N):
+        data.append(sin(2.0 * pi * Float64(i) / 256.0))
+    ref si = w[].sinc_interpolator()
+    for slope in [0.0, 0.5, 2.5, 6.0, 20.0]:
+        for k in range(500):
+            var x = 300.0 + Float64(k) * 0.3779
+            var y = si.sinc_interp[1, True, N - 1](Span(data), x, x - slope)[0]
+            assert_almost_equal(y, sin(2.0 * pi * x / 256.0), atol=0.005, msg="sinc_interp misread a sine at slope " + String(slope))
+
+    ref osc_bufs = w[].osc_buffers()
+    for prev in [0.0, 0.0001, 0.001, 0.01]:
+        assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc](w, 0.0, -prev), 0.0, atol=1e-6, msg="sinc square not centered at phase 0")
+        assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc](w, 0.5, 0.5 - prev), 0.0, atol=1e-6, msg="sinc square not centered at phase 0.5")
 
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

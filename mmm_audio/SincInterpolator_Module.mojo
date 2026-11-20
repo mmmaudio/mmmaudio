@@ -1,9 +1,9 @@
 from mmm_audio.constants import *
 from mmm_audio.MMMWorld_Module import Interp
-from mmm_audio.Windows_Module import kaiser_window
+from mmm_audio.Windows_Module import kaiser_window, bessel_i0
 from mmm_audio.functions import *
 from std.sys import simd_width_of
-from std.math import floor, log2, sin
+from std.math import floor, log2, sin, sqrt
 
 
 struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
@@ -48,19 +48,29 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
     @doc_hidden
     @always_inline
     def interp_points(self, sp: Int, sinc_offset: Int, sinc_mult: Int, frac: Float64) -> Float64:
-        """Helper function to perform quadratic interpolation on sinc table points."""
+        """Helper function to perform quadratic interpolation on sinc table points.
 
-        var sinc_indexA = self.sinc_points.unsafe_get(sp) - (sinc_offset * sinc_mult)
-        
-        var idxA = sinc_indexA & self.mask
-        var idxB = (sinc_indexA + 1) & self.mask
-        var idxC = (sinc_indexA + 2) & self.mask
-        
+        Returns the kernel weight for tap `sp`. The tap sits `offset = sp - ripples + 1` spacings
+        from the spaced point at or below the read position, and the read position is
+        `(sinc_offset + frac) / spacing` spacings above that point, so the kernel is evaluated at
+        `t = offset - (sinc_offset + frac) / spacing`. The table holds t = -ripples..ripples
+        with `max_sinc_offset` entries per unit, centered on index table_size / 2, so t maps to
+        index `(sp + 1) * max_sinc_offset - (sinc_offset + frac) * sinc_mult`.
+        """
+
+        var f_index = Float64(self.sinc_points.unsafe_get(sp + 1)) - (Float64(sinc_offset) + frac) * Float64(sinc_mult)
+        var index_floor = Int(f_index)
+        var table_frac = f_index - Float64(index_floor)
+
+        var idxA = index_floor & self.mask
+        var idxB = (index_floor + 1) & self.mask
+        var idxC = (index_floor + 2) & self.mask
+
         return quadratic_interp(
             self.table.unsafe_get(idxA),
-            self.table.unsafe_get(idxB), 
+            self.table.unsafe_get(idxB),
             self.table.unsafe_get(idxC),
-            frac
+            table_frac
         )
 
     @doc_hidden
@@ -168,32 +178,26 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
     @staticmethod
     def build_sinc_table(table_size: Int) -> List[Float64]:
         
-        # Create evenly spaced points - the width is determined by ripples
+        # Index i holds the kernel at t = (i - table_size / 2) / (table_size / (2 * ripples)),
+        # so t runs from -ripples (index 0) up to just below +ripples, t = 0 lands exactly on
+        # index table_size / 2, and every integer t lands exactly on an index. The kernel is
+        # symmetric, so index table_size (t = +ripples) wraps to index 0 (t = -ripples) correctly.
         var width = Float64(Self.ripples)
-        # Create evenly spaced x values from -width*π to width*π
-        var x_values = List[Float64]()
+        var per_unit = Float64(table_size) / (2.0 * width)
+        var center = table_size // 2
 
-        var x_min = -width * pi
-        var x_max = width * pi
-        var step = (x_max - x_min) / Float64(table_size - 1)
-        
-        for i in range(table_size):
-            x_values.append(x_min + step * Float64(i))
-
-        var table = List[Float64]()
-
-        for i in range(len(x_values)):
-            if x_values[i] == 0:
-                table.append(1.0)
-            else:
-                table.append(sin(x_values[i]) / x_values[i])
-
-        # Apply Kaiser window to the sinc table
         # The beta parameter controls the trade-off between main lobe width and side lobe height
         var beta = 5.0  # Typical values range from 5 to 8 for audio processing
+        var i0_beta = bessel_i0(beta)
 
-        var window = kaiser_window(table_size, beta)
-        for i in range(len(table)):
-            table[i] *= window[i]  # Apply the window to the sinc values
-        
+        var table = List[Float64]()
+        for i in range(table_size):
+            var t = Float64(i - center) / per_unit
+            var x = pi * t
+            var s = 1.0 if i == center else sin(x) / x
+            # Kaiser window evaluated at the same t, so it is centered on the same index as the sinc
+            var r = t / width
+            var window = bessel_i0(beta * sqrt(max(0.0, 1.0 - r * r))) / i0_beta
+            table.append(s * window)
+
         return table.copy()
