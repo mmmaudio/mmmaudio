@@ -1008,3 +1008,36 @@ struct VBAP3D[num_speakers: Int, simd_out_size: Int](Movable, Copyable):
         gain_factors[Int(self.active_triplet[2])] = self.active_gain_factors[2]
         
         return gain_factors * sample
+
+
+struct SpeakerHelper(Movable, Copyable):
+
+    def __init__(out self):
+        pass
+
+    @staticmethod
+    def load_vbap3d_array(path : String) raises -> List[MFloat[2]]:
+        """
+        Loads a speaker array from a JSON file. The array must be formatted as azimuth values in radians.
+        
+        Args:
+            path: A string to the JSON file to load.
+        
+        Returns:
+            A List[MFloat[2]] of speaker azimuths to be used with VBAP3D.
+
+        Raises:
+            On import error.
+        """
+        var array : List[MFloat[2]]= []
+        try:
+            var json = Python.import_module("mmm_python.Helpers")
+            
+            var loaded_array = json.SpeakerHelper.load_array(path)
+        
+            for speaker in loaded_array:
+                array.append(MFloat[2](Float64(py=speaker[0]), Float64(py=speaker[1])))
+            
+        except:
+            print("There was an error when loading the VBAP3D array.")
+        return array^
