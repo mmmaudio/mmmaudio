@@ -307,7 +307,7 @@ def buf_read[num_chans: SIMDLength, interp: Interp = Interp.linear, bWrap: Bool 
     Returns:
         The envelope value at the specified phase.
     """
-    comptime if interp == Interp.sinc:
+    comptime if interp.is_sinc():
         var val = env_buffer.at_phase[interp=interp,bWrap=bWrap](world, phase, prev_phase)
         return val
     else:

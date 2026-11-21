@@ -217,6 +217,37 @@ def bessel_i0(x: Float64) -> Float64:
                      0.01647633 * (t ** 7) + 0.00392377 * (t ** 8))
         return result
 
+def sinc_table(table_size: Int, ripples: Int) -> List[Float64]:
+    """
+    Generate a sinc interpolation table with the specified number of ripples.
+
+    Args:
+        table_size: Size of the table.
+        ripples: Number of ripples in the sinc function.
+
+    Returns:
+        List[Float64] containing the sinc interpolation table.
+    """
+        var width = Float64(ripples)
+        var per_unit = Float64(table_size) / (2.0 * width)
+        var center = table_size // 2
+
+        # The beta parameter controls the trade-off between main lobe width and side lobe height
+        var beta = 5.0  # Typical values range from 5 to 8 for audio processing
+        var i0_beta = bessel_i0(beta)
+
+        var table = List[Float64]()
+        for i in range(table_size):
+            var t = Float64(i - center) / per_unit
+            var x = pi * t
+            var s = 1.0 if i == center else sin(x) / x
+            # Kaiser window evaluated at the same t, so it is centered on the same index as the sinc
+            var r = t / width
+            var window = bessel_i0(beta * sqrt(max(0.0, 1.0 - r * r))) / i0_beta
+            table.append(s * window)
+
+        return table^
+
 def kaiser_window(size: Int, beta: Float64) -> List[Float64]:
     """
     Create a Kaiser window of length n with shape parameter beta.
