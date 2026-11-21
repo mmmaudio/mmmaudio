@@ -6,7 +6,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib import colors as mcolors
 
-from .functions import clip, linlin, explin, linexp
+from .functions import clip, linlin
 
 class ControlSpec:
     """
@@ -36,29 +36,6 @@ class ControlSpec:
         curved_norm = clip(norm_val, 0.0, 1.0) ** self.exp
         return linlin(curved_norm, 0.0, 1.0, self.min, self.max)
 
-class BipolarSpec(ControlSpec):
-    """
-    A control that goes from -max to max with 0 in the center. The curve is applied on each side of 0, so exponential is possible.
-
-    Args:
-        max: Maximum value of the control parameter. The minimum is -max.
-        exp: Exponent for the response curve on each side of 0. 1.0 = linear, >1.0 = finer control near 0, <1.0 = finer control near the ends.
-    """
-    def __init__(self, max: float = 1.0, exp: float = 1.0):
-        super().__init__(-max, max, exp)
-
-    def normalize(self, val: float) -> float:
-        """Take in an unnormalized value and return a value between 0.0 and 1.0 (0.5 for 0)"""
-        val = clip(val, self.min, self.max)
-        dist = (abs(val) / self.max) ** (1.0 / self.exp)
-        return 0.5 + 0.5 * dist if val >= 0 else 0.5 - 0.5 * dist
-
-    def unnormalize(self, norm_val: float) -> float:
-        """Take in a normalized value between 0.0 and 1.0 and return an unnormalized value"""
-        norm_val = clip(norm_val, 0.0, 1.0)
-        value = self.max * (abs(norm_val - 0.5) * 2.0) ** self.exp
-        return value if norm_val >= 0.5 else -value
-
 class Handle(QWidget):
     """A convenience widget that combines a label, a slider, and a value display."""
     def __init__(self, label: str, spec: ControlSpec = ControlSpec(), default: float = 0.0, callback=None, orientation=Qt.Horizontal, resolution: int = 1000, display_resolution: int = 2, run_callback_on_init: bool = False):
@@ -76,7 +53,7 @@ class Handle(QWidget):
         self.handle.setMinimum(0)
         self.handle.setMaximum(resolution)
         self.spec = spec
-        self.handle.setValue(round(spec.normalize(clip(default, spec.min, spec.max)) * resolution))
+        self.handle.setValue(int(spec.normalize(clip(default, spec.min, spec.max)) * resolution))
         self.callback = callback
         self.handle.valueChanged.connect(self.update)
         if run_callback_on_init:
@@ -93,7 +70,7 @@ class Handle(QWidget):
     
     def set_value(self, value: float):
         value = self.spec.normalize(clip(value, self.spec.min, self.spec.max))
-        self.handle.setValue(round(value * self.resolution))
+        self.handle.setValue(int(value * self.resolution))
         
 class Slider2D(QWidget):
     """A custom 2D slider widget"""

@@ -39,7 +39,7 @@ struct BufSynth(Movable, Copyable):
         self.messenger.update("lpf_freq", self.lpf_freq)
         self.messenger.update("play_rate", self.play_rate)
 
-        var out = self.play_buf.next[num_chans=num_chans, interp=Interp.cubic](self.buffer, self.play_rate, True)
+        var out = self.play_buf.next[num_chans=num_chans](self.buffer, self.play_rate, True)
 
         var freq = self.lpf_freq_lag.next(self.lpf_freq)
         out = self.moog.next(out, freq, 1.0)

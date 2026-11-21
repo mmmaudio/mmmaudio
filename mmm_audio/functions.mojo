@@ -426,9 +426,12 @@ def check_wrap_mask[mask: Int](length: Int):
     Args:
         length: The number of elements actually available to index.
     """
-
-    # Ensure the wrap mask is either 0 (modulo wrap) or one less than a power of two.
-    comptime assert mask == 0 or (mask > 0 and (mask & (mask + 1)) == 0), "wrap mask must be 0 (modulo wrap) or one less than a power of two, e.g. 2047 for a 2048-frame buffer"
+    # Plain debug_assert, so this is compiled out unless the build passes
+    # -D ASSERT=all. The readers run inside the audio thread's per-sample loop and
+    # the mask/length relationship is fixed for the life of a table, so checking it
+    # at sample rate only pays off when the optimizer hoists it. ASSERT=all is also
+    # the build in which unsafe_get regains its own bounds checks, so running the
+    # tests that way validates every mask in the codebase at once.
     comptime if mask != 0:
         debug_assert(
             length == mask + 1,

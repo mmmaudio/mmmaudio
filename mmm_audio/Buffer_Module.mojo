@@ -46,7 +46,7 @@ struct SIMDBuffer[num_chans: SIMDLength = 2](Movable, Copyable):
             interp: Interpolation method to use (from [Interp](MMMWorld.md#struct-interp) enum).
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -57,7 +57,7 @@ struct SIMDBuffer[num_chans: SIMDLength = 2](Movable, Copyable):
             The interpolated sample value at the given phase.
         """
         var prev_f_idx: Float64 = 0.0
-        comptime if interp.is_sinc():
+        comptime if interp == Interp.sinc:
             prev_f_idx = prev_phase * self.num_frames_f64
 
         return SpanInterpolator.read[
@@ -219,7 +219,7 @@ struct Buffer(Movable, Copyable):
             interp: Interpolation method to use (from [Interp](MMMWorld.md#struct-interp) enum).
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -231,7 +231,7 @@ struct Buffer(Movable, Copyable):
             The interpolated sample value at the given phase.
         """
         var prev_f_idx: Float64 = 0.0
-        comptime if interp.is_sinc():
+        comptime if interp == Interp.sinc:
             prev_f_idx = prev_phase * self.num_frames_f64
 
         return SpanInterpolator.read[
@@ -343,7 +343,7 @@ struct SpanInterpolator(Movable, Copyable):
             interp: Interpolation method to use (from [Interp](MMMWorld.md#struct-interp) enum).
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -367,8 +367,8 @@ struct SpanInterpolator(Movable, Copyable):
             return SpanInterpolator.read_cubic[num_chans,bWrap,mask,bClip](data, f_idx)
         elif interp == Interp.lagrange4:
             return SpanInterpolator.read_lagrange4[num_chans,bWrap,mask,bClip](data, f_idx)
-        elif interp.is_sinc():
-            return SpanInterpolator.read_sinc[num_chans,bWrap,mask,interp](world,data, f_idx, prev_f_idx)
+        elif interp == Interp.sinc:
+            return SpanInterpolator.read_sinc[num_chans,bWrap,mask](world,data, f_idx, prev_f_idx)
         else:
             print("SpanInterpolator def read:: Unsupported interpolation method")
             return 0.0
@@ -382,7 +382,7 @@ struct SpanInterpolator(Movable, Copyable):
             num_chans: Number of channels in the data.
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             data: The `Span[MFloat[num_chans], _]` to read from.
@@ -423,7 +423,7 @@ struct SpanInterpolator(Movable, Copyable):
             num_chans: Number of channels in the data.
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             data: The `Span[MFloat[num_chans], _]` to read from.
@@ -475,7 +475,7 @@ struct SpanInterpolator(Movable, Copyable):
             num_chans: Number of channels in the data.
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             data: The `Span[MFloat[num_chans], _]` to read from.
@@ -533,7 +533,7 @@ struct SpanInterpolator(Movable, Copyable):
             num_chans: Number of channels in the data.
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used. (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             data: The `Span[MFloat[num_chans], _]` to read from.
@@ -597,7 +597,7 @@ struct SpanInterpolator(Movable, Copyable):
             num_chans: Number of channels in the data.
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc` or `Interp.sinc16`.
+            bClip: Whether to clip indices that go out of bounds to the first or last frame, holding the edge value instead of reading 0.0. Only consulted when `bWrap` is False, and not supported for `Interp.sinc`.
 
         Args:
             data: The `Span[MFloat[num_chans], _]` to read from.
@@ -663,14 +663,13 @@ struct SpanInterpolator(Movable, Copyable):
 
     @always_inline
     @staticmethod
-    def read_sinc[num_chans: SIMDLength = 1, bWrap: Bool = True, mask: Int = 0, interp: Interp = Interp.sinc](world: World, data: Span[MFloat[num_chans], _], f_idx: Float64, prev_f_idx: Float64) -> MFloat[num_chans]:
+    def read_sinc[num_chans: SIMDLength = 1, bWrap: Bool = True, mask: Int = 0](world: World, data: Span[MFloat[num_chans], _], f_idx: Float64, prev_f_idx: Float64) -> MFloat[num_chans]:
         """Read a value from a `Span[MFloat[num_chans], _]` using provided index with [SincInterpolation](SincInterpolator.md).
         
         Parameters:
             num_chans: Number of channels in the data.
             bWrap: Whether to wrap indices that go out of bounds.
             mask: Bitmask for wrapping indices (if applicable). If 0, standard modulo wrapping is used. If non-zero, bitwise AND wrapping is used (only valid for power-of-two lengths).
-            interp: `Interp.sinc` for the 8-tap kernel or `Interp.sinc16` for the 16-tap kernel.
 
         Args:
             world: Pointer to the MMMWorld instance.
@@ -681,8 +680,4 @@ struct SpanInterpolator(Movable, Copyable):
         Returns:
             The sinc-interpolated sample value.
         """
-        comptime assert interp.is_sinc(), "read_sinc needs Interp.sinc or Interp.sinc16"
-        comptime if interp == Interp.sinc16:
-            return world[].sinc_interpolator16().sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)
-        else:
-            return world[].sinc_interpolator().sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)
+        return world[].sinc_interpolator().sinc_interp[num_chans,bWrap,mask](data, f_idx, prev_f_idx)

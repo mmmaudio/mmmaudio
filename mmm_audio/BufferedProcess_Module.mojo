@@ -201,7 +201,7 @@ struct BufferedProcess[T: BufferedProcessable, output: Bool = True, input_window
             The next output sample.
         """
 
-        comptime assert not interp.is_sinc(), "Sinc interpolation is not supported in the `next_from_buffer` method of BufferedProcess. Please use a different interpolation method."
+        comptime assert interp != Interp.sinc, "Sinc interpolation is not supported in the `next_from_buffer` method of BufferedProcess. Please use a different interpolation method."
         
         if self.world[].top_of_block():
             self.process.get_messages()

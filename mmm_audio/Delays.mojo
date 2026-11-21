@@ -159,7 +159,7 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
       """
       delay_time = min(delay_time, self.max_delay_time)
       comptime if Self.num_chans == 1:
-        comptime if Self.interp.is_sinc():
+        comptime if Self.interp == Interp.sinc:
           return self.tap(delay_time[0])
         else:
           return self._read_lanes(delay_time)
@@ -168,7 +168,7 @@ struct Delay[num_chans: SIMDLength = 1, interp: Interp = Interp.linear](Tapable,
         if a_l_e:
           return self.tap(delay_time[0])
         else:
-          comptime if Self.interp.is_sinc():
+          comptime if Self.interp == Interp.sinc:
             var out = MFloat[Self.num_chans](0.0)
             for chan in range(Self.num_chans):
               out[chan] = self.tap(delay_time[chan])[chan]
