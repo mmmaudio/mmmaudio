@@ -312,7 +312,7 @@ struct Interp(Equatable, ImplicitlyCopyable):
     | Interp.quad        |                                             |
     | Interp.cubic       |                                             |
     | Interp.lagrange4   |                                             |
-    | Interp.sinc        | 8-tap sinc. Should only be used with oscillators |
+    | Interp.sinc        | 8-tap sinc |
     | Interp.sinc16      | 16-tap sinc. More accurate than `Interp.sinc` when reading at or near normal speed, such as Buffer playback, at about 40% more CPU. No better for oscillators, which read their wavetables much faster |
     
     """

@@ -390,7 +390,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             return self.downsampler.value().get_sample()
    
     @always_inline
-    def next_vwt(
+    def next_vwt[mask: Int = 0](
             mut self, 
             ref buffer: Buffer, 
             freq: MFloat[self.num_chans] = MFloat[self.num_chans](100.0), 
@@ -401,7 +401,10 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
         """Variable Wavetable Oscillator that interpolates over a loaded Buffer.
         Generates the next oscillator sample on a variable waveform where the output is interpolated between 
         different different channels of a provided Buffer.
-        
+
+        Parameters:
+            mask: Bitmask used to wrap read positions in the buffer. Leave at 0 (default) to wrap with modulo, which works for any buffer length. Set it to the buffer "length minus 1" to use a faster bitwise wrap, which is only valid when the buffer length is a power of two (e.g. 2047 for a 2048-frame buffer). With `Interp.sinc` / `Interp.sinc16`, prefer power-of-two lengths: with other lengths the sinc read can distort near the wrap point at higher frequencies.
+
         Args:
             buffer: Reference to a Buffer containing the waveforms to interpolate between.
             freq: Frequency of the oscillator in Hz.
@@ -416,10 +419,12 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
 
         var max_osc_frac = buffer.num_chans - 1
 
-        var chan0_fl = Float64(max_osc_frac) * min(osc_frac, 1.0) #can't use a modulus here
+        # osc_frac is clamped to 0..1, and the second channel is clamped to the last one, so a
+        # 1-channel buffer or osc_frac = 1 reads the last channel twice instead of one past it.
+        var chan0_fl = Float64(max_osc_frac) * clip(osc_frac, 0.0, 1.0) #can't use a modulus here
 
         var buf_chan0: MInt[self.num_chans] = MInt[self.num_chans](chan0_fl)
-        var buf_chan1 = MInt[self.num_chans](buf_chan0 + 1)
+        var buf_chan1 = min(buf_chan0 + 1, MInt[self.num_chans](max_osc_frac))
 
         var scaled_osc_frac = chan0_fl - floor(chan0_fl)
 
@@ -430,8 +435,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             # var last_phase = self.phasor.phase
             var phase = self.phasor.next(freq, phase_offset, trig_mask)
             comptime for out_chan in range(self.num_chans):
-                    sample0[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
-                    sample1[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
+                    sample0[out_chan] = buffer.at_phase[self.interp, True, mask](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
+                    sample1[out_chan] = buffer.at_phase[self.interp, True, mask](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
             # See Osc.next - last_phase is only ever read as sinc
             # interpolation's prev_phase.
             comptime if Self.interp.is_sinc():
@@ -444,15 +449,15 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                 var phase_offset2 = self.phase_upsampler.value().next(phase_offset, i)
                 var phase = self.phasor.next(freq2, phase_offset2, trig_mask)
                 comptime for out_chan in range(self.num_chans):
-                    sample0[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
-                    sample1[out_chan] = buffer.at_phase[self.interp, True, 0](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
+                    sample0[out_chan] = buffer.at_phase[self.interp, True, mask](self.world, Int(buf_chan0[out_chan]), phase[out_chan], self.last_phase[out_chan])
+                    sample1[out_chan] = buffer.at_phase[self.interp, True, mask](self.world, Int(buf_chan1[out_chan]), phase[out_chan], self.last_phase[out_chan])
                 self.downsampler.value().add_sample(linear_interp(sample0, sample1, scaled_osc_frac))
                 comptime if Self.interp.is_sinc():
                     self.last_phase = phase
             return self.downsampler.value().get_sample()
 
     @always_inline
-    def next_vwt[simd_chans: SIMDLength](
+    def next_vwt[simd_chans: SIMDLength, mask: Int = 0](
             mut self, 
             ref buffer: SIMDBuffer[simd_chans], 
             freq: MFloat[self.num_chans] = MFloat[self.num_chans](100.0), 
@@ -465,7 +470,8 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
         different different channels of a provided Buffer. This should only be used with low channel counts (maybe up to 4 or 8 channels depending on the CPU).
 
         Parameters:
-            simd_chans: Number of channels stored in the source SIMDBuffer.
+            simd_chans: Number of channels stored in the source SIMDBuffer. Inferred from `buffer`.
+            mask: Bitmask used to wrap read positions in the buffer. Leave at 0 (default) to wrap with modulo, which works for any buffer length. Set it to the buffer length minus 1 to use a faster bitwise wrap, which is only valid when the buffer length is a power of two (e.g. 2047 for a 2048-frame buffer). With `Interp.sinc` / `Interp.sinc16`, prefer power-of-two lengths: with other lengths the sinc read can distort near the wrap point at higher frequencies.
         
         Args:
             buffer: Reference to a Buffer containing the waveforms to interpolate between.
@@ -481,10 +487,12 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
 
         var max_osc_frac = buffer.num_chans - 1
 
-        var chan0_fl = Float64(max_osc_frac) * min(osc_frac, 1.0) #can't use a modulus here
+        # osc_frac is clamped to 0..1, and the second channel is clamped to the last one, so a
+        # 1-channel buffer or osc_frac = 1 reads the last channel twice instead of one past it.
+        var chan0_fl = Float64(max_osc_frac) * clip(osc_frac, 0.0, 1.0) #can't use a modulus here
 
         var buf_chan0: MInt[self.num_chans] = MInt[self.num_chans](chan0_fl)
-        var buf_chan1 = MInt[self.num_chans](buf_chan0 + 1)
+        var buf_chan1 = min(buf_chan0 + 1, MInt[self.num_chans](max_osc_frac))
 
         var scaled_osc_frac = chan0_fl - floor(chan0_fl)
 
@@ -492,7 +500,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
             var phase = self.phasor.next(freq, phase_offset, trig_mask)
             var out_sample = MFloat[self.num_chans](0.0)
             comptime for out_chan in range(self.num_chans):
-                var sample = buffer.at_phase[self.interp, True, 0](self.world, phase[out_chan], self.last_phase[out_chan])
+                var sample = buffer.at_phase[self.interp, True, mask](self.world, phase[out_chan], self.last_phase[out_chan])
                 out_sample[out_chan] = (MFloat[2](sample[Int(buf_chan0[out_chan])], sample[Int(buf_chan1[out_chan])]) * MFloat[2](1.0 - scaled_osc_frac[out_chan], scaled_osc_frac[out_chan])).reduce_add()
                 
             # See Osc.next - last_phase is only ever read as sinc
@@ -508,7 +516,7 @@ struct Osc[num_chans: SIMDLength = 1, interp: Interp = Interp.linear, ov_samp: T
                 var phase = self.phasor.next(freq2, phase_offset2, trig_mask)
                 var out_sample = MFloat[self.num_chans](0.0)
                 comptime for out_chan in range(self.num_chans):
-                    var sample = buffer.at_phase[self.interp, True, 0](self.world, phase[out_chan], self.last_phase[out_chan])
+                    var sample = buffer.at_phase[self.interp, True, mask](self.world, phase[out_chan], self.last_phase[out_chan])
                     out_sample[out_chan] = (MFloat[2](sample[Int(buf_chan0[out_chan])], sample[Int(buf_chan1[out_chan])]) * MFloat[2](1.0 - scaled_osc_frac[out_chan], scaled_osc_frac[out_chan])).reduce_add()
                 self.downsampler.value().add_sample(out_sample)
                 comptime if Self.interp.is_sinc():

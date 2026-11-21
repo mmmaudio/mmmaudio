@@ -1,6 +1,6 @@
 from mmm_audio.constants import *
 from mmm_audio.MMMWorld_Module import Interp
-from mmm_audio.Windows_Module import kaiser_window, bessel_i0
+from mmm_audio.Windows_Module import kaiser_window, bessel_i0, sinc_table
 from mmm_audio.functions import *
 from std.sys import simd_width_of
 from std.math import floor, log2, sin, sqrt
@@ -32,7 +32,7 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
         comptime assert Self.ripples > 0 and (Self.ripples & (Self.ripples - 1)) == 0, "SincInterpolator: ripples must be a power of two"
         self.table_size = 1 << self.power  # Size of the sinc table, e.g., 16384 for power 14 (using bit shift instead of exponentiation)
         self.mask = self.table_size - 1  # Mask for wrapping indices
-        self.table = Self.build_sinc_table(self.table_size)
+        self.table = sinc_table(self.table_size, self.ripples)
         self.max_sinc_offset = self.table_size // (self.ripples * 2)  # Calculate maximum sinc offset based on spacing
 
         self.sinc_points = List[Int]()
@@ -53,13 +53,6 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
     @always_inline
     def interp_points(self, sp: Int, sinc_offset: Int, sinc_mult: Int, frac: Float64) -> Float64:
         """Helper function to perform quadratic interpolation on sinc table points.
-
-        Returns the kernel weight for tap `sp`. The tap sits `offset = sp - ripples + 1` spacings
-        from the spaced point at or below the read position, and the read position is
-        `(sinc_offset + frac) / spacing` spacings above that point, so the kernel is evaluated at
-        `t = offset - (sinc_offset + frac) / spacing`. The table holds t = -ripples..ripples
-        with `max_sinc_offset` entries per unit, centered on index table_size / 2, so t maps to
-        index `(sp + 1) * max_sinc_offset - (sinc_offset + frac) * sinc_mult`.
         """
 
         var f_index = Float64(self.sinc_points.unsafe_get(sp + 1)) - (Float64(sinc_offset) + frac) * Float64(sinc_mult)
@@ -97,18 +90,18 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
             
             comptime if bWrap:
                 var loc_point_unwrapped = index + offset * spacing
-                
-                var loc_point: Int
-                comptime if mask != 0:
-                    loc_point = loc_point_unwrapped & mask
-                else:
-                    loc_point = loc_point_unwrapped % data_len
-                    if loc_point < 0:
-                        loc_point += data_len
 
-                var spaced_point = loc_point & ~(spacing - 1)  # spacing is always 1 << layer
-                var sinc_offset = loc_point - spaced_point
-                
+                var spaced_unwrapped = loc_point_unwrapped & ~(spacing - 1)  # spacing is always 1 << layer
+                var sinc_offset = loc_point_unwrapped - spaced_unwrapped
+
+                var spaced_point: Int
+                comptime if mask != 0:
+                    spaced_point = spaced_unwrapped & mask
+                else:
+                    spaced_point = spaced_unwrapped % data_len
+                    if spaced_point < 0:
+                        spaced_point += data_len
+
                 var sinc_value = self.interp_points(sp, sinc_offset, sinc_mult, frac)
                 out += sinc_value * data.unsafe_get(spaced_point)
             else:
@@ -152,11 +145,16 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
         
         var samples_per_frame = abs(slope_samples)
         
-        var octave = clip(log2(samples_per_frame), 0.0, self.sinc_power_f64 - 2.0)
-        var octave_floor = floor(octave)
-        
-        var layer = Int(octave_floor + 1.0)
-        var sinc_crossfade = octave - octave_floor
+        var octave = log2(samples_per_frame)
+        var layer_pos: Float64
+        if octave >= 1.0:
+            layer_pos = min(octave, self.sinc_power_f64 - 2.0) + 1.0
+        else:
+            layer_pos = max(2.0 * octave, 0.0)
+        var layer_floor = floor(layer_pos)
+
+        var layer = Int(layer_floor)
+        var sinc_crossfade = layer_pos - layer_floor
         
         var layer_clamped = min(layer, self.max_layer)
         var selector: MBool[1] = (layer >= self.max_layer)
@@ -177,31 +175,3 @@ struct SincInterpolator[ripples: Int = 4, power: Int = 14](Movable, Copyable):
         var sinc2 = sel0.select(0.0, sel1.select(self.spaced_sinc[num_chans,bWrap,mask](data, index_floor, frac, spacing2),0.0))
         
         return sinc1 + sinc_crossfade * (sinc2 - sinc1)
-
-    @doc_hidden
-    @staticmethod
-    def build_sinc_table(table_size: Int) -> List[Float64]:
-        
-        # Index i holds the kernel at t = (i - table_size / 2) / (table_size / (2 * ripples)),
-        # so t runs from -ripples (index 0) up to just below +ripples, t = 0 lands exactly on
-        # index table_size / 2, and every integer t lands exactly on an index. The kernel is
-        # symmetric, so index table_size (t = +ripples) wraps to index 0 (t = -ripples) correctly.
-        var width = Float64(Self.ripples)
-        var per_unit = Float64(table_size) / (2.0 * width)
-        var center = table_size // 2
-
-        # The beta parameter controls the trade-off between main lobe width and side lobe height
-        var beta = 5.0  # Typical values range from 5 to 8 for audio processing
-        var i0_beta = bessel_i0(beta)
-
-        var table = List[Float64]()
-        for i in range(table_size):
-            var t = Float64(i - center) / per_unit
-            var x = pi * t
-            var s = 1.0 if i == center else sin(x) / x
-            # Kaiser window evaluated at the same t, so it is centered on the same index as the sinc
-            var r = t / width
-            var window = bessel_i0(beta * sqrt(max(0.0, 1.0 - r * r))) / i0_beta
-            table.append(s * window)
-
-        return table.copy()

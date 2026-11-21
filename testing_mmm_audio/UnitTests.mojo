@@ -963,5 +963,118 @@ def test_sinc16_interp() raises:
         assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc16](w, 0.0, -prev), 0.0, atol=1e-6, msg="sinc16 square not centered at phase 0")
         assert_almost_equal(osc_bufs.at_phase[OscType.square, Interp.sinc16](w, 0.5, 0.5 - prev), 0.0, atol=1e-6, msg="sinc16 square not centered at phase 0.5")
 
+def test_sinc_no_fold_at_low_speed() raises:
+    """At 1x and slower, sinc reads every sample, so high frequencies are not folded down.
+
+    A 15 kHz sine (at 48 kHz) read at speeds of 0.5 to 1. The smallest layer spacing used to be
+    2, which folded everything above 12 kHz back down: this sine came out as a full-level 9 kHz
+    sine (an error of up to 2).
+    """
+    var e = unsafe_alloc[Environment](1)
+    e.unsafe_write(Environment())
+    var w = unsafe_alloc[MMMWorld](1)
+    w.unsafe_write(MMMWorld(48000.0, e, False))
+
+    comptime N = 4096
+    comptime cycles_per_sample = 15000.0 / 48000.0
+    var data = List[MFloat[1]]()
+    for i in range(N):
+        data.append(sin(2.0 * pi * cycles_per_sample * Float64(i)))
+    for slope in [0.5, 0.91875, 1.0]:
+        var err8 = 0.0
+        var err16 = 0.0
+        for k in range(1000):
+            var x = 300.0 + Float64(k) * slope + 0.37
+            var exact = sin(2.0 * pi * cycles_per_sample * x)
+            err8 = max(err8, abs(SpanInterpolator.read[1, Interp.sinc, True, N - 1](w, Span(data), x, x - slope)[0] - exact))
+            err16 = max(err16, abs(SpanInterpolator.read[1, Interp.sinc16, True, N - 1](w, Span(data), x, x - slope)[0] - exact))
+        assert_true(err8 < 0.05, "sinc misread a 15 kHz sine at slope " + String(slope) + ": " + String(err8))
+        assert_true(err16 < 0.005, "sinc16 misread a 15 kHz sine at slope " + String(slope) + ": " + String(err16))
+
+def test_sinc_non_power_of_two() raises:
+    """Sinc reads of a wrapped buffer whose length is not a multiple of the layer spacing.
+
+    One cycle of a sine in 1000 and 600 frames, read like a wavetable oscillator at 440 and
+    1760 Hz (spacings 16 to 64). The taps used to be snapped to the spacing grid after wrapping,
+    which left a short gap at the wrap point and an error of up to 0.2 there. It should now read
+    as accurately as a 1024-frame table.
+    """
+    var e = unsafe_alloc[Environment](1)
+    e.unsafe_write(Environment())
+    var w = unsafe_alloc[MMMWorld](1)
+    w.unsafe_write(MMMWorld(48000.0, e, False))
+
+    for L in [1000, 600, 1024]:
+        var data = List[MFloat[1]]()
+        for i in range(L):
+            data.append(sin(2.0 * pi * Float64(i) / Float64(L)))
+        for f0 in [440.0, 1760.0]:
+            var inc = f0 / 48000.0
+            var ph = 0.1234
+            for _ in range(4000):
+                var p = ph + inc
+                p = p - Float64(Int(p))
+                var y = SpanInterpolator.read[1, Interp.sinc, True, 0](w, Span(data), p * Float64(L), ph * Float64(L))[0]
+                assert_almost_equal(y, sin(2.0 * pi * p), atol=0.005, msg="sinc misread a " + String(L) + "-frame sine at " + String(f0) + " Hz, phase " + String(p))
+                var y16 = SpanInterpolator.read[1, Interp.sinc16, True, 0](w, Span(data), p * Float64(L), ph * Float64(L))[0]
+                assert_almost_equal(y16, sin(2.0 * pi * p), atol=0.005, msg="sinc16 misread a " + String(L) + "-frame sine at " + String(f0) + " Hz, phase " + String(p))
+                ph = p
+
+def test_next_vwt_channel_edges() raises:
+    """Osc.next_vwt must not read past the last channel of the wavetable buffer.
+
+    It crossfades between two neighbouring channels. With a 1-channel buffer, or with
+    osc_frac = 1, the second channel used to be one past the last: a Buffer hit a bounds
+    assert, and a SIMDBuffer read an undefined lane, which came out as NaN. Each case is
+    compared with a read that never touched the edge: the same waveform in a buffer of its own.
+    """
+    var e = unsafe_alloc[Environment](1)
+    e.unsafe_write(Environment())
+    var w = unsafe_alloc[MMMWorld](1)
+    w.unsafe_write(MMMWorld(48000.0, e, False))
+
+    comptime L = 2048
+    var b1 = Buffer.zeros(L, 1)       # channel 0 only
+    var b4 = Buffer.zeros(L, 4)       # channel c holds (c + 1) * sine
+    var b_last = Buffer.zeros(L, 1)   # channel 3 of b4 on its own
+    var sb1 = SIMDBuffer[1].zeros(L)
+    var sb4 = SIMDBuffer[4].zeros(L)
+    var sb_last = SIMDBuffer[1].zeros(L)
+    var b_ref = Buffer.zeros(L, 2)    # two identical channels: never reads past the end
+    for i in range(L):
+        var v = sin(2.0 * pi * Float64(i) / Float64(L))
+        b1.data[0][i] = v
+        b_ref.data[0][i] = v
+        b_ref.data[1][i] = v
+        for c in range(4):
+            b4.data[c][i] = Float64(c + 1) * v
+        b_last.data[0][i] = 4.0 * v
+        sb1.data[i] = MFloat[1](v)
+        sb4.data[i] = MFloat[4](v, 2.0 * v, 3.0 * v, 4.0 * v)
+        sb_last.data[i] = MFloat[1](4.0 * v)
+
+    # 1-channel buffers, at both ends of osc_frac and below 0
+    for osc_frac in [0.0, 1.0, -0.5]:
+        var o_ref = Osc[1, Interp.linear](w)
+        var o_b = Osc[1, Interp.linear](w)
+        var o_sb = Osc[1, Interp.linear](w)
+        for _ in range(500):
+            var r = o_ref.next_vwt(b_ref, 440.0, osc_frac=0.0)[0]
+            var y_b = o_b.next_vwt(b1, 440.0, osc_frac=osc_frac)[0]
+            var y_sb = o_sb.next_vwt(sb1, 440.0, osc_frac=osc_frac)[0]
+            assert_almost_equal(y_b, r, atol=1e-12, msg="1-channel Buffer next_vwt at osc_frac " + String(osc_frac))
+            assert_almost_equal(y_sb, r, atol=1e-12, msg="1-channel SIMDBuffer next_vwt at osc_frac " + String(osc_frac))
+
+    # 4-channel buffers at osc_frac = 1 read the last channel only
+    var o_last = Osc[1, Interp.linear](w)
+    var o_slast = Osc[1, Interp.linear](w)
+    var o_b4 = Osc[1, Interp.linear](w)
+    var o_sb4 = Osc[1, Interp.linear](w)
+    for _ in range(500):
+        var r = o_last.next_vwt(b_last, 440.0)[0]
+        var rs = o_slast.next_vwt(sb_last, 440.0)[0]
+        assert_almost_equal(o_b4.next_vwt(b4, 440.0, osc_frac=1.0)[0], r, atol=1e-12, msg="4-channel Buffer next_vwt at osc_frac 1")
+        assert_almost_equal(o_sb4.next_vwt(sb4, 440.0, osc_frac=1.0)[0], rs, atol=1e-12, msg="4-channel SIMDBuffer next_vwt at osc_frac 1")
+
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()
