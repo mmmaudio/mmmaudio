@@ -1,6 +1,6 @@
 # PluginExporter
 
-Turns an MMMAudio graph into a VST3, CLAP or AU plugin. If you give it the
+Turns an MMMAudio graph into a VST3, CLAP or AU plugin, or a standalone app. If you give it the
 graph's Qt GUI script, the GUI's controls become host-automatable parameters and
 a JUCE editor that you can restyle by hand.
 
@@ -53,17 +53,33 @@ your host.
 |---|---|
 | `--graph_name` | The graph's struct and `.mojo` file name, as for `MMMAudio` (required). |
 | `--package_name` | The folder holding the graph (default: the GUI script's `package_name`, else `examples`). |
-| `--plugin_type` | Any of `VST3`, `CLAP`, `AU` (default `VST3`). AU is macOS only. |
+| `--plugin_type` | Any of `VST3`, `CLAP`, `AU`, `Standalone` (default `VST3`). AU is macOS only. |
 | `--gui_file` | The graph's Qt GUI script. Without it the plugin has no parameters and an empty editor. |
 | `--plugin_name` | The name the host shows (default: the graph name). This is also the folder name in `builds/`. |
 | `--instrument` / `--effect` | Instrument (no audio input) or effect. By default this comes from the GUI script: `in_device=None` means instrument. |
 | `--num_in` | An effect's input channels. By default the GUI script's `num_input_channels`, capped at 2 (or 2 without a GUI script); pass it for more. An instrument always has 0. |
 | `--num_out` | Output channels. By default the N in the graph's `next() -> MFloat[N]`, then the GUI script's `num_output_channels`, then 2. |
 | `--resources` | Extra files or folders to put inside the plugin. Files the graph names by relative path, like `"resources/Shiverer.wav"`, are found automatically. |
-| `--install` | Copy the plugins into your user plug-in folders. |
+| `--install` | Copy the plugins into your user plug-in folders, and a standalone app to your Desktop. |
 | `--no_build` | Only write the project, without building it (see below). |
 | `--reset_editor` | Regenerate the editor from the GUI script, discarding your edits to it. |
 | `--config` | `Release` (default) or `Debug`. |
+
+### Standalone apps
+
+`--plugin_type Standalone` builds the graph as an app that runs without a DAW,
+with the same editor as the plugins. It can be built alongside them, e.g.
+`--plugin_type VST3 Standalone`. With `--install` it is copied to your Desktop
+(`~/Desktop/<name>.app` on macOS; on Linux, the `<name>` executable and the
+`<name>_mmm` folder beside it, which must stay together).
+
+Open **Options → Audio/MIDI Settings** in the app to choose the audio device and
+MIDI inputs. For an effect, the app starts with its audio input muted to avoid
+feedback: click **Settings...** in the banner at the top of the window and untick
+**Mute audio input**.
+
+The app is ad-hoc signed, so on another Mac, right-click it and choose **Open** the
+first time.
 
 ### What the export does
 
@@ -145,7 +161,7 @@ To use the copies in this folder instead of downloading them, add
 `-DMMM_JUCE_DIR=<this folder>/JUCE` and, for CLAP,
 `-DMMM_CLAP_DIR=<this folder>/clap-juce-extensions`.
 
-Build. The targets are `<name>_VST3`, `<name>_AU` and `<name>_CLAP`:
+Build. The targets are `<name>_VST3`, `<name>_AU`, `<name>_CLAP` and `<name>_Standalone`:
 
 ```sh
 cmake --build build --config Release --parallel --target FM4_VST3 FM4_AU FM4_CLAP
@@ -171,6 +187,7 @@ environment's CMake. Outside it, any CMake 3.28 or newer works.
 | VST3 | `~/Library/Audio/Plug-Ins/VST3` (macOS), `~/.vst3` (Linux) |
 | CLAP | `~/Library/Audio/Plug-Ins/CLAP` (macOS), `~/.clap` (Linux) |
 | AU | `~/Library/Audio/Plug-Ins/Components` |
+| Standalone | `~/Desktop` |
 
 ## Customizing the editor
 

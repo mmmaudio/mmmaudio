@@ -1,4 +1,4 @@
-"""Export an MMMAudio graph as a VST3, CLAP or AU plugin.
+"""Export an MMMAudio graph as a VST3, CLAP or AU plugin, or a standalone app.
 
     python Exporters/PluginExporter/export_plugin.py --graph_name BenjolinExample \\
         --package_name examples --plugin_type VST3 AU --gui_file examples/BenjolinExample.py
@@ -34,7 +34,8 @@ from the GUI. Any other .cpp files you add to Source/ are compiled too, and
 files in Source/assets/ (images, fonts) are embedded as JUCE BinaryData.
 
 The finished plugins are left in builds/<name>/plugins/, and copied to
-the user's plug-in folders with --install.
+the user's plug-in folders with --install. A standalone app is installed to
+the Desktop.
 
 Every exported plugin, instrument or effect, accepts MIDI from the DAW and
 forwards it to the graph as Int list messages: "midi_note_on" and "midi_note_off"
@@ -81,17 +82,26 @@ CLAP_DIR = SRC_DIR / "clap-juce-extensions"
 TEMPLATE_DIR = SRC_DIR / "juce_template"
 BUILDS_DIR = HERE / "builds"
 
-PLUGIN_TYPES = {"vst3": "VST3", "clap": "CLAP", "au": "AU"}
+PLUGIN_TYPES = {"vst3": "VST3", "clap": "CLAP", "au": "AU", "standalone": "Standalone"}
 IS_MAC = sys.platform == "darwin"
 LIB_EXT = ".dylib" if IS_MAC else ".so"
 
 # Where each format's bundle ends up and where the user plug-in folders are.
-EXTENSIONS = {"VST3": ".vst3", "CLAP": ".clap", "AU": ".component"}
+EXTENSIONS = {"VST3": ".vst3", "CLAP": ".clap", "AU": ".component",
+              "Standalone": ".app" if IS_MAC else ""}
 INSTALL_DIRS = {
     "VST3": Path.home() / ("Library/Audio/Plug-Ins/VST3" if IS_MAC else ".vst3"),
     "CLAP": Path.home() / ("Library/Audio/Plug-Ins/CLAP" if IS_MAC else ".clap"),
     "AU": Path.home() / "Library/Audio/Plug-Ins/Components",
+    "Standalone": Path.home() / "Desktop",
 }
+FORMAT_NAMES = {"VST3": "VST3", "CLAP": "CLAP", "AU": "AU", "Standalone": "standalone app"}
+
+
+def _single_file(fmt):
+    """On Linux a CLAP and a standalone app are single files, with their Mojo
+    libraries in a "<name>_mmm" folder beside them rather than inside a bundle."""
+    return not IS_MAC and fmt in ("CLAP", "Standalone")
 
 def export_plugin(graph_name, package_name=None, plugin_type="VST3", gui_file=None,
                   plugin_name=None, instrument=None, num_in=None, num_out=None,
@@ -103,7 +113,7 @@ def export_plugin(graph_name, package_name=None, plugin_type="VST3", gui_file=No
         graph_name: The graph's struct (and .mojo file) name, as for MMMAudio.
         package_name: The folder holding the graph, as for MMMAudio. By default
             the GUI script's `package_name`, or "examples" without one.
-        plugin_type: "VST3", "Clap" or "AU", or a list of them.
+        plugin_type: "VST3", "Clap", "AU" or "Standalone", or a list of them.
         gui_file: An MMMAudio Qt GUI script (like examples/BenjolinExample.py)
             to translate into the plugin's parameters and editor.
         plugin_name: The plugin's name in the host (default: graph_name).
@@ -119,7 +129,8 @@ def export_plugin(graph_name, package_name=None, plugin_type="VST3", gui_file=No
         resources: Extra files or folders to bundle. Files the graph names
             by relative path (like "resources/Shiverer.wav") are found and
             bundled automatically.
-        install: If True, copy the plugins into the user's plug-in folders.
+        install: If True, copy the plugins into the user's plug-in folders,
+            and a standalone app to the Desktop.
         config: CMake build type. "Release" or "Debug".
         reset_editor: Regenerate builds/<name>/Source/PluginEditor.* from the GUI
             even if it has been edited (it is kept otherwise).
@@ -213,7 +224,7 @@ def export_plugin(graph_name, package_name=None, plugin_type="VST3", gui_file=No
         # The build already put the Mojo libraries in (bundle_plugin.py).
         shutil.copytree(built, dest, symlinks=True) if built.is_dir() else shutil.copy2(built, dest)
         libs = bundle_lib_dir(dest)
-        if not built.is_dir():  # a Linux .clap: its libraries sit in a folder beside it
+        if not built.is_dir():  # a Linux .clap or app: its libraries sit in a folder beside it
             shutil.copytree(bundle_lib_dir(built), libs, symlinks=True, dirs_exist_ok=True)
         # copytree keeps the build folder's date, which only changes when the folder is
         # first made, so Finder would show the first build's date on every later build.
@@ -228,7 +239,7 @@ def export_plugin(graph_name, package_name=None, plugin_type="VST3", gui_file=No
                 shutil.rmtree(inst) if inst.is_dir() else inst.unlink()
             shutil.copytree(dest, inst, symlinks=True) if dest.is_dir() else shutil.copy2(dest, inst)
             os.utime(inst)
-            if not IS_MAC and fmt == "CLAP":
+            if _single_file(fmt):
                 shutil.copytree(libs, inst.parent / libs.name, dirs_exist_ok=True)
             _log(f"installed {inst}")
 
@@ -538,6 +549,8 @@ juce_add_plugin({target}
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "This app uses audio input to process sound."
     PLUGIN_MANUFACTURER_CODE {manufacturer_code}
     PLUGIN_CODE {plugin_code}
     AU_MAIN_TYPE {au_type}
@@ -610,9 +623,9 @@ def _bundle_steps(target, product_name, formats):
                   '    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/mmm_plugin/bundle_plugin.py"',
                   f'        "{plugin}" "${{CMAKE_CURRENT_SOURCE_DIR}}/bundle"',
                   "    VERBATIM)"]
-        if IS_MAC or fmt != "CLAP":
+        if not _single_file(fmt):
             lines.append(f'install(DIRECTORY "{plugin}" DESTINATION "{dest}" USE_SOURCE_PERMISSIONS COMPONENT plugin)')
-        else:  # a Linux .clap is a single file, with its libraries in a folder beside it
+        else:  # a Linux .clap or app is a single file, with its libraries in a folder beside it
             libs = f"${{CMAKE_BINARY_DIR}}/{target}_artefacts/$<CONFIG>/{fmt}/{product_name}_mmm"
             lines.append(f'install(PROGRAMS "{plugin}" DESTINATION "{dest}" COMPONENT plugin)')
             lines.append(f'install(DIRECTORY "{libs}" DESTINATION "{dest}" USE_SOURCE_PERMISSIONS COMPONENT plugin)')
@@ -664,11 +677,12 @@ cmake --install build --config {config} --component plugin
 `--component plugin` matters: without it, CMake also runs JUCE's own install rules,
 which try to copy JUCE into `/usr/local` and fail.
 
-This copies the plugins into your user plug-in folders:
+This copies the plugins into your user plug-in folders (and a standalone app to
+the Desktop):
 
 {install_list}
 
-Restart or rescan the host to pick them up.
+Restart or rescan the host to pick up the plugins.
 
 ## What's in here
 
@@ -724,12 +738,11 @@ The plugins only run on Linux on the same CPU architecture they were exported on
 
 def _write_readme(work_dir, *, target, product_name, graph_name, package_name, formats, config,
                  export_command):
-    names = {"VST3": "VST3", "CLAP": "CLAP", "AU": "AU"}
     (work_dir / "README.md").write_text(README_TEMPLATE.format(
         product_name=product_name, target=target, graph_name=graph_name, package_name=package_name,
-        format_list=", ".join(names[f] for f in formats), config=config,
+        format_list=", ".join(FORMAT_NAMES[f] for f in formats), config=config,
         targets=" ".join(f"{target}_{f}" for f in formats),
-        install_list="\n".join(f"- {names[f]}: `~/{INSTALL_DIRS[f].relative_to(Path.home()) / (product_name + EXTENSIONS[f])}`"
+        install_list="\n".join(f"- {FORMAT_NAMES[f]}: `~/{INSTALL_DIRS[f].relative_to(Path.home()) / (product_name + EXTENSIONS[f])}`"
                                for f in formats),
         clap_note=" and clap-juce-extensions" if "CLAP" in formats else "",
         clap_flag=" -DMMM_CLAP_DIR=/path/to/clap-juce-extensions" if "CLAP" in formats else "",
@@ -796,7 +809,9 @@ def _write_project(work_dir, *, target, product_name, formats, is_synth, num_in,
                   spec, graph_lib_name, bridge_lib_name, runtime_libs, version):
     manufacturer_code, plugin_code = _plugin_codes(target)
     bundle_name = re.sub(r"[^A-Za-z0-9]", "", target).lower()
-    juce_formats = [f for f in formats if f != "CLAP"] or ["VST3"]  # the CLAP wrapper needs one JUCE format
+    juce_formats = [f for f in formats if f != "CLAP"]
+    if "CLAP" in formats and not {"VST3", "AU"} & set(juce_formats):
+        juce_formats.append("VST3")  # the CLAP wrapper needs a JUCE plugin format to wrap
 
     cmake = CMAKE_TEMPLATE.format(
         target=target, version=version, product_name=product_name, bundle_name=bundle_name,
@@ -864,7 +879,7 @@ def _normalize_types(plugin_type):
             continue
         key = t.strip().lower()
         if key not in PLUGIN_TYPES:
-            raise ValueError(f"unknown plugin_type {t!r}; choose from VST3, Clap, AU")
+            raise ValueError(f"unknown plugin_type {t!r}; choose from VST3, Clap, AU, Standalone")
         types_.append(PLUGIN_TYPES[key])
     if "AU" in types_ and not IS_MAC:
         raise ValueError("AU plugins can only be built on macOS")
@@ -910,7 +925,7 @@ def main():
     parser.add_argument("--graph_name", required=True, help="the graph to export, as for MMMAudio")
     parser.add_argument("--package_name", help="the folder holding the graph (default: the GUI script's, else examples)")
     parser.add_argument("--plugin_type", nargs="+", default=["VST3"],
-                        help="one or more of VST3, Clap, AU (default VST3)")
+                        help="one or more of VST3, Clap, AU, Standalone (default VST3)")
     parser.add_argument("--gui_file", help="an MMMAudio Qt GUI script to translate into a JUCE editor")
     parser.add_argument("--plugin_name", help="the plugin's name (default: graph_name)")
     kind = parser.add_mutually_exclusive_group()
@@ -922,7 +937,7 @@ def main():
     parser.add_argument("--num_out", type=int, help="output channels")
     parser.add_argument("--resources", nargs="+", default=[],
                         help="extra files or folders to bundle (files the graph names are found automatically)")
-    parser.add_argument("--install", action="store_true", help="copy into the user plug-in folders")
+    parser.add_argument("--install", action="store_true", help="copy into the user plug-in folders (a standalone app goes to the Desktop)")
     parser.add_argument("--config", default="Release", choices=["Release", "Debug"])
     parser.add_argument("--no_build", dest="build", action="store_false",
                         help="only write the project into builds/<name>/; build it later with its README's commands")

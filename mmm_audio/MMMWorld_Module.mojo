@@ -30,6 +30,7 @@ struct Environment(Movable, Copyable):
     var windows: Windows
     var messenger_manager: MessengerManager
     var sinc_interpolator: SincInterpolator[4, 14]
+    var sinc_interpolator16: SincInterpolator[8, 15]
 
     def __init__(out self, block_size: Int = 64, num_in_chans: Int = 2, num_out_chans: Int = 2):
         self.block_size = block_size
@@ -50,6 +51,7 @@ struct Environment(Movable, Copyable):
         self.osc_buffers = OscBuffers()
         self.windows = Windows()
         self.sinc_interpolator = SincInterpolator[4, 14]()
+        self.sinc_interpolator16 = SincInterpolator[8, 15]()
         self.messenger_manager = MessengerManager()
 
 struct MMMWorld(Movable, Copyable, WorldIsMessagable):
@@ -76,6 +78,14 @@ struct MMMWorld(Movable, Copyable, WorldIsMessagable):
             A reference to the SincInterpolator struct.
         """
         return self.environment_ptr.value()[].sinc_interpolator
+
+    def sinc_interpolator16(self) -> ref[self.environment_ptr.value()[].sinc_interpolator16] SincInterpolator[8, 15]:
+        """Returns a reference to the 16-tap SincInterpolator used by `Interp.sinc16`.
+
+        Returns:
+            A reference to the 16-tap SincInterpolator struct.
+        """
+        return self.environment_ptr.value()[].sinc_interpolator16
 
     def osc_buffers(self) -> ref[self.environment_ptr.value()[].osc_buffers] OscBuffers:
         """Returns a reference to the OscBuffers struct for accessing oscillator buffers.
@@ -302,7 +312,8 @@ struct Interp(Equatable, ImplicitlyCopyable):
     | Interp.quad        |                                             |
     | Interp.cubic       |                                             |
     | Interp.lagrange4   |                                             |
-    | Interp.sinc        | Should only be used with oscillators        |
+    | Interp.sinc        | 8-tap sinc |
+    | Interp.sinc16      | 16-tap sinc. More accurate than `Interp.sinc` when reading at or near normal speed, such as Buffer playback, at about 40% more CPU. No better for oscillators, which read their wavetables much faster |
     
     """
     var _value: Int
@@ -313,6 +324,7 @@ struct Interp(Equatable, ImplicitlyCopyable):
     comptime cubic = Interp(3)
     comptime lagrange4 = Interp(4)
     comptime sinc = Interp(5)
+    comptime sinc16 = Interp(6)
 
     @doc_hidden
     def __eq__(self, other: Self) -> Bool:
@@ -321,6 +333,14 @@ struct Interp(Equatable, ImplicitlyCopyable):
     @doc_hidden
     def __ne__(self, other: Self) -> Bool:
         return not (self == other)
+
+    def is_sinc(self) -> Bool:
+        """Whether this is one of the sinc interpolation types, which need the previous read position.
+
+        Returns:
+            True for `Interp.sinc` and `Interp.sinc16`.
+        """
+        return self == Interp.sinc or self == Interp.sinc16
 
 @fieldwise_init
 struct WindowType(Equatable, ImplicitlyCopyable):
