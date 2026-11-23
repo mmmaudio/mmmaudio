@@ -33,6 +33,9 @@ depends-on = ["unit_tests_mojo", "unit_tests_python", "test_building","validate_
 [tasks.docs_serve]
 cmd = "mkdocs serve"
 
+[tasks]
+export_graph = "python ./export_helper.py"
+
 [dependencies]
 mojo = ">=1.0.0,<2"
 setuptools = "<82"

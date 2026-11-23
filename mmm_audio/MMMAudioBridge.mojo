@@ -54,6 +54,7 @@ def make_bridge_module(name: StaticString) raises -> PythonObject:
         .def_method[Bridge.update_trigs_msg]("update_trigs_msg")
         .def_method[Bridge.update_string_msg]("update_string_msg")
         .def_method[Bridge.update_strings_msg]("update_strings_msg")
+        .def_method[Bridge.to_python]("recv_msg")
     return m.finalize()
 
 
@@ -596,6 +597,14 @@ struct MMMAudioBridge(Movable, Writable):
                 frames * num_out - rendered,
             )
 
+
+    ## Mojo -> Python Messenger stuff
+    @staticmethod
+    def to_python(py_selfA: PythonObject) raises -> PythonObject:
+        from std.python import Python
+        var list = Python.list(0,0,0,0)
+        return list
+    
     @staticmethod
     def next(py_selfA: PythonObject, in_buffer: PythonObject, out_buffer: PythonObject) raises -> PythonObject:
         """Offline rendering of the graph, for Non-real-time rendering."""
@@ -628,3 +637,9 @@ struct MMMAudioBridge(Movable, Writable):
             py_self[].audio_state_ptr[].graph.release()
 
         return PythonObject(None)
+
+
+
+
+
+

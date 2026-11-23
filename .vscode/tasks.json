@@ -23,6 +23,16 @@
                 "showReuseMessage": true,
                 "clear": false
             }
+        },
+        {
+            "label": "MMMAudio: Export Graph",
+            "type": "shell",
+            "command": "pixi",
+            "args": [
+                "run",
+                "export_graph"
+            ],
+            "problemMatcher": []
         }
     ]
 }
